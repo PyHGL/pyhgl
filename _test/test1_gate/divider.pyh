@@ -1,0 +1,135 @@
+from pyhgl.logic import * 
+from pyhgl.tester import pytest, utils
+
+import random
+import time 
+import itertools
+
+
+@module Divider(w: int):
+    io = Bundle(
+        x = Input(UInt[w](0)),   # dividend 
+        y = Input(UInt[w](0)),   # divisor
+        valid = Input(UInt(0)),
+
+        q = Output(UInt[w](0)),  # quotient
+        r = Output(UInt[w](0)),  # remainder 
+        ready = Output(UInt(0)),
+    )
+
+    # registers
+    A = Reg(UInt[w*2](0))       # dividend 
+    B = Reg(UInt[w](0))         # divisor
+    C = Reg(UInt[w](0))         # quotient 
+    io.q <== C 
+    io.r <== A[w:]
+
+    counter = Reg(UInt(w-1))  
+    io.ready <== (counter == w-1)
+
+    # comb
+    A_curr = Mux(io.ready, io.x, A)
+    B_curr = Mux(io.ready, io.y, B)
+    C_curr = Mux(io.ready, 0, C)
+
+    A_curr_shift = A_curr << 1 
+    B_curr_shift = Cat(UInt[w](0), B_curr)
+    A_greater_B = A_curr_shift >= B_curr_shift 
+    A_next = Mux(A_greater_B, A_curr_shift - B_curr_shift, A_curr_shift) 
+    C_next = Mux(A_greater_B, Cat('1', C_curr[:-1]), Cat('0', C_curr[:-1]))
+
+    # control
+    when io.ready:      # idle
+        when io.valid:
+            A <== A_next 
+            B <== B_curr 
+            C <== C_next 
+            counter <== 0 
+    otherwise:          # exec 
+        A <== A_next 
+        C <== C_next 
+        counter <== counter + 1
+
+
+
+
+
+
+#--------------------------------- test ----------------------------------------
+
+
+
+@pytest test_divider:
+
+    clock_period = 50
+    W, N = 8, 50
+    mask = (1 << W) - 1
+
+    @conf.timing Timing:
+        timescale = '1ns'
+        Clock = {'low':clock_period, 'high':clock_period, 'phase':0}
+        Logic = dict( delay = 1 ) 
+        Gate = dict( delay = 1 )
+
+    sess = Session(timing=Timing())
+    sess.enter()
+
+    dut = Divider(W)
+    sess.track(dut.clock[0], dut, dut.io)
+    sess.run(10)
+
+    random.seed(57)
+    test_x = [random.randint(0,mask) for _ in range(N)]
+    test_y = [random.randint(1, 1<<(W//2)) for _ in range(N)]
+
+
+    def Task():
+        # yield from until(dut.io.ready, 1)  
+        setv(dut.reset[0], 1)
+        yield 100 
+        setv(dut.reset[0], 0)
+        for i in range(N):
+            setv(dut.io.valid, 1)
+            setv(dut.io.x, test_x[i])
+            setv(dut.io.y, test_y[i]) 
+            yield 100 
+            setv(dut.io.valid, 0)
+            yield W*100 
+            if test_y[i] != 0:
+                pytest.EQ += getv(dut.io.q), test_x[i] // test_y[i]
+                pytest.EQ += getv(dut.io.r), test_x[i] % test_y[i]
+
+
+    sess.task(Task()) 
+    t = time.time()
+    sess.run(clock_period * 2 * (W) * N) 
+    print('pyhgl simulation cost:', time.time()-t)
+
+    sess.emitVCD('Divider.vcd')
+
+    @inline_verilog Verilog(self):
+        dut_name = self.get_name(dut)
+        reset = self.get_name(dut.reset[0])
+        x = self.get_name(dut.io.x)
+        y = self.get_name(dut.io.y)
+        q = self.get_name(dut.io.q)
+        r = self.get_name(dut.io.r)
+        valid = self.get_name(dut.io.valid)
+
+        self.append('initial begin')
+        path = utils.relative_path("Divider_iverilog.vcd")
+        self.append(f'$dumpfile("{path}");')
+        self.append(f'$dumpvars(0, {dut_name});') 
+        self.append(f'{reset} = 1; #100; {reset} = 0;')
+        for x1, y1 in zip(test_x, test_y):
+            self.append(f'{x} = {x1}; {y} = {y1}; {valid} = 1; #100;')
+            self.append(f'{valid} = 0; # {100*W};')
+        self.append('$finish;')
+        self.append('end')
+
+
+    sess.emitVerilog('Divider.sv', delay=True, top = True).sim()
+
+    sess.emitGraph('Divider.gv')
+    sess.emitSummary()
+    sess.exit()

@@ -1,0 +1,51 @@
+from pyhgl.logic import * 
+from pyhgl.tester import pytest  
+
+import random
+
+@module TestReg:
+    x = Input(UInt('0000'))
+    y = Input(UInt('0000'))
+
+    a = Reg(UInt('0000'))
+    b = Reg(UInt('0000'))
+
+    a <== x | y 
+    b <== a & x
+
+
+with Session() as sess:
+
+    dut = TestReg() 
+    # check_a = Assert(
+    #     >>> {'x':dut.x, 'y':dut.y} 
+    #     >>> 1 
+    #     >>> {'a': dut.a} 
+    #     >>> (lambda s: s['a'][0] == s['x'][0] | s['y'][0])
+    # )
+    # check_b = Assert(
+    #     >>> {'x':dut.x, 'a':dut.a} 
+    #     >>> 1 
+    #     >>> (lambda s: s['x'][0] & s['a'][0] == dut.b._getval())
+    # )
+    sess.track(dut.clock[0], dut.reset[0], dut.x, dut.y, dut.a, dut.b)
+
+    sess.run(10)
+
+    for _ in range(50):
+        setv(dut.x, random.randint(0,15))
+        setv(dut.y, random.randint(0,15))
+        sess.run(30)
+
+    setv(dut.reset[0], 1)
+    sess.run(100)
+    setv(dut.reset[0], 0)
+    sess.run(100)
+    setv(dut.reset[0], 1)
+    sess.run(100)
+
+
+sess.emitVCD('./reg.vcd')
+sess.emitVerilog() 
+# print(check_a.show())
+# print(check_b.show())

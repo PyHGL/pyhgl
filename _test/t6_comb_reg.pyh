@@ -1,0 +1,184 @@
+
+from pyhgl.logic import *
+
+
+
+
+@conf.timing Tconfig:
+    timescale = '10ns'
+
+    Logic = dict( delay = 1 ) 
+    Gate = dict( delay = 1 )
+
+
+@module DLatch(en, D):
+    """ en = 1: hold; en = 0: Q <== D
+    """
+    Q = UInt()  
+
+    up = (~en) | Q 
+    down = en | D 
+    Q <== up & down
+
+
+@module MyReg:
+    data = Input(UInt())
+    clk = Input(UInt()) 
+    set = Input(UInt())
+    reset = Input(UInt())
+    
+    nand1, nand2, nand3, nand4, Q, Qn = (UInt() for _ in range(6)) 
+    nand1 <== Nand(set, nand4, nand2)
+    nand2 <== Nand(nand1, clk, reset)
+    nand3 <== Nand(nand2, clk, nand4)
+    nand4 <== Nand(nand3, data, reset)
+    Q <== Nand(set, nand2, Qn)
+    Qn <== Nand(Q, nand3, reset)
+
+
+
+@module TestModule(n = 1): 
+    x = Input(UInt())
+    clock = conf.here.clock[0] 
+    set_n = Input(UInt())
+    reset_n = Input(UInt())
+
+    regs = Array(MyReg() for i in range(n))
+    regs[:, 'clk'] <== clock  
+    regs[:, 'set'] <== set_n 
+    regs[:, 'reset'] <== reset_n 
+
+    regs[0].data <== x 
+    regs[1:, 'data'] <== regs[:-1, 'Q']
+    out = regs[-1].Q
+    out_n = regs[-1].Qn
+
+
+@always clock_gen(DUT):
+    DUT.clock.setVal(0) 
+    yield 40  
+    DUT.clock.setVal(1)
+    yield 40
+
+
+@initial data_gen(DUT):  
+    yield 10
+    DUT.set_n.setVal(1)
+    yield 100 
+    DUT.reset_n.setVal(1)
+    yield 500
+    DUT.x.setVal(1) 
+    yield 80 
+    DUT.x.setVal(0)  
+    yield 80  
+    DUT.x.setVal(1) 
+    yield 200 
+
+@initial task_print(DUT): 
+    yield 1
+    for i in range(1000): 
+        info = f"t = {i*5+1}, clk = {DUT.clock.getVal()}, x = {DUT.x.getVal()}: "
+        for reg in DUT.regs:
+            info += f'{reg.Q.getVal()}'
+        print(info)
+        yield 5
+
+
+
+with Session(
+    conf=None, 
+    timing=Tconfig(), 
+    verbose_conf=True, 
+    verbose_hardware=False,
+    verbose_sim = False
+) as sess:
+
+    test = TestModule(8)
+    sess.track(Cat(test.regs[:,'Q']))
+    clock_gen(test), data_gen(test), task_print(test)
+    sess.run(1000) 
+    # print(sess.emitVerilog()) 
+    sess.emitVCD()
+    # en = UInt()
+    # data = UInt()
+    # latch = DLatch(en, data)
+    # def show():
+    #     print(f'en={en.getVal()}, data={data.getVal()}, Q={latch.Q.getVal()}') 
+    # sess.run(30) 
+    # show()
+    # data.setVal(1)
+    # sess.run(30)
+    # show()
+    # data.setVal(0)
+    # sess.run(30)
+    # show() 
+    # data.setVal(1)
+    # sess.run(30)
+    # show() 
+ 
+    # en.setVal(1)
+    # sess.run(30)
+    # show()
+    # data.setVal(1)
+    # sess.run(30)
+    # show()
+    # data.setVal(0)
+    # sess.run(30)
+    # show()
+
+
+
+    # reg = MyReg() 
+    # def show():
+    #     print(f'clk={reg.clk.getVal()}, in={reg.data.getVal()}, Q={reg.Q.getVal()}, Qn={reg.Qn.getVal()}')
+
+
+    # sess.run(20)
+    # reg.reset.setVal(1)
+    # sess.run(20)
+    # show()
+    # sess.run(20)
+    # show()
+    # sess.run(20)
+    # show() 
+    # reg.set.setVal(1)
+    # sess.run(100)
+    # show()
+
+    # reg.clk.setVal(1)
+    # sess.run(20)
+    # show()
+    # reg.clk.setVal(0)
+    # sess.run(200)
+    # show()
+    # reg.data.setVal(0)
+    # sess.run(20)
+    # show()
+    # reg.data.setVal(1)
+    # sess.run(20)
+    # show() 
+
+    # reg.clk.setVal(1)
+    # sess.run(20)
+    # show()  
+
+    # reg.data.setVal(0)
+    # sess.run(20)
+    # show()
+
+    # reg.clk.setVal(0)
+    # sess.run(20)
+    # show()  
+
+    # reg.clk.setVal(1)
+    # sess.run(20)
+    # show()  
+
+
+    # sess.emitGraph().view()
+
+
+
+
+
+

@@ -1,0 +1,113 @@
+
+from pyhgl.logic import *
+
+
+@conf Global:  
+    x = Wire(UInt('0000', name='x'))
+    y = UInt('0000', name='y')
+    z = UInt('0000', name='z')
+
+
+@conf.timing Tconfig:
+    timescale = '1ns'
+    Clock = {'low':10, 'high':10, 'phase':0}
+    Logic = dict( delay = 2 ) 
+    Gate = dict( delay = 3 )
+    Nand = dict( delay = 6 )
+
+
+@module TestModule:
+    x_not = ~conf.p.x 
+    x_and_y = conf.p.x & conf.p.y 
+    x_or_y = conf.p.x | conf.p.y 
+    x_xor_y = conf.p.x | conf.p.y 
+    cat_all = Cat(conf.p.x, conf.p.y, conf.p.z)
+    x_and_cat = conf.p.x | cat_all  
+    final = x_and_cat & x_xor_y  
+    test_slice = final[x_not::4] 
+    xx = Nand(x_not, x_not) 
+
+    x_mux = Mux(conf.p.x, 1, 0) 
+    x_mux_test = x_mux && 1
+
+
+def task1(DUT):
+    yield 20
+    setv(DUT.x, '1110')
+    setv(DUT.y, '1001')
+    yield 20  
+    setv(DUT.x, '0011')
+    yield 20  
+    setv(DUT.z, '1111')
+    yield 20  
+
+
+with Session(
+    conf=Global(), 
+    timing=Tconfig(), 
+    verbose_conf=True, 
+    verbose_hardware=False,
+    verbose_sim = False,
+    verbose_verilog = True,
+) as sess:
+
+    switch s:=EnumReg('idle', 'stage1', 'stage2', encoding='onehot', frozen=True):
+        once 'idle': 
+            s <== 'stage1'
+        once 'stage1':
+            s <== 'stage2' 
+        once 'stage2':
+            s <== 'idle' 
+
+    test = TestModule()
+    sess.task(task1(test))
+
+    with AssertCtrl():
+        property1 = Assert(test.x >>> posedge(test.clock[0]) >>> UInt(1))
+
+    sess.track(test.clock[0],test, test.x, test.y, test.z)
+
+    sess.run(300) 
+
+
+    sess.emitVCD()
+    sess.emitVerilog('test.sv', delay=True)
+
+    # x = UInt('10').sext(4) 
+
+    x = Wire(UInt('1111'))
+    y = UInt('1010')
+    x <=> y
+
+    print(property1)
+
+    print(UInt(0, w=4)) 
+
+    sess.emitSummary() 
+
+    print(s)  
+    print(UInt('111') @ Input ) 
+    print(x @ Not)
+    print(UInt[4] @ Input)
+    print(BitPat('8:b????11'))
+
+
+    io = Bundle(
+    x = Bundle(
+        a = UInt[8](0),
+        b = UInt[8](0),
+    ),
+    y = Bundle(
+        a = UInt[8](0),
+        b = UInt[8](0),
+    )
+    ) 
+    print(io[:,'a'] + io[:,'b'])
+    mat2x3 = Array([[UInt(0), UInt(0), UInt(0)], 
+                [UInt(0), UInt(0), UInt(0)]])
+    print(Add(mat2x3, axis=0))
+    sess.emitGraph()
+
+
+# x = [1,2]
+# x[0]'ns'

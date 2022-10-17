@@ -1,0 +1,582 @@
+import random
+import time 
+
+from pyhgl.logic import * 
+from pyhgl.logic import utils
+from pyhgl.tester import pytest
+from pyhgl.tester.utils import relative_path
+
+from ..riscv_spec import RISCV
+
+
+
+@conf.timing TimingConfig:
+    timescale = '1ns'
+    Clock = {'low':25, 'high':25, 'phase':0}
+
+
+
+
+
+#-------------------------------------------------------
+@module Memory(
+        addr = (100, 200), 
+        xlen = 32, 
+        init = 0,
+        mmio = {} # Dict[UInt:Tuple[int, int]]
+    ):
+    n_bytes = xlen//8
+
+    io = Bundle(
+        req = Bundle(
+            valid   = UInt(0) @ Input,
+            ready   = UInt(0) @ Reg @ Output,
+            addr    = UInt(0, xlen) @ Input,
+            data    = UInt(0, xlen) @ Input,
+            op      = Enum['Read', 'Write', 'Fence']()  @ Input,
+            mask    = Enum['MT_X', 'MT_B', 'MT_H', 'MT_W', 
+                           'MT_D', 'MT_BU', 'MT_HU', 'MT_WU']() @ Input,
+        ),
+        resp = Bundle(
+            valid   = UInt(0)       @ Output,
+            data    = UInt(0, xlen) @ Output,
+        )
+    )  
+
+
+    io.req.ready <== 1
+
+    ram_t = UInt[8] * (addr[1]-addr[0])
+    ram = Reg(ram_t(init))
+
+    read_data = UInt(0, xlen)
+
+    # read
+    when addr[0] <= io.req.addr && io.req.addr < addr[1]:
+        read_data <== UInt(ram[io.req.addr-addr[0]::n_bytes])
+    for register, (addr_low, addr_high) in mmio.items():
+        elsewhen addr_low <= io.req.addr && io.req.addr < addr_high: 
+            read_data <== register[(io.req.addr-addr_low) << 3::xlen]
+
+    when io.req.op == 'Read' && io.req.valid && io.req.ready: 
+        switch io.req.mask:
+            once 'MT_B' : io.resp.data <== read_data[:8].sext(xlen)
+            once 'MT_H' : io.resp.data <== read_data[:16].sext(xlen)
+            once 'MT_BU': io.resp.data <== read_data[:8]
+            once 'MT_HU': io.resp.data <== read_data[:16]
+            once ...    : io.resp.data <== read_data     
+        io.resp.valid <== 1
+        io.req.ready <== 1
+    
+    # write multicycle 
+    wen = UInt(0)
+    wdata = io.req.data[:8]
+    waddr = WireNext(io.req.addr)
+    when wen:
+        when addr[0] <= waddr && waddr < addr[1]:
+            ram[waddr-addr[0]] <== wdata 
+        for register, (addr_low, addr_high) in mmio.items():
+            elsewhen addr_low <= waddr && waddr < addr_high: 
+                register[(waddr-addr_low) << 3 :: 8] <== wdata  
+
+
+    switch s:=EnumReg():
+        once 'idle': 
+            when io.req.op == 'Write' && io.req.valid && io.req.ready:
+                when io.req.mask == 'MT_B':
+                    wen <== 1 
+                    io.resp.valid <== 1 
+                    io.req.ready <== 1 
+                when io.req.mask == 'MT_H':
+                    wen <== 1 
+                    io.resp.valid <== 0 
+                    io.req.ready <== 0 
+                    s <== 'finish' 
+                elsewhen io.req.mask == 'MT_W':
+                    wen <== 1 
+                    io.resp.valid <== 0 
+                    io.req.ready <== 0 
+                    s <== 'w2' 
+        once 'w2':
+            wen <== 1 
+            wdata <== io.req.data[8:16]
+            waddr <== io.req.addr + 1 
+            io.resp.valid <== 0 
+            io.req.ready <== 0 
+            s <== 'w3'
+        once 'w3':
+            wen <== 1 
+            wdata <== io.req.data[16:24]
+            waddr <== io.req.addr + 2 
+            io.resp.valid <== 0 
+            io.req.ready <== 0 
+            s <== 'w4'
+        once 'w4':
+            wen <== 1 
+            wdata <== io.req.data[24:32]
+            waddr <== io.req.addr + 3 
+            io.resp.valid <== 1 
+            io.req.ready <== 1 
+            s <== 'idle'
+        once 'finish':
+            wen <== 1 
+            wdata <== io.req.data[8:16]
+            waddr <== io.req.addr + 1 
+            io.resp.valid <== 1 
+            io.req.ready <== 1 
+            s <== 'idle'
+
+
+#-------------------------------------------------------
+
+
+@module CSR:
+    xlen = conf.p.xlen 
+
+    io = Bundle(
+        stall    = UInt(0)       @ Input,
+        cmd      = UInt(0, w=3)  @ Input,
+        wdata    = UInt(0, xlen) @ Input,
+        rdata    = UInt(0, xlen) @ Output,
+        # Excpetion
+        pc       = UInt(0, xlen) @ Input,
+        addr     = UInt(0, xlen) @ Input,
+        inst     = UInt(0, xlen) @ Input,
+        illegal  = UInt(0)       @ Input,
+        st_type  = UInt(0, w=2)  @ Input,
+        ld_type  = UInt(0, w=3)  @ Input,
+        pc_check = UInt(0)       @ Input,
+        expt     = UInt(0)       @ Output,
+        evec     = UInt(0, xlen) @ Output,
+        epc      = UInt(0, xlen) @ Output,
+    )
+
+
+@module DataPath(imem, dmem):
+    xlen = conf.p.xlen
+
+    io = Bundle(
+        stall = UInt(0),
+        imiss = UInt(0),
+        dmiss = UInt(0),
+        csr_interrupt = UInt(0),  # TODO CSR
+        exception = UInt(0),  
+        exception_cause = UInt(0, w=32),
+        csr_eret = UInt(0),  # TODO CSR
+    ) 
+
+    # Exception handling values
+    tval_data_ma = UInt(0, xlen)   # alu out
+    tval_inst_ma = UInt(0, xlen)   # branch target
+    
+    # Fetch
+    pc_reg              = Reg(UInt(conf.p.pc_reset, xlen)) 
+    pc_next             = UInt(0, xlen)
+    pc_plus4            = pc_reg + 4  
+    br_target           = UInt(0, xlen)
+    jmp_target          = UInt(0, xlen)
+    jump_reg_target     = UInt(0, xlen)
+    exception_target    = UInt(0, xlen) # TODO CSR
+
+    # PC Register  pc_sel
+    switch pc_sel:=Enum():
+        once 'PC_4':    pc_next <== pc_plus4 
+        once 'PC_BR':   pc_next <== br_target 
+        once 'PC_J':    pc_next <== jmp_target 
+        once 'PC_JR':   pc_next <== jump_reg_target 
+        once 'PC_EXC':  pc_next <== exception_target   
+        once ...:       pc_next <== pc_plus4     
+    pc_sel.frozen()
+    when !io.stall:
+        pc_reg <== pc_next
+    ctrl_pc_sel_no_xept = pc_sel.copy()
+    
+    # Instruction memory buffer to store instruction during multicycle data request
+    io.imiss <== imem.req.valid && !imem.resp.valid 
+    reg_dmiss = RegNext(io.dmiss)
+    if_inst_buffer = Reg(UInt(0, xlen))
+    when imem.resp.valid:
+        if_inst_buffer <== imem.resp.data 
+
+    imem.req.op <== 'Read'
+    imem.req.mask <== 'MT_WU'
+    imem.req.addr <== pc_reg 
+    imem.req.valid <== !reg_dmiss 
+    instruction = Mux(reg_dmiss, if_inst_buffer, imem.resp.data)
+    inst = RISCV.inst_t(instruction) 
+
+    # Instruction misalign detection
+    # In control path, instruction misalignment exception is always raised in the next cycle once the misaligned instruction reaches
+    # execution stage, regardless whether the pipeline stalls or not
+    inst_misaligned = (
+        (br_target[:2] && ctrl_pc_sel_no_xept == 'PC_BR') || 
+        (jmp_target[:2] && ctrl_pc_sel_no_xept == 'PC_J') || 
+        (jump_reg_target[:2] && ctrl_pc_sel_no_xept == 'PC_JR')
+    ) 
+    switch ctrl_pc_sel_no_xept:
+        once 'PC_BR': tval_inst_ma <== br_target 
+        once 'PC_J' : tval_inst_ma <== jmp_target 
+        once 'PC_JR': tval_inst_ma <== jump_reg_target
+    
+    # decode 
+    rs1_addr = inst['rs1']
+    rs2_addr = inst['rs2']
+    wb_addr = inst['rd']
+    wb_data = UInt(0, xlen)
+    rf_wen = UInt(0)
+    wb_wen = rf_wen && !io.exception && !io.csr_interrupt
+
+    # Register File
+    reg_t = UInt[xlen] * 32
+    regfile = Reg(reg_t(0))
+    # waveform 
+    for i in range(8):
+        locals()[f'x{i}'] = regfile[i]
+
+    when wb_wen && (wb_addr != 0):
+        regfile[wb_addr] <== wb_data 
+
+    rs1_data = Mux((rs1_addr != 0), regfile[rs1_addr], 0)
+    rs2_data = Mux((rs2_addr != 0), regfile[rs2_addr], 0)
+
+    # immediates
+    imm_i = inst[20:32].sext(32)
+    imm_s = Cat(inst[7:12], inst[25:32]).sext(32)
+    imm_b = Cat(0, inst[8:12], inst[25:31], inst[7], inst[31]).sext(32) 
+    imm_u = inst[12:32].extz(32)
+    imm_j = Cat(0, inst[21:31], inst[20], inst[12:20], inst[31]).sext(32) 
+    imm_z = Cat(inst[15:20]).zext(32)
+
+    # ALU 
+    alu_op1 = UInt(0, xlen)
+    alu_op2 = UInt(0, xlen)
+
+    switch op1_sel:=Enum():
+        once 'OP1_RS1': alu_op1 <== rs1_data 
+        once 'OP1_IMU': alu_op1 <== imm_u
+        once 'OP1_IMZ': alu_op1 <== imm_z 
+
+    switch op2_sel:=Enum():
+        once 'OP2_RS2': alu_op2 <== rs2_data 
+        once 'OP2_PC' : alu_op2 <== pc_reg
+        once 'OP2_IMI': alu_op2 <== imm_i 
+        once 'OP2_IMS': alu_op2 <== imm_s
+
+    alu_shamt = alu_op2[:5] 
+    alu_fun = Enum()
+    alu_out = MuxSel(alu_fun, UInt(0, xlen), {
+        'ALU_X'   : 0,
+        'ALU_ADD' : alu_op1 + alu_op2, 
+        'ALU_SUB' : alu_op1 - alu_op2,
+        'ALU_AND' : alu_op1 & alu_op2,
+        'ALU_OR'  : alu_op1 | alu_op2,
+        'ALU_XOR' : alu_op1 ^ alu_op2,
+        'ALU_SLT' : SInt(alu_op1) < SInt(alu_op2),
+        'ALU_SLTU': alu_op1 < alu_op2,
+        'ALU_SLL' : alu_op1 << alu_shamt,
+        'ALU_SRA' : SInt(alu_op1) >> alu_shamt,
+        'ALU_SRL' : alu_op1 >> alu_shamt,
+        'ALU_COPY1':alu_op1,
+    }) 
+    op1_sel.frozen()
+    op2_sel.frozen()
+    alu_fun.frozen()
+
+    # Branch/Jump Target
+    br_target <== pc_reg + imm_b 
+    jmp_target <== pc_reg + imm_j 
+    jump_reg_target <== (rs1_data + imm_i) >> 1 << 1 
+
+
+    # WB Mux 
+    wb_sel = Enum()
+    wb_data <== MuxSel(wb_sel, alu_out, {
+        'WB_ALU': alu_out,
+        'WB_MEM': dmem.resp.data,
+        'WB_PC4': pc_plus4,
+        'WB_CSR': 0,
+    })
+    wb_sel.frozen()
+
+    # datapath to controlpath outputs
+    br_eq = rs1_data == rs2_data 
+    br_lt = SInt(rs1_data) < SInt(rs2_data)
+    br_ltu = rs1_data < rs2_data  
+
+    # datapath to data memory outputs
+    dmem.req.addr <== alu_out 
+    dmem.req.data <== rs2_data      
+    tval_data_ma <== alu_out
+
+    # Branch Logic
+    ctrl_pc_sel_no_xept <== 'PC_4'
+    when io.csr_interrupt:
+        ctrl_pc_sel_no_xept <== 'PC_EXC' 
+    otherwise:
+        switch cs_br_type:=Enum():
+            once 'BR_N':     ctrl_pc_sel_no_xept <== 'PC_4'
+            once 'BR_NE': 
+                when !br_eq: ctrl_pc_sel_no_xept <== 'PC_BR' 
+            once 'BR_EQ':
+                when br_eq:  ctrl_pc_sel_no_xept <== 'PC_BR' 
+            once 'BR_GE':
+                when !br_lt: ctrl_pc_sel_no_xept <== 'PC_BR' 
+            once 'BR_GEU':
+                when !br_ltu:ctrl_pc_sel_no_xept <== 'PC_BR'  
+            once 'BR_LT':
+                when br_lt:  ctrl_pc_sel_no_xept <== 'PC_BR'
+            once 'BR_LTU':
+                when br_ltu: ctrl_pc_sel_no_xept <== 'PC_BR'
+            once 'BR_J':     ctrl_pc_sel_no_xept <== 'PC_J'
+            once 'BR_JR':    ctrl_pc_sel_no_xept <== 'PC_JR'
+                
+    when io.exception || io.csr_eret:
+        pc_sel <== 'PC_EXC'
+    otherwise:
+        pc_sel <== ctrl_pc_sel_no_xept 
+
+    
+    # mem_en suppression: no new memory request shall be issued after the memory operation of the current instruction is done.
+    # Once we get a new instruction, we reset this flag.
+    cs_mem_en = Enum['MEN_0', 'MEN_1']()
+    cs_rf_wen = Enum['REN_0', 'REN_1']()
+
+    reg_mem_en = Reg(UInt(0))
+    when dmem.resp.valid:
+        reg_mem_en <== 0 
+    elsewhen imem.resp.valid:
+        reg_mem_en <== cs_mem_en
+    
+    mem_en = Mux(imem.resp.valid, cs_mem_en, reg_mem_en)
+
+    data_misaligned = UInt(0)
+    io.dmiss <== !((mem_en && (dmem.resp.valid || data_misaligned)) || !mem_en)
+    io.stall <== io.imiss || io.dmiss 
+    rf_wen <== Mux(io.stall || io.exception, 0, cs_rf_wen)
+    
+    dmem.req.valid <== mem_en && !io.exception 
+
+    # Control Status Registers 
+    # convert CSR instructions with raddr1 == 0 to read-only CSR commands
+    cs_csr_cmd = Enum['CSR_N', 'CSR_W', 'CSR_S', 'CSR_C', ...]() 
+    csr_ren = (cs_csr_cmd == 'CSR_S' || cs_csr_cmd == 'CSR_C') && rs1_addr == 0 
+    csr_cmd = WireNext(cs_csr_cmd)
+    when csr_ren:
+        csr_cmd <== 'CSR_R'
+
+    # Exception Handling 
+    cs_val_inst = UInt(0)  
+    illegal = !cs_val_inst && imem.resp.valid
+    # Data misalignment detection
+    # For example, if type is 3 (word), the mask is ~(0b111 << (3 - 1)) = ~0b100 = 0b011.
+    misaligned_mask = ~(UInt('111') << (UInt(dmem.req.mask) - 1)[:2])
+    data_misaligned <== (misaligned_mask & alu_out[:3]) && mem_en
+
+    # Set exception flag and cause
+    # Exception priority matters!
+    io.exception <== illegal || inst_misaligned || data_misaligned 
+    when illegal:
+        io.exception_cause <== RISCV.Causes.illegal_instruction 
+    elsewhen inst_misaligned:
+        io.exception_cause <== RISCV.Causes.misaligned_fetch 
+    elsewhen dmem.req.op == 'Write':
+        io.exception_cause <== RISCV.Causes.misaligned_store 
+    otherwise:
+        io.exception_cause <== RISCV.Causes.misaligned_load 
+
+    # csr_addr = inst['csr']
+    # csr_wdata = alu_out 
+    # csr_decode_inst = inst 
+    # csr_retire = !(io.stall || io.exception)
+    # csr_pc = pc_reg 
+    # exception_target <== csr_evec 
+#    csr.io.tval := MuxCase(0.U, Array(
+#                   (io.ctl.exception_cause === Causes.illegal_instruction.U)     -> inst,
+#                   (io.ctl.exception_cause === Causes.misaligned_fetch.U)  -> tval_inst_ma,
+#                   (io.ctl.exception_cause === Causes.misaligned_store.U) -> tval_data_ma,
+#                   (io.ctl.exception_cause === Causes.misaligned_load.U)  -> tval_data_ma,
+#                   ))
+
+    I = RISCV.Instructions 
+
+    cs = [cs_val_inst, cs_br_type, op1_sel, op2_sel, alu_fun, wb_sel, cs_rf_wen, cs_mem_en, dmem.req.op, dmem.req.mask, cs_csr_cmd]
+    cs                      <== [0 , 'BR_N', 'OP1_RS1', 'OP2_RS2', 'ALU_X',    'WB_ALU', 'REN_0', 'MEN_0', 'Read' ,'MT_X', 'CSR_N']
+    #                           | val| BR  |     op1  |   op2    |  ALU   |       wb   |  rf    |  mem   |  mem   | mask |  csr  
+    #                           |inst|type |     sel  |   sel    |  fcn   |       sel  |  wen   |   en   |   wr   | type |  cmd  
+    switch inst:
+        once I.LW      : cs <== [1, 'BR_N', 'OP1_RS1', 'OP2_IMI', 'ALU_ADD',  'WB_MEM', 'REN_1', 'MEN_1', 'Read', 'MT_W', 'CSR_N']
+        once I.LB      : cs <== [1, 'BR_N', 'OP1_RS1', 'OP2_IMI', 'ALU_ADD',  'WB_MEM', 'REN_1', 'MEN_1', 'Read', 'MT_B', 'CSR_N']
+        once I.LBU     : cs <== [1, 'BR_N', 'OP1_RS1', 'OP2_IMI', 'ALU_ADD',  'WB_MEM', 'REN_1', 'MEN_1', 'Read', 'MT_BU','CSR_N']
+        once I.LH      : cs <== [1, 'BR_N', 'OP1_RS1', 'OP2_IMI', 'ALU_ADD',  'WB_MEM', 'REN_1', 'MEN_1', 'Read', 'MT_H', 'CSR_N']
+        once I.LHU     : cs <== [1, 'BR_N', 'OP1_RS1', 'OP2_IMI', 'ALU_ADD',  'WB_MEM', 'REN_1', 'MEN_1', 'Read', 'MT_HU','CSR_N']
+        once I.SW      : cs <== [1, 'BR_N', 'OP1_RS1', 'OP2_IMS', 'ALU_ADD',  'WB_ALU', 'REN_0', 'MEN_1', 'Write','MT_W', 'CSR_N']
+        once I.SB      : cs <== [1, 'BR_N', 'OP1_RS1', 'OP2_IMS', 'ALU_ADD',  'WB_ALU', 'REN_0', 'MEN_1', 'Write','MT_B', 'CSR_N']
+        once I.SH      : cs <== [1, 'BR_N', 'OP1_RS1', 'OP2_IMS', 'ALU_ADD',  'WB_ALU', 'REN_0', 'MEN_1', 'Write','MT_H', 'CSR_N']
+
+        once I.AUIPC   : cs <== [1, 'BR_N', 'OP1_IMU', 'OP2_PC' , 'ALU_ADD' , 'WB_ALU', 'REN_1', 'MEN_0', 'Read', 'MT_X', 'CSR_N']
+        once I.LUI     : cs <== [1, 'BR_N', 'OP1_IMU', 'OP2_RS2','ALU_COPY1', 'WB_ALU', 'REN_1', 'MEN_0', 'Read', 'MT_X', 'CSR_N']
+
+        once I.ADDI    : cs <== [1, 'BR_N', 'OP1_RS1', 'OP2_IMI', 'ALU_ADD',  'WB_ALU', 'REN_1', 'MEN_0', 'Read', 'MT_X',  'CSR_N']
+        once I.ANDI    : cs <== [1, 'BR_N', 'OP1_RS1', 'OP2_IMI', 'ALU_AND',  'WB_ALU', 'REN_1', 'MEN_0', 'Read', 'MT_X',  'CSR_N']
+        once I.ORI     : cs <== [1, 'BR_N', 'OP1_RS1', 'OP2_IMI', 'ALU_OR' ,  'WB_ALU', 'REN_1', 'MEN_0', 'Read', 'MT_X',  'CSR_N']
+        once I.XORI    : cs <== [1, 'BR_N', 'OP1_RS1', 'OP2_IMI', 'ALU_XOR',  'WB_ALU', 'REN_1', 'MEN_0', 'Read', 'MT_X',  'CSR_N']
+        once I.SLTI    : cs <== [1, 'BR_N', 'OP1_RS1', 'OP2_IMI', 'ALU_SLT',  'WB_ALU', 'REN_1', 'MEN_0', 'Read', 'MT_X',  'CSR_N']
+        once I.SLTIU   : cs <== [1, 'BR_N', 'OP1_RS1', 'OP2_IMI', 'ALU_SLTU', 'WB_ALU', 'REN_1', 'MEN_0', 'Read', 'MT_X',  'CSR_N']
+        once I.SLLI    : cs <== [1, 'BR_N', 'OP1_RS1', 'OP2_IMI', 'ALU_SLL',  'WB_ALU', 'REN_1', 'MEN_0', 'Read', 'MT_X',  'CSR_N']
+        once I.SRAI    : cs <== [1, 'BR_N', 'OP1_RS1', 'OP2_IMI', 'ALU_SRA',  'WB_ALU', 'REN_1', 'MEN_0', 'Read', 'MT_X',  'CSR_N']
+        once I.SRLI    : cs <== [1, 'BR_N', 'OP1_RS1', 'OP2_IMI', 'ALU_SRL',  'WB_ALU', 'REN_1', 'MEN_0', 'Read', 'MT_X',  'CSR_N']
+
+        once I.SLL     : cs <== [1, 'BR_N', 'OP1_RS1', 'OP2_RS2', 'ALU_SLL',  'WB_ALU', 'REN_1', 'MEN_0', 'Read', 'MT_X',  'CSR_N']
+        once I.ADD     : cs <== [1, 'BR_N', 'OP1_RS1', 'OP2_RS2', 'ALU_ADD',  'WB_ALU', 'REN_1', 'MEN_0', 'Read', 'MT_X',  'CSR_N']
+        once I.SUB     : cs <== [1, 'BR_N', 'OP1_RS1', 'OP2_RS2', 'ALU_SUB',  'WB_ALU', 'REN_1', 'MEN_0', 'Read', 'MT_X',  'CSR_N']
+        once I.SLT     : cs <== [1, 'BR_N', 'OP1_RS1', 'OP2_RS2', 'ALU_SLT',  'WB_ALU', 'REN_1', 'MEN_0', 'Read', 'MT_X',  'CSR_N']
+        once I.SLTU    : cs <== [1, 'BR_N', 'OP1_RS1', 'OP2_RS2', 'ALU_SLTU', 'WB_ALU', 'REN_1', 'MEN_0', 'Read', 'MT_X',  'CSR_N']
+        once I.AND     : cs <== [1, 'BR_N', 'OP1_RS1', 'OP2_RS2', 'ALU_AND',  'WB_ALU', 'REN_1', 'MEN_0', 'Read', 'MT_X',  'CSR_N']
+        once I.OR      : cs <== [1, 'BR_N', 'OP1_RS1', 'OP2_RS2', 'ALU_OR' ,  'WB_ALU', 'REN_1', 'MEN_0', 'Read', 'MT_X',  'CSR_N']
+        once I.XOR     : cs <== [1, 'BR_N', 'OP1_RS1', 'OP2_RS2', 'ALU_XOR',  'WB_ALU', 'REN_1', 'MEN_0', 'Read', 'MT_X',  'CSR_N']
+        once I.SRA     : cs <== [1, 'BR_N', 'OP1_RS1', 'OP2_RS2', 'ALU_SRA',  'WB_ALU', 'REN_1', 'MEN_0', 'Read', 'MT_X',  'CSR_N']
+        once I.SRL     : cs <== [1, 'BR_N', 'OP1_RS1', 'OP2_RS2', 'ALU_SRL',  'WB_ALU', 'REN_1', 'MEN_0', 'Read', 'MT_X',  'CSR_N']
+
+        once I.JAL     : cs <== [1, 'BR_J' , 'OP1_RS1', 'OP2_RS2', 'ALU_X',  'WB_PC4', 'REN_1', 'MEN_0', 'Read', 'MT_X',  'CSR_N']
+        once I.JALR    : cs <== [1, 'BR_JR', 'OP1_RS1', 'OP2_IMI', 'ALU_X',  'WB_PC4', 'REN_1', 'MEN_0', 'Read', 'MT_X',  'CSR_N']
+        once I.BEQ     : cs <== [1, 'BR_EQ', 'OP1_RS1', 'OP2_RS2', 'ALU_X',  'WB_ALU', 'REN_0', 'MEN_0', 'Read', 'MT_X',  'CSR_N']
+        once I.BNE     : cs <== [1, 'BR_NE', 'OP1_RS1', 'OP2_RS2', 'ALU_X',  'WB_ALU', 'REN_0', 'MEN_0', 'Read', 'MT_X',  'CSR_N']
+        once I.BGE     : cs <== [1, 'BR_GE', 'OP1_RS1', 'OP2_RS2', 'ALU_X',  'WB_ALU', 'REN_0', 'MEN_0', 'Read', 'MT_X',  'CSR_N']
+        once I.BGEU    : cs <== [1, 'BR_GEU','OP1_RS1', 'OP2_RS2', 'ALU_X',  'WB_ALU', 'REN_0', 'MEN_0', 'Read', 'MT_X',  'CSR_N']
+        once I.BLT     : cs <== [1, 'BR_LT', 'OP1_RS1', 'OP2_RS2', 'ALU_X',  'WB_ALU', 'REN_0', 'MEN_0', 'Read', 'MT_X',  'CSR_N']
+        once I.BLTU    : cs <== [1, 'BR_LTU','OP1_RS1', 'OP2_RS2', 'ALU_X',  'WB_ALU', 'REN_0', 'MEN_0', 'Read', 'MT_X',  'CSR_N']
+
+        once I.CSRRWI  : cs <== [1, 'BR_N', 'OP1_IMZ', 'OP2_RS2', 'ALU_COPY1', 'WB_CSR', 'REN_1', 'MEN_0', 'Read', 'MT_X', 'CSR_W']
+        once I.CSRRSI  : cs <== [1, 'BR_N', 'OP1_IMZ', 'OP2_RS2', 'ALU_COPY1', 'WB_CSR', 'REN_1', 'MEN_0', 'Read', 'MT_X', 'CSR_S']
+        once I.CSRRCI  : cs <== [1, 'BR_N', 'OP1_IMZ', 'OP2_RS2', 'ALU_COPY1', 'WB_CSR', 'REN_1', 'MEN_0', 'Read', 'MT_X', 'CSR_C']
+        once I.CSRRW   : cs <== [1, 'BR_N', 'OP1_RS1', 'OP2_RS2', 'ALU_COPY1', 'WB_CSR', 'REN_1', 'MEN_0', 'Read', 'MT_X', 'CSR_W']
+        once I.CSRRS   : cs <== [1, 'BR_N', 'OP1_RS1', 'OP2_RS2', 'ALU_COPY1', 'WB_CSR', 'REN_1', 'MEN_0', 'Read', 'MT_X', 'CSR_S']
+        once I.CSRRC   : cs <== [1, 'BR_N', 'OP1_RS1', 'OP2_RS2', 'ALU_COPY1', 'WB_CSR', 'REN_1', 'MEN_0', 'Read', 'MT_X', 'CSR_C']
+
+        once I.ECALL   : cs <== [1, 'BR_N', 'OP1_RS1', 'OP2_RS2',  'ALU_X', 'WB_ALU', 'REN_0', 'MEN_0', 'Read', 'MT_X',  'CSR_I']
+        once I.MRET    : cs <== [1, 'BR_N', 'OP1_RS1', 'OP2_RS2',  'ALU_X', 'WB_ALU', 'REN_0', 'MEN_0', 'Read', 'MT_X',  'CSR_I']
+        once I.DRET    : cs <== [1, 'BR_N', 'OP1_RS1', 'OP2_RS2',  'ALU_X', 'WB_ALU', 'REN_0', 'MEN_0', 'Read', 'MT_X',  'CSR_I']
+        once I.EBREAK  : cs <== [1, 'BR_N', 'OP1_RS1', 'OP2_RS2',  'ALU_X', 'WB_ALU', 'REN_0', 'MEN_0', 'Read', 'MT_X',  'CSR_I']
+        once I.WFI     : cs <== [1, 'BR_N', 'OP1_RS1', 'OP2_RS2',  'ALU_X', 'WB_ALU', 'REN_0', 'MEN_0', 'Read', 'MT_X',  'CSR_N']  
+
+        once I.FENCE_I : cs <== [1, 'BR_N', 'OP1_RS1', 'OP2_RS2',  'ALU_X', 'WB_ALU', 'REN_0', 'MEN_0', 'Read', 'MT_X',  'CSR_N']
+        once I.FENCE   : cs <== [1, 'BR_N', 'OP1_RS1', 'OP2_RS2',  'ALU_X', 'WB_ALU', 'REN_0', 'MEN_0', 'Read', 'MT_X',  'CSR_N']
+
+
+
+@module Core:
+    io = Bundle(
+        x3 = UInt[conf.p.xlen](0) @ Output,
+    )
+    # mtime = Reg(UInt[64](0))
+    # mtimecmp = Reg(UInt[64](2**64-1))
+    # mtime <== mtime + 1 
+    imem = Memory(conf.p.imem_addr, conf.p.xlen, init=conf.p.imem_init) 
+    dmem = Memory(
+        conf.p.dmem_addr, 
+        conf.p.xlen, 
+        init=conf.p.dmem_init, 
+        mmio = {
+            # mtime   : conf.p.mtime_addr,
+            # mtimecmp: conf.p.mtimecmp_addr,
+        }
+    )  
+    datapath = DataPath(imem.io, dmem.io)  
+
+    # csr = CSR()
+
+    io.x3 <== datapath.x3
+    
+
+@conf Global(imem_init = 0, dmem_init = 0):  
+    xlen = 32
+    pc_reset = 1024
+    imem_addr = (1024,1124)  # bytes
+    dmem_addr = (2048,2100)  # bytes 
+    mtime_addr = (10,18) 
+    mtimecmp_addr = (18, 26)  
+
+
+
+#--------------------------------- test ----------------------------------------
+
+
+test_imem = utils.memory_init("""
+40000093
+40008093
+0000a103
+00008183
+00009203
+00a04283
+00a05283
+0040a423
+00409623
+00408823
+0080a283
+00c0a303
+0100a383
+0001f193
+fff18193
+ffdff26f
+00730133
+""")
+
+test_dmem = utils.memory_init("""
+5678abcd
+ffff0000
+""")
+
+
+@pytest test_mem(): 
+    with Session() as sess:
+        dut = Memory((0,40), 32, test_dmem) 
+        sess.track(dut.io, dut) 
+        sess.run(100)
+
+        setv(dut.io.req.valid, 1)
+        for i in range(10):
+            setv(dut.io.req.op, 'Read')
+            setv(dut.io.req.addr, i*4) 
+            sess.run(100) 
+
+        for i in range(10):
+            setv(dut.io.req.op, 'Write') 
+            setv(dut.io.req.mask, 'MT_W')
+            setv(dut.io.req.data, i+2) 
+            setv(dut.io.req.addr, i*4)
+            sess.run(400) 
+
+        for i in range(10):
+            setv(dut.io.req.op, 'Read')
+            setv(dut.io.req.addr, i*4) 
+            sess.run(100) 
+        sess.emitVCD('build/mem.vcd')
+
+
+@pytest test_core(): 
+    with Session(conf = Global(test_imem, test_dmem), timing=TimingConfig()) as sess:
+
+        dut = Core()
+        sess.track(dut.clock[0], dut.datapath.io, dut.datapath, dut.datapath.dmem)  
+
+        # print(dut.datapath.regfile._condtree)
+        t = time.time()
+        sess.run(50*100)  
+        print('riscv pyhgl sim cost:', time.time()-t)
+        sess.emitVCD('build/core.vcd') 
+
+        @inline_verilog Verilog(self):
+            reset = self.get_name(dut.reset[0])
+            path = relative_path('build/core_iverilog.vcd')
+            self.append('initial begin')
+            self.append(f'$dumpfile("{path}");')
+            self.append(f'$dumpvars;') 
+            self.append(f'{reset} = 1; #100; {reset} = 0;')
+            self.append(f'# {50*10000};')
+            self.append('$finish;')
+            self.append('end')
+
+        sess.emitVerilog('build/core.sv', delay=False, top = False) 
+
+        sess.emitGraph('build/core.gv')
+        sess.emitSummary()

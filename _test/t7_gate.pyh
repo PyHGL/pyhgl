@@ -1,0 +1,118 @@
+
+from pyhgl.logic import *
+from pyhgl.tester import pytest
+
+import random 
+
+
+
+@conf Global: 
+    @conf AdderN:
+        width = 3000
+
+@conf.timing Tconfig:
+    timescale = '1ns'
+    Clock = {'low':50, 'high':50}
+    Logic = dict(delay = 2) 
+    Gate = dict(delay = 2)
+
+
+
+
+@module FullAdder:
+
+    a = Input(UInt())
+    b = Input(UInt())
+    cin = Input(UInt())
+
+    s = a ^ b ^ cin 
+    cout = a & b | (a ^ b) & cin 
+
+
+@module AdderN:
+
+    x = Input(UInt[conf.here.width](0))
+    y = Input(UInt[conf.here.width](0))
+
+    adders = Array(FullAdder() for _ in range(conf.here.width))
+    adders[:,'a'] <== x.split()
+    adders[:,'b'] <== y.split()
+    adders[1:, 'cin'] <== adders[:-1, 'cout']
+    out = Cat(adders[:,'s']) 
+    cout = adders[-1].cout
+
+
+@initial task(DUT):
+    max_value = (1 << len(DUT.x)-1) - 1
+    yield 10
+    while 1:
+        x = random.randint(0,max_value)
+        y = random.randint(0,max_value)
+        setv(DUT.x, x)
+        setv(DUT.y, y)
+        yield 200
+        pytest.EQ += x+y, getv(DUT.out)
+
+
+
+
+@pytest test_adder:
+
+    import time
+    import os
+    import psutil
+    start = time.time() 
+    process = psutil.Process(os.getpid())
+
+    with Session(conf=Global(), timing=Tconfig(), verbose_sim=False) as sess:
+
+        adder = AdderN() 
+        task(adder)
+        # Assert(dualedge=[adder.x, adder.y], delay=0, f=lambda :print(adder.out._getval()) )
+        # sess.track(adder.x, adder.y, adder.out)
+
+
+        print(f'build time: {time.time() - start} s' )
+        print(f'build mem : {process.memory_info().rss / 1024 / 1024} MB')
+
+
+        start = time.time()
+        sess.run(21000) 
+        print(f'sim time: {time.time() - start} s' )
+        print(f'sim mem : {process.memory_info().rss / 1024 / 1024} MB')
+
+        # sess.emitVCD()
+        # sess.emitSummary()
+        # print(sess.emitVerilog())
+        # sess.emitGraph().view()
+
+
+
+
+        vec_t = Vector(UInt[8],3) 
+        v = vec_t(0)
+
+        struct_t = Struct(
+            a = UInt[3]   @ 2,
+            b = UInt[4]   @ 8
+        )
+        x = struct_t({
+            'a' : 3, 'b' : '1011'
+        }) 
+
+        x['a'] <== 0
+
+        print(BitPat('b0101??11'))
+            
+print(Vector(UInt[8],12))
+print(Struct(
+    a = UInt[3]             @2,
+    b = (3,4) * UInt[4]     @7,
+    c = UInt[1]             @13,
+    d = Struct(
+        x = UInt[1],
+        y = UInt[2]
+    )                       @14
+))
+
+

@@ -1,0 +1,77 @@
+from pyhgl.logic import *
+from pyhgl.tester import pytest, utils
+
+import random
+import time 
+
+
+
+@module VendingMachine:
+    nickel =    UInt(0) @ Input 
+    dime =      UInt(0) @ Input 
+    valid =     UInt(0) @ Output
+ 
+    switch s:=EnumReg():
+        once 'sIdle':
+            when nickel: 
+                s <== 's5'
+            when dime:
+                s <== 's10' 
+        once 's5':
+            when nickel:
+                s <== 's10'
+            when dime: 
+                s <== 's15'
+        once 's10':
+            when nickel: 
+                s <== 's15'
+            when dime: 
+                s <== 'sOk' 
+        once 's15': 
+            when nickel: 
+                s <== 'sOk'
+            when dime: 
+                s <== 'sOk'
+        once 'sOk':
+            s <== 'sIdle'
+            valid <== 1
+
+
+#--------------------------------- test ----------------------------------------
+
+
+
+@pytest test_vending_machine:
+    sess = Session()
+    sess.enter() 
+
+
+    dut = VendingMachine()
+    sess.track(dut.nickel, dut.dime, dut.s, dut.valid)
+
+
+    setv(dut.nickel, 1) 
+    setv(dut.dime, 1)
+    sess.run(1000)
+    sess.emitVCD('VendingMachine.vcd') 
+
+    @inline_verilog Verilog(self):
+        dut_name = self.get_name(dut)
+        nickel = self.get_name(dut.nickel)
+        dime = self.get_name(dut.dime)
+        path = utils.relative_path("VendingMachine_iverilog.vcd")
+
+        self.append('initial begin')
+        self.append(f'$dumpfile("{path}");')
+        self.append(f'$dumpvars(0, {dut_name});')
+        self.append(f'')
+        self.append(f'{nickel} = 1; {dime} = 1; #1000;')
+        self.append('$finish;')
+        self.append('end')
+
+    sess.emitVerilog('VendingMachine.sv', delay=True, top = True).sim()
+
+    sess.emitGraph('VendingMachine.gv')
+    sess.emitSummary()
+    sess.exit()
+

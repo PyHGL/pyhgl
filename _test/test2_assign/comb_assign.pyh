@@ -1,0 +1,52 @@
+from pyhgl.logic import * 
+from pyhgl.tester import pytest  
+
+import random
+
+@module TestReg:
+
+    x = Input(UInt('0000'))
+    y = Input(UInt('0000'))
+
+    m = UInt('0000')
+    n = UInt('0000')
+
+    a = x & y 
+    b = x | y 
+
+    when x:
+        m[2:3] <== a 
+        when a:
+            m <== b 
+        elsewhen b[0]:
+            m <== y 
+        otherwise:
+            m[1:2] <== a[2:3]
+    when y:
+        switch b:
+            once '111?':
+                m <== x 
+            once '?001', '0011':
+                m <== y 
+            once ...:
+                m <== a
+
+
+
+with Session() as sess:
+
+    dut = TestReg() 
+    sess.track(dut.x, dut.y, dut.a, dut.b, dut.m, dut.n)
+
+    sess.run(10)
+
+    for _ in range(100):
+        setv(dut.x, random.randint(0,15))
+        setv(dut.y, random.randint(0,15))
+        sess.run(20)
+
+
+
+sess.emitVCD('comb_assign.vcd')
+sess.emitVerilog('comb_assign.sv') 
+
