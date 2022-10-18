@@ -10494,8 +10494,8 @@ class HGLParser(Parser):
         self._reset(mark)
         return None
 
-    KEYWORDS = ('True', 'def', 'class', 'import', 'with', 'try', 'finally', 'or', 'elif', 'break', 'is', 'if', 'None', 'nonlocal', 'lambda', 'as', 'in', 'False', 'continue', 'global', 'else', 'except', 'assert', 'return', 'not', 'yield', 'pass', 'del', 'while', 'and', 'for', 'from', 'async', 'await', 'raise')
-    SOFT_KEYWORDS = ('otherwise', '_', 'once', 'switch', 'case', 'elsewhen', 'match', 'when')
+    KEYWORDS = ('False', 'await', 'except', 'else', 'None', 'is', 'True', 'in', 'yield', 'global', 'assert', 'nonlocal', 'def', 'or', 'if', 'as', 'del', 'and', 'for', 'return', 'while', 'from', 'with', 'break', 'elif', 'class', 'lambda', 'continue', 'try', 'raise', 'not', 'finally', 'pass', 'async', 'import')
+    SOFT_KEYWORDS = ('_', 'match', 'when', 'once', 'switch', 'otherwise', 'case', 'elsewhen')
 
 
 if __name__ == '__main__':

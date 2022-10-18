@@ -1,0 +1,11 @@
+
+*__pycache__
+*.swp
+*.egg-info
+*.vscode
+*.ipynb
+*.prof
+dist
+build
+/.* 
+!.gitignore 

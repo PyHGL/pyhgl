@@ -1,0 +1,7 @@
+*.svg
+*.dot
+*.gv
+*.vcd
+*.v 
+*.sv
+*.vvp
