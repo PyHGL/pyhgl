@@ -14,8 +14,8 @@ def make_parser():
     except:
         raise Exception('module pegen not found') 
     
-    gram_file = utils.relative_path('../pyhgl/parser/hgl_parser.gram', exist=True)
-    target = utils.relative_path('../pyhgl/parser/hgl_parser.py', exist=True)     
+    gram_file = utils.relative_path('../pyhgl/parser/hgl_parser.gram', check_exist=True)
+    target = utils.relative_path('../pyhgl/parser/hgl_parser.py', check_exist=True)     
     
     print(f"{utils._yellow('making parser:')} {gram_file} -> {target}") 
     utils.run_python(f"-m pegen {gram_file} -q -o {target}" ) 
@@ -29,8 +29,8 @@ def make_doc():
     except:
         raise Exception('python -m pip install -U sphinx, sphinx_multiversion, myst_parser, linkify-it-py')
     
-    source = utils.relative_path('../documents', exist=True)
-    target = utils.relative_path('../docs', exist=True)
+    source = utils.relative_path('../documents', check_exist=True)
+    target = utils.relative_path('../docs', check_exist=True)
     shutil.rmtree(target)
     os.mkdir(target)
     
