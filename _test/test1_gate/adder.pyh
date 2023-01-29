@@ -76,6 +76,6 @@ AdderIO = lambda w: Bundle(
             self.append('$finish;')
             self.append('end')
 
-        sess.emitVerilog('Adder.sv', delay=True, top = True).sim()
+        sess.emitVerilog('Adder.sv', delay=True, top = True)
 
 

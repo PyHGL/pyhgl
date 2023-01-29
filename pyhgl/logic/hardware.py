@@ -78,41 +78,39 @@ class BitPat(_Data):
 class Logic(_Data):
     """ arbitrary length of 3-state value: 0, 1, x 
 
-    v   x    state 
+    x   y    state 
     0   0     0 
     1   0     1 
     0   1     x 
-    1   1     z
+    1   1     ?  
+
+    positive, zero-extended
     """
 
-    __slots__ = 'v', 'x'
+    __slots__ = 'x', 'y'
 
-    def __init__(self, v: Union[str, int, gmpy2.mpz, Logic] = 0) -> None: 
-        if isinstance(v, (int, gmpy2.mpz, gmpy2.xmpz)):
-            assert v >= 0
-            self.v = gmpy2.xmpz(0)  
-            self.x = gmpy2.xmpz(0)
-            self.v[:] = v 
-        elif isinstance(v, Logic):
-            self.v = gmpy2.xmpz(0)  
-            self.x = gmpy2.xmpz(0) 
-            self.v[:] = v.v 
-            self.x[:] = v.x
-        elif isinstance(v, str):
-            self.v, self.x, _width = utils.str2logic(v) 
-        else:
-            raise ValueError(v)
+    def __init__(
+        self, 
+        x: Union[int, bool, gmpy2.mpz, gmpy2.xmpz] = 0, 
+        y: Union[int, bool, gmpy2.mpz, gmpy2.xmpz] = 0
+    ) -> None: 
+        self.x = gmpy2.xmpz(0) 
+        self.y = gmpy2.xmpz(0)  
+        self.x |= x 
+        self.y |= y
             
     def __len__(self):
-        return max(utils.width_infer(self.v), utils.width_infer(self.x))
+        return max(self.x.bit_length(), self.y.bit_length())
 
     def __eq__(self, other: Logic) -> bool:
-        if self.x or other.x:
+        if self.y or other.y:
             return False 
-        return self.v == other.v  
+        return self.x == other.x  
 
-    def __and__(self, other: Logic) -> Logic:
-        ...
+    def __and__(self, other: Logic) -> Logic: 
+        x1, y1 = self.x, self.y 
+        x2, y2 = other.x, other.y 
+        return Logic(x1 & x2 & ~y1 & ~y2, y1 & y2 | x1 & y2 | x2 & y1)
 
     def __getitem__(self):
         ... 
@@ -124,14 +122,43 @@ class Logic(_Data):
         ...
             
     def __str__(self): 
-        ret = []
+        ret = [] 
+        x, y = self.x, self.y
         for i in range(len(self)):
-            if self.x[i]:
-                ret.append('x')
+            if x[i]:
+                if y[i]:
+                    ret.append('?')
+                else:
+                    ret.append('1')
             else:
-                ret.append(str(self.v[i]))
+                if y[i]:
+                    ret.append('x')
+                else:
+                    ret.append('0')
         return ''.join(reversed(ret))
         
+
+## speed test 
+print(Logic(0b110011,0b0110010))
+
+
+
+
+def ToLogic(v: Union[str, int, gmpy2.mpz, Logic] = 0) -> Logic:
+    if isinstance(v, (int, gmpy2.mpz, gmpy2.xmpz)):
+        assert v >= 0
+        return Logic(v)
+    elif isinstance(v, Logic): 
+        return Logic(v.x, v.y)
+    elif isinstance(v, str):
+        x, y, _width = utils.str2logic(v)  
+        return Logic(x,y)
+    else:
+        raise ValueError(v) 
+
+
+
+
 #--------------------------------------
 # data container, updated in simulation
 #--------------------------------------
@@ -1867,7 +1894,7 @@ class _Wire(Assignable):
             key, value = assignments[0].eval()
             self.output._setval(value, self.delay, key)  
         else:
-            _data = self.output._data.copy()
+            _data = self.output._data.copy()  # FIXME wrong, current output is not the future output 
             _type = self.output._type
             for assignment in reversed(assignments):
                 key, value = assignment.eval()

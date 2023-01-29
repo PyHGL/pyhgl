@@ -46,8 +46,8 @@ class Session(HGL):
     
     def __init__(
             self, 
-            *,
             conf: Tuple[config.HGLConf, list, dict] = None, 
+            *,
             timing: config.TimingConf = None,
             verbose_conf = False,
             verbose_hardware = False,

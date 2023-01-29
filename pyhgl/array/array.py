@@ -637,9 +637,11 @@ def Bundle(*args, **kwargs) -> Array:
         assert not kwargs 
         return Array(args)
     else:
-        return Array(kwargs)
+        return Array(kwargs) 
 
-    
+def bundle(f: Callable) -> Array:
+    return Array(f())
+
 
 def Full(shape: Union[Tuple[int], Array], value) -> Array:
     """ generate a n-d array
@@ -777,7 +779,7 @@ def vectorize_first(f):
 
 """
 TODO 
-Cat([1,2,3], axis=None)  return 1 signal 
+Cat([1,2,3], axis=...)  return 1 signal 
 Cat([1,2,3])             return [1,2,3]
 """
 

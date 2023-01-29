@@ -6,11 +6,11 @@ import subprocess
 import time
 import inspect
 
-def _red(x: str) -> str:        return f'\033[0;31;40m{x}\033[0m'
-def _green(x: str) -> str:      return f'\033[0;32;40m{x}\033[0m'
-def _yellow(x: str) -> str:     return f'\033[0;33;40m{x}\033[0m'
-def _blue(x: str) -> str:       return f'\033[0;34;40m{x}\033[0m'
-def _purple(x: str) -> str:     return f'\033[0;35;40m{x}\033[0m'
+def _red(x: str) -> str:        return f'\033[0;31m{x}\033[0m'
+def _green(x: str) -> str:      return f'\033[0;32m{x}\033[0m'
+def _yellow(x: str) -> str:     return f'\033[0;33m{x}\033[0m'
+def _blue(x: str) -> str:       return f'\033[0;34m{x}\033[0m'
+def _purple(x: str) -> str:     return f'\033[0;35m{x}\033[0m'
 
 def _fill_terminal(x: str, char: str, pos: str = 'center') -> str:
     try:
