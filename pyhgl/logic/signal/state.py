@@ -21,7 +21,7 @@
 
 from __future__ import annotations
 from typing import  Optional, Dict, Any, List, Tuple, Generator, Callable, Literal
-from pyhgl.logic.hardware import *
+from pyhgl.logic.hgl_basic import *
 
 
 class EnumType(SignalType):
@@ -171,12 +171,12 @@ class EnumType(SignalType):
         return Reader(data=LogicData(v), type=self, name=name)
     
     
-    def _getimmd(self, data: LogicData, key) -> gmpy2.mpz:
+    def _getval_py(self, data: LogicData, key) -> gmpy2.mpz:
         """ key must be None
         """
         return data.v[0:self._width]
         
-    def _setimmd(self, data: LogicData, key, v: gmpy2.mpz) -> bool:
+    def _setval_py(self, data: LogicData, key, v: gmpy2.mpz) -> bool:
         """ key must be None
         """
         target = data.v 

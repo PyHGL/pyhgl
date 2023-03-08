@@ -26,9 +26,9 @@ import inspect
 
 from pyhgl.array import *
 import pyhgl.logic._session as _session
-import pyhgl.logic.verilogmodule as verilogmodule
-import pyhgl.logic.config as hglconfig
-import pyhgl.logic.hardware as hardware
+import pyhgl.logic.module_sv as module_sv
+import pyhgl.logic._config as hglconfig
+import pyhgl.logic.hgl_basic as hgl_basic
 
 
  
@@ -52,16 +52,18 @@ def module(f):
 
 
 class MetaModule(type):
-    """ set config id of module instance
+    """ syntax setting config id of module
     
-    ex. Adder['adder3','xxx'](8)
+    ex. Adder['adder3','xxx'](w=8)
     """
     def __getitem__(self, keys: str):
         for i in keys:
             if not isinstance(i, str):
                 raise KeyError(f'invalid module id: {i}')
         m: Module = object.__new__(self)
-        m.__head__()
+        m.__head__() 
+        if isinstance(keys, str):
+            keys = [keys]
         m._ids = list(keys)
         return m 
 
@@ -69,8 +71,10 @@ class MetaModule(type):
 
 class Module(Container, metaclass=MetaModule):
     
-    clock: Tuple[hardware.Reader, int]
-    reset: Tuple[hardware.Reader, int]
+    clock: Tuple[hgl_basic.Reader, int]
+    reset: Tuple[hgl_basic.Reader, int]
+    dispatcher: Dispatcher 
+    io: Array
 
     __slots__ = '_sess', 'dispatcher', '__dict__'
     
@@ -81,9 +85,9 @@ class Module(Container, metaclass=MetaModule):
         # prefered name (instance name, ex. adder)
         self._name = self.__class__.__name__.lower() 
         # unique name (declaration name, ex. Adder_1)
-        self._unique_name = self._sess._new_module_name(self.__class__.__name__)
+        self._unique_name = f'{self.__class__.__name__}_{len(self._sess.verilog.modules)}'
         # position in module tree (include self)
-        self._position: List[Module] = self._sess._new_module_instance(self) 
+        self._position: List[Module] = self._sess._new_module(self) 
         # submodules 
         self._submodules: Dict[Module, None] = {}
         # identifiers to be matched for configs
@@ -92,33 +96,31 @@ class Module(Container, metaclass=MetaModule):
         self._conf: Type[hglconfig.ModuleConf] = None
         # lazy-callables for child modules, ordered
         self._subconfigs: Dict[hglconfig.HGLConf, None] = {}
-        # VerilogModule necessary for generating verilog 
-        self._module = verilogmodule.VerilogModule(self) 
+        # module_sv necessary for generating verilog 
+        self._module = module_sv.ModuleSV(self) 
 
         # default module level parameters
         # dispatcher
         self.dispatcher: Dispatcher = None
-        # parent module 
-        self.up: Module = None 
         # io 
         self.io: Array = None 
 
         # temp stack
         self._prev: List[Module] = []
-        self._temp_inputs: List[hardware.Reader] = []
+        self._temp_inputs: List[hgl_basic.Reader] = []
 
     def __conf__(self): 
-        """
-        override: outside config tree < in module parameters
-        """
-        self.up = self._sess.module
-        up_conf = self.up._conf
-        self.dispatcher = self.up.dispatcher
+        up = self._sess.module
+        up_conf = up._conf
+        # default parameters
+        self.dispatcher = up.dispatcher
+        self.clock = up.clock 
+        self.reset = up.reset
             
         # record matched callables
         matched_configs: List[hglconfig.HGLConf] = []
         inherit: bool = True
-        for config in self.up._subconfigs: 
+        for config in up._subconfigs: 
             for _id in self._ids:
                 if config.filter.match(_id):
                     matched_configs.append(config) 
@@ -137,11 +139,7 @@ class Module(Container, metaclass=MetaModule):
         # ---------------------------------             
         
         with self:
-            # three paras always inherit        
-            paras = {
-                'clock': self.up.clock,
-                'reset': self.up.reset,
-            }
+            paras = {}
             
             for config in matched_configs:
                 new_paras, subconfigs = config.exec()
@@ -160,14 +158,14 @@ class Module(Container, metaclass=MetaModule):
         
 
     def __body__(*args, **kwargs): 
-        '''your hdl module definations here'''
+        '''your hdl module defination'''
 
 
     def __tail__(self, f_locals:dict):  
         # delete dummy gate
         for i in self._temp_inputs:
             driver = i._data.writer._driver
-            assert isinstance(driver, hardware.DummyGate), 'unexcepted assignment to inputs'  
+            assert isinstance(driver, hgl_basic.DummyGate), 'unexcepted assignment to inputs'  
             driver.delete()
 
         # record 
@@ -178,10 +176,10 @@ class Module(Container, metaclass=MetaModule):
             elif k[0] != '_': 
                 if k not in self.__dict__:
                     self.__dict__[k] = v 
-                if isinstance(v, hardware.Reader):
+                if isinstance(v, hgl_basic.Reader):
                     # update prefered name
-                    v._name = k
-                elif isinstance(v, Module) and v.up is self:
+                    v._data._name = k
+                elif isinstance(v, Module) and v in self._submodules:
                     # update prefered name
                     v._name = k 
                 elif isinstance(v, Array):
@@ -190,7 +188,7 @@ class Module(Container, metaclass=MetaModule):
         if io is not None:
             self.io = io 
             def make_io(x):
-                assert isinstance(x, hardware.Reader)
+                assert isinstance(x, hgl_basic.Reader)
                 if x._direction == 'input':
                     assert x._data.writer is None 
                     self._sess.module._module.inputs[x] = None
@@ -237,9 +235,8 @@ class Module(Container, metaclass=MetaModule):
     def __exit__(self, exc_type, exc_value, traceback): 
         self._sess.module = self._prev.pop()
     
-
     def _format_slice(self, key: Union[int, str, list]) -> Union[str, Iterable]:
-        """ 
+        """ support array-like slicing
         return:
             str:
                 single item 
@@ -259,16 +256,14 @@ class Module(Container, metaclass=MetaModule):
         else:
             raise KeyError(key) 
 
-
     def __setitem__(self, keys, value):
         raise AttributeError('__setitem__ invalid for module')
-    
-    
+     
     def __getattr__(self, k: str) -> Any:
         try:
             return getattr(self._conf, k)
         except:
-            raise AttributeError(f'{k} is neither Module attribute nor Config parameter')
+            raise AttributeError(f'{k} is neither Module member nor Config parameter for id:{self._ids}')
 
 
     def __str__(self) -> str:
@@ -279,21 +274,29 @@ class Module(Container, metaclass=MetaModule):
 
     def _verilog_name(
         self, 
-        obj: Union[hardware.Reader, hardware.Writer, verilogmodule.VerilogModule]
+        obj: Union[hgl_basic.Reader, hgl_basic.Writer, module_sv.ModuleSV]
     ) -> str: 
+        return
         """ return instance name inside this module 
+
+        TODO 
+
+        writer: name of data 
+        leaf signal with reader: name of data, width = first reader 
+
+        type  casting: use local variable to convert
         """
-        if isinstance(obj, hardware.Writer):
+        if isinstance(obj, hgl_basic.Writer):
             # name already exists
             if ret:=self._module.get_name(obj._data):
                 return ret  
             # make a new name
             else:
                 return obj._type._verilog_name(obj._data, self._module) 
-        elif isinstance(obj, hardware.Reader):
+        elif isinstance(obj, hgl_basic.Reader):
             # return constant for unrecorded constant signal
             if obj._data.writer is None:
-                return obj._type._verilog_immd(obj._type._getimmd(obj._data, None)) 
+                return obj._type._verilog_immd(obj._type._getval_py(obj._data, None)) 
             # name already exists
             elif ret:=self._module.get_name(obj): 
                 return ret   
@@ -314,9 +317,9 @@ class Module(Container, metaclass=MetaModule):
             raise TypeError(obj) 
 
 
-def _rename_array(obj: Union[Array, hardware.Reader], name: str):
-    if isinstance(obj, hardware.Reader):
-        obj._name = name
+def _rename_array(obj: Union[Array, hgl_basic.Reader], name: str):
+    if isinstance(obj, hgl_basic.Reader):
+        obj._data._name = name
     elif isinstance(obj, Array):
         for k, v in obj._items():
             new_name =  f"{name}_{k}"

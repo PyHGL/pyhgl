@@ -209,3 +209,14 @@ def singleton(_class: type) -> object:
     if name[:2] == '__' and name[-2:] == '__':
         setattr(builtins, name, obj)
     return obj
+
+def register_builtins(f):
+    if isinstance(f, str):
+        def wrapped(_f):
+            setattr(builtins, f, _f)
+            return _f 
+        return wrapped
+    else:
+        name = f.__name__ 
+        setattr(builtins, name, f)
+        return f

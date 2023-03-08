@@ -2,7 +2,7 @@ import inspect
 
 # ==================================== test grammar ======================================= 
 from pyhgl.parser import hgl_compile, ast_dump 
-from pyhgl.tester import pytest
+from pyhgl.tester import tester
 
 r = []
 
@@ -49,10 +49,10 @@ def __hgl_unit__(a,b):
     r.append(ret)
     return ret  
 
-@pytest
+@tester
 def test_expr():
     exec(hgl_compile("!'a' >>> 'b'*3 || 'd' >>> !'e' + 'f' >>> 'g'")) 
-    pytest.EQ += r, [
+    tester.EQ += r, [
         '! a', 
         '! a >>> bbb', 
         '! a >>> bbb || d', 
@@ -62,7 +62,7 @@ def test_expr():
     ]
     r.clear() 
     exec(hgl_compile(">>> 'a' >>> ('b' || 'c') && 'd' |-> 'x'*2 >>> 2e-2`m/s` != 1 |-> (2+2j)`N*m`")) 
-    pytest.EQ += r, [
+    tester.EQ += r, [
         '>>> a', 
         'b || c', 
         '>>> a >>> b || c', 
@@ -81,11 +81,11 @@ def test_expr():
 def __hgl_partial_assign__(a,b, slices=None):     r.append(f'{a} ## {slices} <== {b}')
 def __hgl_connect__(a,b):                   r.append(f'{a} <=> {b}')
 
-@pytest
+@tester
 def test_assign():
     r.clear() 
     exec(hgl_compile("a,b = 'left','right'; a <== b; a[1] <== b; a['x',:-1] <== b[-1]; a <=> b;")) 
-    pytest.EQ += r, [
+    tester.EQ += r, [
         'left ## None <== right', 
         'left ## 1 <== right', 
         "left ## ('x', slice(None, -1, None)) <== t", 
@@ -109,11 +109,11 @@ code="""
     pass
 """
 
-@pytest 
+@tester 
 def test_module():
     r.clear()
     exec(hgl_compile(code)) 
-    pytest.EQ += r, [{'x': 1, 'y': 1}, {'args': (), 'kwargs': {}}]
+    tester.EQ += r, [{'x': 1, 'y': 1}, {'args': (), 'kwargs': {}}]
 
 
 # ==================================== stmt ======================================= 
@@ -164,18 +164,18 @@ otherwise:
             ...
 """
 
-@pytest 
+@tester 
 def test_stmt():
     r.clear()
     exec(hgl_compile(code)) 
-    pytest.EQ += r,[123, 'begin_when', 'end_when', 456, 'begin_elsewhen', 'end_elsewhen', 'begin_otherwise', 'state', 'begin_switch', ('idle',), 'begin_once', 'end_once', ('s0', 's1', 's2'), 'begin_once', ('a', 'b'), 'begin_switch', ('s3',), 'begin_once', 's4', 'begin_when', 'end_when', 's5', 'begin_elsewhen', 'end_elsewhen', 'end_once', ('state',), 'begin_once', 'end_once', 'end_switch', 'end_once', (1, 2, 3), 'begin_once', 'end_once', (Ellipsis,), 'begin_once', 'end_once', 'end_switch', 'end_otherwise']
+    tester.EQ += r,[123, 'begin_when', 'end_when', 456, 'begin_elsewhen', 'end_elsewhen', 'begin_otherwise', 'state', 'begin_switch', ('idle',), 'begin_once', 'end_once', ('s0', 's1', 's2'), 'begin_once', ('a', 'b'), 'begin_switch', ('s3',), 'begin_once', 's4', 'begin_when', 'end_when', 's5', 'begin_elsewhen', 'end_elsewhen', 'end_once', ('state',), 'begin_once', 'end_once', 'end_switch', 'end_once', (1, 2, 3), 'begin_once', 'end_once', (Ellipsis,), 'begin_once', 'end_once', 'end_switch', 'end_otherwise']
 
 
 
-# print(ast_dump(
-# """
-# a = 4j
-# """
-# ))
+print(ast_dump(
+"""
+a + b + 1 * 3
+"""
+))
 
 

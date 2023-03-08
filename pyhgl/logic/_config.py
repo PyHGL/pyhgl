@@ -35,132 +35,154 @@ import pyhgl.logic.utils as utils
 construct a tree-like config as global config. 
 
 @conf top:
-    conf.p.dispatcher = ...
-    clock = ... 
-    reset = ... 
+    conf.dispatcher = ...
+    conf.clock = ... 
+    conf.reset = conf.up.reset
+    conf.timing = Bundle(
+        timescale='1ns',
+        Wire = {'delay': 1}
+    )
     
     width = 10 
-    @conf.always('adder.*') add:
+    @conf.always['adder.*'] Adder1:
         width = conf.up.width * 2 
-    @conf.clean('adder.*') add2:
-        height = 3
+    @conf['adder.*'].clean Adder2:
+        width = 3
 """
 
-
-
-@singleton 
-class _conf_always:
-    def __call__(self, obj: Union[Callable, str]):
-        if isinstance(obj, str):
-            def wrapper(f):
-                assert callable(f)
-                return HGLConf(f, obj, always=True)
-            return wrapper 
-        elif callable(obj):
-            return HGLConf(obj, obj.__name__+'.*', always=True)
-        else:
-            raise ValueError('incorrect useage of decorator')
         
-@singleton 
-class _conf_clean:
-    def __call__(self, obj: Union[Callable, str]):
-        if isinstance(obj, str):
-            def wrapper(f):
-                assert callable(f)
-                return HGLConf(f, obj, inherit=False)
-            return wrapper 
-        elif callable(obj):
-            return HGLConf(obj, obj.__name__+'.*', inherit=False)
-        else:
-            raise ValueError('incorrect useage of decorator') 
-
-@singleton 
-class _conf_sim:
-    def __call__(self, f) -> Type:
-        return type(f.__name__, (TimingConf,),{'__body__':staticmethod(f)})
-        
-@singleton
-class conf(HGL):
+class _Conf(HGL):
     """ decorator function, return HGLConf
     """
     _sess: _session.Session
-    
-    always = _conf_always 
-    clean = _conf_clean 
-    timing = _conf_sim
+
+    def __init__(self, always = False, clear = False, filter: str = None):
+        self._always = always 
+        self._clear = clear  
+        self._filter = filter
+
+    @property 
+    def always(self):
+        return _Conf(always=True, clear=self._clear, filter=self._filter)
+
+    @property 
+    def clear(self):
+        return _Conf(always=self._always, clear=True, filter=self._filter)
     
     def __call__(self, obj: Union[Callable, str]):
         if isinstance(obj, str):
-            def wrapper(f):
-                assert callable(f)
-                return HGLConf(f, obj)
-            return wrapper 
-        
-        elif callable(obj):
-            return HGLConf(obj, obj.__name__ + '.*')
-        
+            return _Conf(always=self._always, clear=self._clear, filter=obj)
         else:
-            raise ValueError('incorrect use of decorator') 
+            assert callable(obj)
+            filter = self._filter or obj.__name__ + '.*'
+            return HGLConf(
+                obj, 
+                filter = filter, 
+                always = self._always,
+                inherit = not self._clear,
+            ) 
+
         
     @property
     def up(self) -> Type[ModuleConf]: 
-        """ return father module's conf
+        """ return father module
         """
         position = self._sess.module._position 
         if len(position) > 1:
-            return position[-2]._conf 
+            return position[-2] 
         else:
             return None
         
     @property 
     def p(self):
-        """ return current module's conf
+        """ return current module 
         """
-        return self._sess.module
+        return self._sess.module 
+
+    @property 
+    def clock(self):
+        return self._sess.module.clock 
+
+    @clock.setter
+    def clock(self, v):
+        self._sess.module.clock = v 
+    
+    @property 
+    def reset(self):
+        return self._sess.module.reset 
+
+    @reset.setter
+    def reset(self, v):
+        self._sess.module.reset = v 
+
+    @property 
+    def dispatcher(self):
+        return self._sess.module.dispatcher 
+
+    @dispatcher.setter
+    def dispatcher(self, v):
+        self._sess.module.dispatcher = v 
+
+    @property 
+    def timing(self):
+        return self._sess.timing._values # one timing config per session
+
+    @timing.setter
+    def timing(self, v: Union[dict, Array]):
+        self._sess.timing.update(v) 
         
-        
+conf = _Conf()
     
     
 class HGLConf(HGL):
     
     def __init__(
         self, 
-        f: Callable = lambda : {}, 
-        filter: str = '_', 
-        *, 
+        f: Callable,  # a function return locals
+        filter: Union[str, re.Pattern], 
+        args = (),
+        kwargs = {},
         always = False, 
         inherit = True
     ) -> None:
 
         self.f = f 
-        self.filter = re.compile(filter, flags=re.IGNORECASE) 
-        self.always = always 
-        self.inherit = inherit 
+        if isinstance(filter, str):
+            self.filter = re.compile(filter, flags=re.IGNORECASE) 
+        else:
+            self.filter = filter 
+        self.args = args
+        self.kwargs = kwargs
+        self.always = always        # config is valid for all submodules
+        self.inherit = inherit      # inherit father's parameters 
         # self._arg_names = set(inspect.signature(f).parameters.keys())
     
     
     def __call__(self, *args, **kwargs):
-        """ 
-        TODO return a new class
-        """
-        return (self, args, kwargs)
+        return HGLConf(
+            f=self.f, 
+            filter=self.filter,
+            args=args,
+            kwargs=kwargs,
+            always=self.always,
+            inherit=self.inherit,
+        )
     
     
-    def exec(self, args = [], kwargs = {}) -> Tuple[dict, Dict[HGLConf, None]]:
-        """
-        TODO ignore 'io', 'up', 'self'
+    def exec(self) -> Tuple[dict, Dict[HGLConf, None]]:
+        """ return (parameters, subconfigs)
         """
         # execute config function
-        local_var: Dict[str, Any] = self.f(*args, **kwargs)
+        local_var: Dict[str, Any] = self.f(*self.args, **self.kwargs)
             
-        subconfigs = {}
         parameters = {}
+        subconfigs = {}
         
         for k, v in local_var.items(): 
             if isinstance(v, HGLConf):
                 subconfigs[v] = None
             elif k[0] != '_':
-                parameters[k] = v 
+                parameters[k] = v   # parameters whose name not start with '_'
                 
         return parameters, subconfigs
     
@@ -181,17 +203,15 @@ class HGLConf(HGL):
         
 
 class ModuleConf: 
-    """ parameters store in class attributes
+    """ parameters stored as class variables
     """
-    clock: Any 
-    reset: Any
 
 
 # ----------- 
 # timing 
 # -----------
 
-    
+
 class TimingConf(HGL):
     """
     @timing TimingConfig:
@@ -215,22 +235,27 @@ class TimingConf(HGL):
         }
     }
     """
-    def __init__(self, *args, **kwargs):
-        
-        f_locals: dict = self.__body__(*args, **kwargs)
-        if timescale:=f_locals.get('timescale'):
+    def __init__(self):
+        self.timescale: float = None    # 1e-9s
+        self.time_info: Tuple[int, str] = None  # default: (1, 'ns')
+        self._values: Dict[str, dict] = {}
+
+    def update(self, v: Union[dict, Array]):
+        if isinstance(v, Array):
+            v = v._dict 
+        if timescale:=v.get('timescale'):
+            assert self.timescale is None, 'timescale already exists'
             self.timescale, temp = utils.quantity(timescale) 
-            self.time_info = (round(temp[0]), temp[1])
+            self.time_info = (round(temp[0]), temp[1]) 
         else:
-            self.timescale: float = 1e-9
-            self.time_info: Tuple[int, str] = (1, 'ns')
-        self._values = self._get_quantity(f_locals)
+            if self.timescale is None:
+                self.timescale: float = 1e-9
+                self.time_info: Tuple[int, str] = (1, 'ns') 
+        _v = self._get_quantity(v)  
+        self._values.update(_v)
 
     def get(self, key: str):
         return self._values.get(key)
-        
-    def __body__(*args, **kwargs): 
-        return {} 
     
     def _get_timestep(self, v: str) -> int:
         _v, _ = utils.quantity(v)

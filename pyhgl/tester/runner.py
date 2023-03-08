@@ -165,13 +165,16 @@ class _Runtest(_Test):
         return ret
 
     def when(self, cond) -> _Runtest:
+        """
+        @tester.when(1) ...
+        """
         ret = self.copy()
         ret._cond = cond 
         return ret
 
     @property 
     def debug(self) -> _Runtest:
-        """ debug mode
+        """ debug mode, exit when exception
         """
         ret = self.copy()
         ret._debug = True 
@@ -179,7 +182,7 @@ class _Runtest(_Test):
     
     @property 
     def disable(self) -> _Runtest:
-        """ skip
+        """ skip mode
         """
         ret = self.copy()
         ret._enable = False 
@@ -192,12 +195,12 @@ class _Runtest(_Test):
 
 
     def filter(self, s) -> None:
-        """ set global filter
+        """ set a global filter that matches case name
         """
         _Runtest._global_filter = re.compile(s)
 
     def close(self):
-        """ disable global
+        """ disable all test cases
         """
         _Runtest._global_enable = False
         
@@ -210,28 +213,28 @@ class _Runtest(_Test):
         total_t = 0
         for filename, testcases in self._results.items():
             print(_fill_terminal('━', '━'))
-            print(_yellow(filename))
+            print(' ',_yellow(filename))
             for testcase in testcases:
                 total_passed += testcase.count_passed
                 total_failed += testcase.count_failed
                 total_t += testcase.t
                 print(testcase.__str__('  '), end='') 
-        print(f'\n{_yellow("pytest:")} {_green(total_passed)} passed, {_red(total_failed)} failed, total_time: {total_t:.4f}s\n')  
+        print(f'\n{_yellow("tester:")} {_green(total_passed)} passed, {_red(total_failed)} failed, total_time: {total_t:.4f}s\n')  
         
 """
 usage:
 
-@pytest 
+@tester 
 def test_case():
-    pytest.Assert == 1,0
+    tester.Assert == 1,0
 
-@pytest.debug
+@tester.debug
 def test_case():
-    pytest.Assert == 1,1
+    tester.Assert == 1,1
 
-pytest.summary()
+tester.summary()
 """
-pytest =  _Runtest()
+tester: _Runtest =  _Runtest()
 
     
 

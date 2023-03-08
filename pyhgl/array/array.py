@@ -29,7 +29,8 @@ from ._hgl import HGL
 
 
 class SignalKey(HGL):
-
+    """ a kind of slice key means slicing signal.
+    """
     __slots__ = ()
 
 
@@ -534,6 +535,24 @@ class Array(Container):
                 ret.append(i)
         return ret
 
+    def _to_dict(self) -> Union[list, dict]:
+        if self._dict: 
+            ret = {}
+            for k, v in self._dict.items():
+                if isinstance(v, Array):
+                    ret[k] = v._to_dict() 
+                else:
+                    ret[k] = v 
+            return ret
+        else:
+            ret = []
+            for i in self._list:
+                if isinstance(i, Array):
+                    ret.append(i._to_dict())
+                else:
+                    ret.append(i)
+            return ret
+
 
     @property
     def _shape(self) -> Optional[tuple]:
@@ -751,6 +770,8 @@ def MapFirst(f: Callable, /, *args: Array, **kwargs):
 #-------------------------------------------
 
 def vectorize(f):
+    """ apply f on positional array-like arguments
+    """
     assert callable(f) 
     def vectorized(*args, **kwargs):
         # turn array-like into array
@@ -864,7 +885,7 @@ def vectorize_axis(f):
 
 @vectorize 
 def Signal(x):
-    """ convert python internal type to Signal
+    """ convert python internal type to Signal, may not generate new gate
     
     iterable except str -> Array
     int, str, gmpy2.mpz -> UInt

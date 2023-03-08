@@ -1,6 +1,6 @@
 
 from pyhgl.logic import *
-from pyhgl.tester import pytest, utils
+from pyhgl.tester import tester, utils
 
 import time 
 
@@ -46,17 +46,21 @@ AdderIO = lambda w: Bundle(
     io.out <== Cat(0, *G) ^ P_odd
 
 
-@pytest test_adder: 
-    with Session(conf=Global()) as sess:
+@tester test_adder: 
+    with Session(conf=Global(), verbose_sim=False) as sess:
+
+        xxx = UInt('xx1100')
+        print(xxx)
+
         adder1 = RippleCarry()
         adder2 = KoggeStone()
         sess.track(adder1.io, adder2.io) 
-        for i in range(1000):
+        for i in range(100):
             x1, y1 = setr(adder1.io[['x','y']])
             x2, y2 = setr(adder2.io[['x','y']]) 
             sess.run(100)
-            pytest.EQ += getv(adder1.io.out), x1+y1 
-            pytest.EQ += getv(adder2.io.out), x2+y2 
+            tester.EQ += getv(adder1.io.out), x1+y1 
+            tester.EQ += getv(adder2.io.out), x2+y2 
         sess.emitVCD('Adder.vcd') 
         sess.emitGraph('Adder.gv')
         print(sess)

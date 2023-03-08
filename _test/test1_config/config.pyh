@@ -1,0 +1,27 @@
+from pyhgl.logic import * 
+from pyhgl.tester import * 
+
+
+@conf Global(w):
+    conf.timing = Bundle(
+        Wire = {'delay': 2},
+        And = {'delay': 2},
+    )
+    @conf('.*') RippleCarry:
+        w = 6
+    @conf FA:
+        x = conf.up.w * 4
+        @conf Sub:
+            y = 'a'
+
+@module FASub:
+    assert conf.p.y == 'a'
+
+@module FA: 
+    assert conf.p.x == 12
+    assert conf.p.w == 6 
+    fasub = FASub['Sub']()
+
+with Session(conf=Global(3)) as sess:
+    fa = FA()
+

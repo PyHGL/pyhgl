@@ -26,7 +26,7 @@ def ast_dump(node, annotate_fields=True, include_attributes=False, indent='  '):
     *include_attributes* can be set to True.
     """
     if isinstance(node, str):
-        node = hgl_parse_string(node)
+        node = hgl_parse_string(node, 'exec')
 
     def _format(node, level=0):
         if isinstance(node, ast.AST):

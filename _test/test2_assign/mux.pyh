@@ -1,12 +1,12 @@
 from pyhgl.logic import * 
-from pyhgl.tester import pytest 
+from pyhgl.tester import tester 
 
 import pyhgl.logic.utils as utils
 import random
 
 
 
-@pytest test_eq_mux: 
+@tester test_eq_mux: 
 
     with Session() as sess:
         x = UInt(0, w=4, name='x')
@@ -32,15 +32,15 @@ import random
 
             sess.run(100)  
 
-            pytest.EQ += getv(out_eqx), (x_ & 3) == 3 
-            pytest.EQ += getv(out_eqy), (y_ & 7) == 5 
-            pytest.EQ += getv(out_oext), x_ | 240
+            tester.EQ += getv(out_eqx), (x_ & 3) == 3 
+            tester.EQ += getv(out_eqy), (y_ & 7) == 5 
+            tester.EQ += getv(out_oext), x_ | 240
 
             if x_ == 0:
-                pytest.EQ += getv(out_mux)._flat, [1,0,2]
+                tester.EQ += getv(out_mux)._flat, [1,0,2]
             elif x_ == 1:
-                pytest.EQ += getv(out_mux)._flat, [2,1,3]
+                tester.EQ += getv(out_mux)._flat, [2,1,3]
             elif x_ == 2:
-                pytest.EQ += getv(out_mux)._flat, [0,0,5]
+                tester.EQ += getv(out_mux)._flat, [0,0,5]
             else:
-                pytest.EQ += getv(out_mux)._flat, [x_,y_,z_]
+                tester.EQ += getv(out_mux)._flat, [x_,y_,z_]

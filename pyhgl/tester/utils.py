@@ -17,7 +17,7 @@ def _fill_terminal(x: str, char: str, pos: str = 'center') -> str:
         terminal_width = shutil.get_terminal_size().columns
     except:
         terminal_width = 80
-    n = terminal_width - len(x)
+    n = terminal_width - len(x) - 1
     if n < 2:
         return x 
     else:
@@ -35,7 +35,7 @@ def _fill_terminal(x: str, char: str, pos: str = 'center') -> str:
 def relative_path(path: str, level: int = 1, check_exist: bool = False) -> str:
     """ 
     path: 
-        relative path to caller's directory/path 
+        path of dir/file, relative to caller's directory/path. ex. ../a, ./b/, c/
     level: 
         nth caller 
     check_exist: 

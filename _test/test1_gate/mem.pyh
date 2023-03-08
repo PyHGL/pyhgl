@@ -1,6 +1,6 @@
 
 from pyhgl.logic import *
-from pyhgl.tester import pytest, utils
+from pyhgl.tester import tester, utils
 
 
 
@@ -34,7 +34,7 @@ from pyhgl.tester import pytest, utils
     print(ram_t._idxes, ram_t._shape)
 
 
-@pytest test_ram: 
+@tester test_ram: 
     with Session(conf=Global()) as sess:
         dut = Memory()
         sess.track(dut.io, dut.mem, dut.clock[0]) 

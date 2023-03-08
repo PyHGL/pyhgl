@@ -22,11 +22,14 @@
 from __future__ import annotations
 
 from pyhgl.array import *
-from pyhgl.logic.hardware import *
+from pyhgl.logic.hgl_basic import *
 import pyhgl.logic.utils as utils 
-from pyhgl.logic.assign import __hgl_when__, __hgl_elsewhen__, __hgl_partial_assign__
+from pyhgl.logic.hgl_assign import __hgl_when__, __hgl_elsewhen__, __hgl_partial_assign__
 from pyhgl.logic.gate.common import _align
 
+
+
+# TODO support unfixed signal width
 
 
 @dispatch('Eq', Any, Any) 
@@ -54,11 +57,10 @@ class _Eq(Gate):
     def forward(self): 
         left, right = self.left, self.right 
         if isinstance(right, Reader):
-            right = right._getval()
+            right = right._getval_py()
         
-        right == left._getval()
-        v = gmpy2.mpz(right == left._getval())
-        self.output._setval(v, dt=self.delay)
+        v = gmpy2.mpz(right == left._getval_py())
+        self.output._setval_py(v, dt=self.delay)
 
 
     def emitVerilog(self, v) -> str:
@@ -120,10 +122,10 @@ class _Lt(Gate):
         left, right = self.left, self.right 
         
         if isinstance(right, Reader):
-            right = right._getval()
+            right = right._getval_py()
             
-        v = gmpy2.mpz(left._getval() < right)
-        self.output._setval(v, dt=self.delay)
+        v = gmpy2.mpz(left._getval_py() < right)
+        self.output._setval_py(v, dt=self.delay)
 
 
     def emitVerilog(self, v) -> str:
@@ -162,10 +164,10 @@ class _Gt(_Lt):
         left, right = self.left, self.right 
         
         if isinstance(right, Reader):
-            right = right._getval()
+            right = right._getval_py()
             
-        v = gmpy2.mpz(left._getval() > right)
-        self.output._setval(v, dt=self.delay)
+        v = gmpy2.mpz(left._getval_py() > right)
+        self.output._setval_py(v, dt=self.delay)
 
 
     def emitVerilog(self, v) -> str:

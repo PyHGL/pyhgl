@@ -1,5 +1,5 @@
 from pyhgl.logic import * 
-from pyhgl.tester import pytest, utils
+from pyhgl.tester import tester, utils
 
 import random
 import time 
@@ -49,7 +49,7 @@ def compressN(column: list, sums: list, couts: list):
 #--------------------------------- test ----------------------------------------
 
 
-@pytest test_multiplier:
+@tester test_multiplier:
     sess = Session()
     sess.enter()
     W1, W2, N = 4, 6, 100
@@ -68,7 +68,7 @@ def compressN(column: list, sums: list, couts: list):
         setv(dut.io.x, test_x[i])
         setv(dut.io.y, test_y[i])
         sess.run(50)
-        pytest.EQ += getv(dut.io.out), test_x[i]*test_y[i]
+        tester.EQ += getv(dut.io.out), test_x[i]*test_y[i]
     print('pyhgl simulation cost:', time.time()-t)
     sess.emitVCD('Multiplier.vcd')
 

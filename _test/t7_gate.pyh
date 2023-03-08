@@ -1,6 +1,6 @@
 
 from pyhgl.logic import *
-from pyhgl.tester import pytest
+from pyhgl.tester import tester
 
 import random 
 
@@ -51,12 +51,12 @@ import random
         setv(DUT.x, x)
         setv(DUT.y, y)
         yield 200
-        pytest.EQ += x+y, getv(DUT.out)
+        tester.EQ += x+y, getv(DUT.out)
 
 
 
 
-@pytest test_adder:
+@tester test_adder:
 
     import time
     import os

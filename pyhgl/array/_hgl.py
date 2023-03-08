@@ -58,7 +58,7 @@ class HGL:
     def __str__(self):              
         return object.__repr__(self) 
 
-    def __repr__(self):             
+    def __repr__(self): 
         return str(self)
 
 

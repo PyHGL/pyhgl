@@ -1,5 +1,5 @@
 from pyhgl.logic import *
-from pyhgl.tester import pytest, utils
+from pyhgl.tester import tester, utils
 
 import random
 import time 
@@ -41,7 +41,7 @@ import time
 
 
 
-@pytest test_vending_machine:
+@tester test_vending_machine:
     sess = Session()
     sess.enter() 
 

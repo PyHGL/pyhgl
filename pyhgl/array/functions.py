@@ -20,7 +20,7 @@
 
 
 from ._hgl import HGL
-from .dispatch import singleton, dispatch, Dispatcher, default_dispatcher
+from .dispatch import singleton, dispatch, Dispatcher, default_dispatcher, register_builtins
 from .array import *
 
 
@@ -127,6 +127,8 @@ def MulFull(a, b, **kwargs):
 @vectorize 
 def Bool(a, **kwargs):
     """ a: Signal or Immd
+
+    return a 1-bit uint signal, may not generate new gate
     """
     return HGL._sess.module.dispatcher.call('Bool', Signal(a), **kwargs)
 # !a
@@ -157,11 +159,11 @@ def LogicOr(*args, **kwargs):
 #--------
 # slicing
 #--------
-@vectorize 
-def Slice(a, b, **kwargs):
+@vectorize_first 
+def Slice(x, **kwargs):
     """ a: Signal or Immd, b: Signal or Immd
     """
-    return HGL._sess.module.dispatcher.call('Slice', Signal(a), b, **kwargs)
+    return HGL._sess.module.dispatcher.call('Slice', Signal(x), **kwargs)
 
 #-----------
 # converting
@@ -245,4 +247,9 @@ class __hgl_logicor__(HGL):
             return LogicOr(a,b)     
     
 
-    
+@singleton 
+class __hgl_unit__(HGL):
+    """ unit: 1.2`ms`
+    """
+    def __call__(self, v, f):
+        pass

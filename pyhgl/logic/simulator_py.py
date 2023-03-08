@@ -29,67 +29,74 @@ import traceback
 from sortedcontainers import SortedDict
 from vcd import VCDWriter
 from itertools import chain
-from collections import defaultdict 
 
 from pyhgl.array import *
-import pyhgl.logic.hardware as hardware
+import pyhgl.logic.hgl_basic as hgl_basic
 import pyhgl.logic._session as _session 
-import pyhgl.logic.hglmodule as hglmodule
+import pyhgl.logic.module_hgl as module_hgl
+import pyhgl.logic.utils as utils
 
 
 class Simulator(HGL):
     
-    __slots__ = 'sess', 'time_wheel', 'priority_queue', 't' 
+    __slots__ = 'sess', 'time_wheel', 'priority_queue', 't', '__dict__'
     
     def __init__(self, sess: _session.Session, length: int = 8):
         """
         events are stored in a time_wheel, overflowed events are stored in a priority queue
         
-        - signal event:  (SignalType, SignalData, key, value)
+        - signal event:  (SignalData, mask, value)
             - signal events are executed first 
             - one signal cannot update twice in one step
             - delay >= 1
             
-        these events can read current signal values and insert other kinds of events
+        other kinds of events can read current signal value and insert events at delay=0
         - gate event: 
             - call when gate changes, or any input of gate changes
             - one gate connot update twice in one step
         - coroutine event: generator
-            - yield delay: int|str|signal
-            - signal time = simulator.t + 1
+            - trigger: delay
+            - when exec, signal time is (simulator time + 1)
         - edge event: generator
-            - call when triggered by yield signal
-            - signal time = simulator.t + 1
+            - call when triggered by signal
+            - when exec, signal time is (simulator time + 1)
         """
         self.sess = sess
         # length >= 2, signal_events, gate_events, coroutine_events
         self.time_wheel: List[
             Tuple[
-                List[tuple],                # signal_events
-                Dict[hardware.Gate, None],  # gate_events, remove duplicate triggered gates
-                List[Generator]             # coroutine_events
+                List[tuple],                 # signal_events
+                Dict[hgl_basic.Gate, None],  # gate_events, remove duplicate gates
+                List[Generator]              # coroutine_events
             ]
         ] = [self.new_events() for _ in range(1 << length)]
         # Dict[int, Event]
         self.priority_queue = SortedDict()
         # current time, increase 1 after step()
         self.t: int = 0
+
+        self.sensitive_data: Dict[int, hgl_basic.SignalData] = {}
         
-    def new_events(self) -> Tuple[List[tuple], Dict[hardware.Gate, None], List[Generator]]:
+    def new_events(self):
         # signal_events, gate_events, coroutine_events
         return ([],{},[])
         
     def insert_signal_event(
         self, 
         dt: int, 
-        event: Tuple[hardware.SignalType, hardware.SignalData, Optional[tuple], Any]
+        event: Tuple[hgl_basic.SignalData, gmpy2.mpz, hgl_basic.LogicData]
     ): 
         """
         - dt: > 0 if insert by gate, >= 0 if insert by coroutine event
-        - event: (type, data, key, value)
-          - key: None | tuple of (start, length)
-          - value: immediate, str or gmpy2.mpz
+        - event: (SignalData, mask, value)
         """ 
+        if len(event) != 3:
+            raise Exception(f'invalid event: {event}')
+        if self.sess.verbose_sim:
+            target, mask, value = event 
+            assert isinstance(target, hgl_basic.SignalData), f'wrong target: {target}'
+            assert isinstance(mask, gmpy2.mpz), f'wrong mask: {mask}'
+            assert isinstance(value, hgl_basic.LogicData), f'wrong immd: {value}'
         try:
             self.time_wheel[dt][0].append(event) 
         except:
@@ -98,7 +105,7 @@ class Simulator(HGL):
                 self.priority_queue[t] = self.new_events()
             self.priority_queue[t][0].append(event)
         
-    def insert_gate_event(self, dt: int, g: hardware.Gate):
+    def insert_gate_event(self, dt: int, g: hgl_basic.Gate):
         try:
             self.time_wheel[dt][1][g] = None
         except:
@@ -116,9 +123,20 @@ class Simulator(HGL):
             t = self.t + dt
             if t not in self.priority_queue:
                 self.priority_queue[t] = self.new_events()   
-            self.priority_queue[t][2].append(event)      
-             
-             
+            self.priority_queue[t][2].append(event)  
+
+    def init(self):
+        for g in self.sess.verilog.gates:
+            self.insert_gate_event(0, g) 
+
+    def init_cpp(self):
+        # get a sensitive map from TData to SignalData
+        for signal in self.sess.waveform._signals:
+            data = signal._data
+            for i in chain(data._v, data._x):
+                self.sensitive_data[i.cppext[1]] = data
+
+               
     def step(self, n: int = 1):
         """ step 1 timescale
         
@@ -136,9 +154,9 @@ class Simulator(HGL):
                 # insert triggered coroutine events to next step
                 coroutine_events_next = time_wheel[1][2]                    # 80ms
                 #------------------------------------------
-                # if self.sess.verbose_sim:
-                #     _signal = ','.join(self._show_signal_event(i) for i in signal_events)
-                #     self.sess.print(f't={self.t}, signals: {_signal}')
+                if self.sess.verbose_sim:
+                    _signal = ','.join(self._show_signal_event(i) for i in signal_events)
+                    self.sess.print(f't={self.t}, signals: {_signal}')
                 #------------------------------------------
                 
                 # 1. exec user tasks
@@ -149,7 +167,7 @@ class Simulator(HGL):
                             self.insert_coroutine_event(ret, g)
                         elif isinstance(ret, str):
                             self.insert_coroutine_event(self.sess.timing._get_timestep(ret), g)
-                        elif isinstance(ret, hardware.Reader): 
+                        elif isinstance(ret, hgl_basic.Reader): 
                             ret._events.append(g)
                         else:
                             self.sess.log.warning(f'{ret} is not valid trigger, stop task {g}')
@@ -162,19 +180,18 @@ class Simulator(HGL):
                 # 2. update signal values
                 for e in signal_events:
                     
-                    T:      hardware.SignalType
-                    data:   hardware.SignalData 
-                    key:    Optional[tuple] 
-                    value:  Any 
+                    target: hgl_basic.SignalData 
+                    mask: gmpy2.mpz 
+                    value:  hgl_basic.LogicData 
                     
-                    T, data, key, value = e
+                    target, mask, value = e
                     # cannot update signal twice 
-                    if data._t == next_t:
-                        self.sess.log.warning(f'update {data._name} twice at t={next_t}')
-                    data._t = next_t  
-                    # value changed 
-                    if T._setimmd(data, key, value): 
-                        for reader in data.reader: 
+                    if target._t == next_t:
+                        self.sess.log.warning(f'update {target._name} twice at t={next_t}')
+                    target._t = next_t  
+                    # if value changed 
+                    if target._update_py(mask, value): 
+                        for reader in target.reader: 
                             # changed gates 
                             gate_events.update(reader._driven)
                             # track values
@@ -187,9 +204,9 @@ class Simulator(HGL):
                 signal_events.clear() 
                 
                 #------------------------------------------
-                # if self.sess.verbose_sim:
-                #     _gate = ','.join(f'{i}' for i in gate_events)
-                #     self.sess.print(f't={self.t}, gates: {_gate}')
+                if self.sess.verbose_sim:
+                    _gate = ','.join(f'{i}' for i in gate_events)
+                    self.sess.print(f't={self.t}, gates: {_gate}')
                 #------------------------------------------
                 
                 # 3. execute gate
@@ -198,15 +215,10 @@ class Simulator(HGL):
                 self.sess.log.n_exec_gates += len(gate_events)
                 gate_events.clear() 
                 
-                
                 if signal_events:
                     raise Exception('insert new events of zero-delay')
                     
-            # TODO slow
             time_wheel.append(time_wheel.pop(0))        # 700ms
-            # time_wheel.append(time_wheel.pop())         # 300 ms
-            # time_wheel.insert(0, time_wheel.pop(0))   # 1700ms
-            
             
             if queue:                                   # 80ms
                 t0 = next_t + len(time_wheel) - 1
@@ -215,22 +227,22 @@ class Simulator(HGL):
             # update time
             self.t = next_t                             # 120ms
             
+    def step_cpp(self, n: int = 1):
+        """
+        1. user task 
+        2. cpp.step
+        3. if some data is triggered, insert triggered user task 
+        4. update t, continue
+        """
+        dll = self.sess.sim_cpp.dll 
+        _t = self.t + n
+        while self.t < _t:
+            ...
             
-            
-            
-    def _show_signal_event(
-        self, 
-        e: Tuple[hardware.SignalType, hardware.SignalData, Optional[tuple], Any]
-    ) -> str:
-        _, data, key, value = e 
-        name = data._name 
-        if key is not None:
-            name = f'{name}[{key[0]}+:{key[1]}]' 
-        if isinstance(value, (int, gmpy2.mpz, gmpy2.xmpz)):
-            _value = bin(value)
-        else:
-            _value = str(value)
-        return f'{name} <- {_value}'
+    def _show_signal_event( self, e: Tuple[hgl_basic.SignalData, gmpy2.mpz, hgl_basic.LogicData ]) -> str:
+        target, mask, value = e
+        name = target._name 
+        return f"{name}:{target} mask'{bin(mask)} <- {value}"
             
     def __str__(self):
         return 'simulator'
@@ -252,23 +264,23 @@ class VCD(HGL):
         
         real_timescale = sess.timing.timescale or 1e-9
         self._timescale = f'{round(real_timescale/1e-9)} ns'
-        self._signals: Dict[hardware.Reader, Tuple] = {}
+        self._signals: Dict[hgl_basic.Reader, Tuple] = {}
     
-    def _track(self, *args: hardware.Reader):
+    def _track(self, *args: hgl_basic.Reader):
         new_signals = []
         for i in args:
             i = ToArray(i)
             if isinstance(i, Array):
                 new_signals.extend(i._flat) 
-            elif isinstance(i, hglmodule.Module):
+            elif isinstance(i, module_hgl.Module):
                 for _, v in i.__dict__.items():
-                    if isinstance(v, hardware.Reader):
+                    if isinstance(v, hgl_basic.Reader):
                         new_signals.append(v)
-            elif isinstance(i, hardware.Reader):
+            elif isinstance(i, hgl_basic.Reader):
                 new_signals.append(i) 
         
         for v in new_signals:
-            if isinstance(v, hardware.Reader) and v not in self._signals:
+            if isinstance(v, hgl_basic.Reader) and v not in self._signals:
                 v._track()
                 # signal name
                 name = v._name 
@@ -284,15 +296,17 @@ class VCD(HGL):
     def _emit(self, filename: str):
         f = open(filename, 'w', encoding='utf8') 
         writer = VCDWriter(f, self._timescale, date='today')
-        vars: Dict[hardware.Reader, Any] = {} 
+        vars: Dict[hgl_basic.Reader, Any] = {} 
         for signal, (scope, name) in self._signals.items():
             vars[signal] = self._register_var(writer, scope, name, signal)
             
         values = []
         for signal, var in vars.items():
+            width = len(signal._type)
             for t, v in zip(signal._timestamps, signal._values):
-                if not isinstance(v, str):
-                    v = int(v)
+                if not isinstance(v, str):  # LogicData 
+                    assert isinstance(v, hgl_basic.LogicData)
+                    v = utils.logic2str(v.v, v.x, width)
                 values.append((t, v, var))
         values.sort(key=lambda _:_[0])
         for t, v, var in values:
@@ -300,15 +314,15 @@ class VCD(HGL):
         writer.close()
         f.close()
         
-    def _register_var(self, writer: VCDWriter, scope: str, name: str, signal: hardware.Reader):
+    def _register_var(self, writer: VCDWriter, scope: str, name: str, signal: hgl_basic.Reader):
         init = signal._values[0]
         if isinstance(init, str):
             var_type = 'string'
             size = None 
         else:
-            var_type = 'integer'
+            var_type = 'wire'
             size = len(signal._type)
-            init = int(init)
+            init = utils.logic2str(init.v, init.x, size)
         try:
             return writer.register_var(scope, name, var_type, size=size, init=init) 
         except KeyError:

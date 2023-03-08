@@ -3,7 +3,7 @@ import time
 
 from pyhgl.logic import * 
 from pyhgl.logic import utils
-from pyhgl.tester import pytest
+from pyhgl.tester import tester
 from pyhgl.tester.utils import relative_path
 
 from ..riscv_spec import RISCV
@@ -527,7 +527,7 @@ ffff0000
 """)
 
 
-@pytest test_mem(): 
+@tester test_mem(): 
     with Session() as sess:
         dut = Memory((0,40), 32, test_dmem) 
         sess.track(dut.io, dut) 
@@ -553,7 +553,7 @@ ffff0000
         sess.emitVCD('build/mem.vcd')
 
 
-@pytest test_core(): 
+@tester test_core(): 
     with Session(conf = Global(test_imem, test_dmem), timing=TimingConfig()) as sess:
 
         dut = Core()

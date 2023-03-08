@@ -1,15 +1,12 @@
 import pyhgl.hook as _
 from pyhgl.array import *
-from .config import conf
+from ._config import conf
 from ._session import Session
-from .hardware import *
-from .hglmodule import *
-from .assign import *
-from .simulator import *
-from .assertion import *
+from .hgl_basic import *
+from .module_hgl import *
+from .hgl_assign import *
+from .simulator_py import *
+from .hgl_assertion import *
 
 from .gate import * 
 from .signal import *
-
-_sess = Session()
-_sess.enter()

@@ -24,8 +24,8 @@ TIME = {
 
 def quantity(x: str) -> Tuple[float, Tuple[float, str, dict]]:
     """
-    ex. '1ns' -> (1e-9, 's')
-        '3.3 ms' -> (3.3e-6, 's')'
+    ex. '1ns' -> (1e-9, (1e-9, 's',TIME))
+        '3.3 ms' -> (3.3e-6, (3.3e-3, 'ms', TIME))'
     """
     x = x.strip()
     if r := _number.match(x).span():

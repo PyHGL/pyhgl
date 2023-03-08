@@ -1,5 +1,5 @@
 from pyhgl.logic import * 
-from pyhgl.tester import pytest  
+from pyhgl.tester import tester  
 
 import random
 

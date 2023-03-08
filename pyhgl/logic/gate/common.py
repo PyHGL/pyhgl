@@ -24,207 +24,237 @@ from typing import Any, Callable, Dict, Generator, List, Optional, Set, Tuple, U
 
 import inspect 
 import random
+from itertools import chain
 
 from pyhgl.array import *
-from pyhgl.logic.hardware import *
+from pyhgl.logic.hgl_basic import *
 import pyhgl.logic.utils as utils
+import pyhgl.logic.module_cpp as cpp
+import pyhgl.logic.module_sv as sv
 
 
-def _align(*args: Reader) -> list:  
-    """ return aligned signals
-    """
-    args = [Signal(i) for i in args]
-    widths = [len(i) for i in args] 
-    assert min(widths) > 0, 'signal variable length'
-    max_w = max(widths)  
-    return [Cat(s, UInt[max_w-w](0)) if w != max_w else s for s, w in zip(args, widths)]
-    
-    
-class _GateNto1(Gate):
+class _GateN(Gate):
     """ 
-    Args:
-        args:
-            any Logic Signals | Immds
-        width:
-            output width, default width of first input
-    Return: 
-        UInt Signal 
+    args: immd | signal
+        - immd: convert to UInt 
+        - signal: should have fixed bit length
+    name:
+        name of the return signal 
+
+    Return: a UInt Signal with maximum bit length of inputs
     """
     
-    __slots__ = 'inputs', 'output'
+    _op: Tuple[str, str] = ('','')   # verilog operator ex. Nand -> ('~', '&')
     
-    def __head__(self, *args: Reader, width: int = None, id: str=''):
-        
-        if len(args) < 1: 
-            raise ValueError('at least 1 signal')
-        
-        self.id: str = id or self.id
-        
-        self.inputs: List[Reader] = []
-        
-        for i in args:
-            if not isinstance(i._data, LogicData):
-                raise ValueError(f'{i} is not logic signal')
-            self.inputs.append(self.read(i))
-            
-        ret_width = width or len(self.inputs[0])
-        ret = UInt[ret_width](0)
-        self.output = self.write(ret)
-        return ret
-    
-    def _verilog_op(self, *args: str) -> str:
-        return ''
-    
-    def emitVerilog(self, v: verilogmodule.Verilog) -> str:
-        """ 
-        ex.
-            assign y = a & b & 3'd5;
-            assign #1 y = a & b;
-        """
-        x = [self.get_name(i) for i in self.inputs]
-        y = self.get_name(self.output)
-        op = self._verilog_op(*x) 
-        
-        if self._sess.verilog.emit_delay:
-            delay = '#' + str(self.timing["delay"]) 
-        else:
-            delay = ''
-        return f'assign {delay} {y} = {op};'
-        
-        
+    def __head__(self, *args: Reader, id: str='', name: str='res_n') -> Reader:
 
-    
+        args = [Signal(i) for i in args]
+        assert args, 'at least 1 signal'
+        assert all(isinstance(i._data, LogicData) for i in args), 'not logic signal'
+        assert all(i._type._storage == 'packed' for i in args), 'signal with variable length'
+
+        self.id: str = id or self.id
+        self.inputs: List[Reader] = [self.read(i) for i in args]    # read 
+        self.width = max(len(i) for i in args) 
+        ret: Reader = UInt[self.width](0, name=name)
+        self.output: Writer = self.write(ret)                               # write 
+        return ret
+
+    def dump_cpp(self):
+        raise NotImplementedError(self)
+
+    def dump_sv(self, builder: sv.ModuleSV):
+        x = [builder.get_name(i) for i in self.inputs]
+        y = builder.get_name(self.output) 
+        op1, op2 = self._op
+        x = f' {op2} '.join(x) 
+        x = f'{op1}({x})'
+        builder.Assign(self, y, x, delay=self.delay)
+     
+        
+        
 
 #-------------
 # bitwise gate
 #-------------
 
 @dispatch('Not', Any, None)
-class _Not(_GateNto1):
+class _Not(_GateN):
     
     id = 'Not'
-    
-    def __head__(self, x: Reader, id: str = ''):
-        return super().__head__(x, id=id)
-        
-    def forward(self):
-        self.output._setval(~self.inputs[0]._getval(), dt=self.delay)
+    _op = ('~', '')
 
-    def _verilog_op(self, x: str) -> str:
-        return f'~ {x}' 
-    
+    def forward(self):
+        input_not: LogicData = ~self.inputs[0]._data._getval_py()
+        mask = gmpy2.bit_mask(self.width) 
+        out = LogicData(
+            input_not.v & mask,
+            input_not.x & mask,
+        )
+        self.output._data._setval_py(out, low_keys=None, dt=self.delay)
+
+
+    def dump_cpp(self) -> None:
+        input_v: List[cpp.TData] = self.inputs[0]._data._getval_cpp(low_key=None, part='v') 
+        input_x: List[cpp.TData] = self.inputs[0]._data._getval_cpp(low_key=None, part='x') 
+        output_v: List[cpp.TData] = self.output._data._getval_cpp(low_key=None, part='v') 
+        output_x: List[cpp.TData] = self.output._data._getval_cpp(low_key=None, part='x') 
+
+        for i in range(len(output_v)):
+            node = cpp.Node(name='not_exec')
+            node.dump_value() 
+            node.Not(input_v[i], target=output_v[i], width=len(output_v[i]), delay=self.delay)
+            node.dump_unknown()
+            node.Not(input_x[i], target=output_x[i], width=len(output_x[i]), delay=self.delay)
+        
+
     
 @dispatch('And', Any, [Any, None])
-class _And(_GateNto1):
+class _And(_GateN):
         
     id = 'And'
-    
-    def __head__(self, *args: Reader, id: str = ''):
-        return super().__head__(*_align(*args), id=id)
+    _op = ('', '&')
     
     def forward(self): 
-        v = self.inputs[0]._getval()
+        v = self.inputs[0]._data._getval_py()
         for i in self.inputs[1:]:
-            v &= i._getval() 
-        self.output._setval(v, self.delay)
+            v = v & i._data._getval_py() 
+        self.output._data._setval_py(v, dt=self.delay)
 
-    def _verilog_op(self, *args: str) -> str:
-        return ' & '.join(args)
-    
+    def dump_cpp(self) -> None:
+        inputs_v = [i._data._getval_cpp(low_key=None, part='v') for i in self.inputs]
+        inputs_x = [i._data._getval_cpp(low_key=None, part='x') for i in self.inputs]
+        output_v = self.output._data._getval_cpp(low_key=None, part='v')
+        output_x = self.output._data._getval_cpp(low_key=None, part='x') 
+        
+        for i in range(len(output_v)):
+            in_v_i: List[cpp.TData] = []
+            in_x_i: List[cpp.TData] = []
+            for v, x in zip(inputs_v, inputs_x):
+                if i < len(v):
+                    in_v_i.append(v[i])
+                    in_x_i.append(x[i])
+            node = cpp.Node(name='and_exec')
+            node.dump_value() 
+            node.And(*in_v_i, target=output_v[i], delay=self.delay) 
+            node.dump_unknown()
+            out_v_i = in_v_i[0]
+            out_x_i = in_x_i[0]
+            for in_v, in_x in zip(in_v_i[1:], in_x_i[1:]):
+                out_v_i, out_x_i = node.And(
+                    in_v, out_v_i
+                ), node.Or(
+                    node.And(in_x, out_x_i),
+                    node.And(in_x, out_v_i), 
+                    node.And(in_v, out_x_i),
+                ) 
+            node.And(out_x_i, target=output_x[i], delay=self.delay)
+
+
     
 @dispatch('Or', Any, [Any, None])
-class _Or(_GateNto1):
+class _Or(_GateN):
     
     id = 'Or'
-    
-    def __head__(self, *args: Reader, id: str = ''):
-        return super().__head__(*_align(*args), id=id)
-        
-    def forward(self):
-        v = self.inputs[0]._getval()
-        for i in self.inputs[1:]:
-            v |= i._getval() 
-        self.output._setval(v, self.delay)
+    _op = ('', '|')
 
-    def _verilog_op(self, *args: str) -> str:
-        return ' | '.join(args)
+    def forward(self): 
+        v = self.inputs[0]._data._getval_py()
+        for i in self.inputs[1:]:
+            v = v | i._data._getval_py() 
+        self.output._data._setval_py(v, dt=self.delay)
+
+    def dump_cpp(self):
+        return super().dump_cpp()
 
 
 @dispatch('Xor', Any, [Any, None])
-class _Xor(_GateNto1):
+class _Xor(_GateN):
     
     id = 'Xor'
-    
-    def __head__(self, *args: Reader, id: str = ''):
-        return super().__head__(*_align(*args), id=id)
+    _op = ('', '^')
         
-    def forward(self):
-        v = self.inputs[0]._getval()
+    def forward(self): 
+        v = self.inputs[0]._data._getval_py()
         for i in self.inputs[1:]:
-            v ^= i._getval() 
-        self.output._setval(v, self.delay)
+            v = v ^ i._data._getval_py() 
+        self.output._data._setval_py(v, dt=self.delay)
 
-    def _verilog_op(self, *args: str) -> str:
-        return ' ^ '.join(args)
-
+    def dump_cpp(self):
+        return super().dump_cpp()
 
     
 @dispatch('Nand', Any, [Any, None])
-class _Nand(_GateNto1):
+class _Nand(_GateN):
     
     id = 'Nand'
-    
-    def __head__(self, *args: Reader, id: str = ''):
-        return super().__head__(*_align(*args), id=id)
-        
-    def forward(self):
-        v = self.inputs[0]._getval()
-        for i in self.inputs[1:]:
-            v &= i._getval() 
-        self.output._setval(~v, dt=self.delay)
+    _op = ('~', '&')
 
-    def _verilog_op(self, *args: str) -> str:
-        return f'~({" & ".join(args)})'
+    def forward(self): 
+        v = self.inputs[0]._data._getval_py()
+        for i in self.inputs[1:]:
+            v = v & i._data._getval_py() 
+        input_not: LogicData = ~ v
+        mask = gmpy2.bit_mask(self.width)
+        out = LogicData(
+            input_not.v & mask,
+            input_not.x & mask,
+        )
+        self.output._data._setval_py(out, dt=self.delay) 
+
+    def dump_cpp(self):
+        return super().dump_cpp()
     
     
 @dispatch('Nor', Any, [Any, None])
-class _Nor(_GateNto1):
+class _Nor(_GateN):
     
     id = 'Nor'
-    
-    def __head__(self, *args: Reader, id: str = ''):
-        return super().__head__(*_align(*args), id=id)
+    _op = ('~', '|')
         
-    def forward(self):
-        v = self.inputs[0]._getval()
+    def forward(self): 
+        v = self.inputs[0]._data._getval_py()
         for i in self.inputs[1:]:
-            v |= i._getval() 
-        self.output._setval(~v, dt=self.delay)
+            v = v | i._data._getval_py() 
+        input_not: LogicData = ~ v
+        mask = gmpy2.bit_mask(self.width)
+        out = LogicData(
+            input_not.v & mask,
+            input_not.x & mask,
+        )
+        self.output._data._setval_py(out, dt=self.delay) 
 
-    def _verilog_op(self, *args: str) -> str:
-        return f'~({" | ".join(args)})'
+    def dump_cpp(self):
+        return super().dump_cpp()
 
 
 @dispatch('Nxor', Any, [Any, None])
-class _Nxor(_GateNto1):
+class _Nxor(_GateN):
     
     id = 'Nxor'
-    
-    def __head__(self, *args: Reader, id: str = ''):
-        return super().__head__(*_align(*args), id=id)
+    _op = ('~', '^')
         
-    def forward(self):
-        v = self.inputs[0]._getval()
+    def forward(self): 
+        v = self.inputs[0]._data._getval_py()
         for i in self.inputs[1:]:
-            v ^= i._getval() 
-        self.output._setval(~v, dt=self.delay)
+            v = v ^ i._data._getval_py() 
+        input_not: LogicData = ~ v
+        mask = gmpy2.bit_mask(self.width)
+        out = LogicData(
+            input_not.v & mask,
+            input_not.x & mask,
+        )
+        self.output._data._setval_py(out, dt=self.delay) 
 
-    def _verilog_op(self, *args: str) -> str:
-        return f'~({" ^ ".join(args)})'
+    def dump_cpp(self):
+        return super().dump_cpp()
 
 
+
+
+# TODO reduce gate, accept variable length, return 1 bit uint
 @dispatch('AndR', Any) 
-class _AndR(_GateNto1):
+class _AndR(_GateN):
     
     id = 'AndR'
     
@@ -232,19 +262,19 @@ class _AndR(_GateNto1):
         return super().__head__(x, width=1, id=id)
     
     def forward(self):
-        v: gmpy2.mpz = self.inputs[0]._getval()
+        v: gmpy2.mpz = self.inputs[0]._getval_py()
         for i in range(len(self.inputs[0])):
             if v[i] == 0:
-                self.output._setval(gmpy2.mpz(0), dt=self.delay)
+                self.output._setval_py(gmpy2.mpz(0), dt=self.delay)
                 return 
-        self.output._setval(gmpy2.mpz(1), dt=self.delay) 
+        self.output._setval_py(gmpy2.mpz(1), dt=self.delay) 
         
     def _verilog_op(self, x: str) -> str:
         return f'& {x}'
 
 
 @dispatch('NandR', Any) 
-class _NandR(_GateNto1):
+class _NandR(_GateN):
     
     id = 'NandR'
     
@@ -252,19 +282,19 @@ class _NandR(_GateNto1):
         return super().__head__(x, width=1, id=id)
     
     def forward(self):
-        v = self.inputs[0]._getval()
+        v = self.inputs[0]._getval_py()
         for i in range(len(self.inputs[0])):
             if v[i] == 0:
-                self.output._setval(gmpy2.mpz(1), dt=self.delay)
+                self.output._setval_py(gmpy2.mpz(1), dt=self.delay)
                 return 
-        self.output._setval(gmpy2.mpz(0), dt=self.delay)
+        self.output._setval_py(gmpy2.mpz(0), dt=self.delay)
 
     def _verilog_op(self, x: str) -> str:
         return f'~& {x}'
 
     
 @dispatch('OrR', Any) 
-class _OrR(_GateNto1):
+class _OrR(_GateN):
     
     id = 'OrR'
     
@@ -272,17 +302,17 @@ class _OrR(_GateNto1):
         return super().__head__(x, width=1, id=id)
     
     def forward(self):
-        if self.inputs[0]._getval() == 0:
-            self.output._setval(gmpy2.mpz(0), dt=self.delay) 
+        if self.inputs[0]._getval_py() == 0:
+            self.output._setval_py(gmpy2.mpz(0), dt=self.delay) 
         else:
-            self.output._setval(gmpy2.mpz(1), dt=self.delay) 
+            self.output._setval_py(gmpy2.mpz(1), dt=self.delay) 
         
     def _verilog_op(self, x: str) -> str:
         return f'| {x}'
 
 
 @dispatch('NorR', Any) 
-class _NorR(_GateNto1):
+class _NorR(_GateN):
     
     id = 'NorR'
     
@@ -290,17 +320,17 @@ class _NorR(_GateNto1):
         return super().__head__(x, width=1, id=id)
     
     def forward(self):
-        if self.inputs[0]._getval() == 0:
-            self.output._setval(gmpy2.mpz(1), dt=self.delay) 
+        if self.inputs[0]._getval_py() == 0:
+            self.output._setval_py(gmpy2.mpz(1), dt=self.delay) 
         else:
-            self.output._setval(gmpy2.mpz(0), dt=self.delay) 
+            self.output._setval_py(gmpy2.mpz(0), dt=self.delay) 
         
     def _verilog_op(self, x: str) -> str:
         return f'~| {x}'
     
 
 @dispatch('XorR', Any) 
-class _XorR(_GateNto1):
+class _XorR(_GateN):
     
     id = 'XorR'
     
@@ -308,16 +338,16 @@ class _XorR(_GateNto1):
         return super().__head__(x, width=1, id=id)
     
     def forward(self):
-        v = self.inputs[0]._getval()
+        v = self.inputs[0]._getval_py()
         ret = utils.parity(v)
-        self.output._setval(gmpy2.mpz(ret), dt=self.delay) 
+        self.output._setval_py(gmpy2.mpz(ret), dt=self.delay) 
         
     def _verilog_op(self, x: str) -> str:
         return f'^ {x}' 
     
 
 @dispatch('NxorR', Any) 
-class _NxorR(_GateNto1):
+class _NxorR(_GateN):
     
     id = 'NxorR'
     
@@ -325,9 +355,9 @@ class _NxorR(_GateNto1):
         return super().__head__(x, width=1, id=id)
     
     def forward(self):
-        v = self.inputs[0]._getval()
+        v = self.inputs[0]._getval_py()
         ret = utils.parity(v)
-        self.output._setval(gmpy2.mpz(1-ret), dt=self.delay) 
+        self.output._setval_py(gmpy2.mpz(1-ret), dt=self.delay) 
         
     def _verilog_op(self, x: str) -> str:
         return f'~^ {x}' 
@@ -335,7 +365,7 @@ class _NxorR(_GateNto1):
 
         
 @dispatch('Cat', Any, [Any, None])
-class _Cat(_GateNto1):
+class _Cat(_GateN):
     """ Cat signals, return UInt
     """
     
@@ -348,20 +378,17 @@ class _Cat(_GateNto1):
         return super().__head__(*args, width=sum(self.widths), id=id)
         
     def forward(self):
-        v = gmpy2.xmpz(0) 
+        v = LogicData(0,0)
         start = 0
         for width, s in zip(self.widths, self.inputs): 
-            end = start + width
-            v[start:end] = s._getval()
-            start = end
-        self.output._setval(gmpy2.mpz(v), self.delay)
+            v = v | (s._getval_py() << start)
+            start += width 
+        mask, v = self.output._type._setval_py(None, v)
+        self.output._setval_py(v, dt = self.delay, mask=mask)
     
     def _verilog_op(self, *args: str) -> str:
         args = reversed(args)
         return f"{{{','.join(args)}}}"    
-    
-    def emitGraph(self, g):
-        self._emit_graphviz(g, reversed(self.inputs), [self.output], self.id) 
 
     
 @dispatch('Pow', Any, int)
@@ -390,7 +417,7 @@ def _logicnot(x: Reader, id: str='') -> Reader:
 
 
 @dispatch('LogicAnd', Any, [Any, None])
-class _LogicAnd(_GateNto1):
+class _LogicAnd(_GateN):
         
     id = 'LogicAnd'
     
@@ -398,15 +425,15 @@ class _LogicAnd(_GateNto1):
         return super().__head__(*args, width=1, id=id)
     
     def forward(self): 
-        v = all(i._getval() > 0 for i in self.inputs)
-        self.output._setval(gmpy2.mpz(v), self.delay)
+        v = all(i._getval_py() > 0 for i in self.inputs)
+        self.output._setval_py(gmpy2.mpz(v), self.delay)
 
     def _verilog_op(self, *args: str) -> str:
         return ' && '.join(args) 
     
     
 @dispatch('LogicOr', Any, [Any, None])
-class _LogicOr(_GateNto1):
+class _LogicOr(_GateN):
         
     id = 'LogicOr'
     
@@ -414,8 +441,8 @@ class _LogicOr(_GateNto1):
         return super().__head__(*args, width=1, id=id)
     
     def forward(self):
-        v = any(i._getval() > 0 for i in self.inputs)
-        self.output._setval(gmpy2.mpz(v), self.delay)
+        v = any(i._getval_py() > 0 for i in self.inputs)
+        self.output._setval_py(gmpy2.mpz(v), self.delay)
 
     def _verilog_op(self, *args: str) -> str:
         return ' || '.join(args)
@@ -426,7 +453,7 @@ class _LogicOr(_GateNto1):
 #------- 
     
 @dispatch('Lshift', Any, [UIntType, int]) 
-class _Lshift(_GateNto1):
+class _Lshift(_GateN):
     
     id = 'Lshift'
     
@@ -434,15 +461,15 @@ class _Lshift(_GateNto1):
         return super().__head__(a, Signal(b), id=id)
     
     def forward(self):
-        v = self.inputs[0]._getval() << self.inputs[1]._getval()
-        self.output._setval(v, dt=self.delay) 
+        v = self.inputs[0]._getval_py() << self.inputs[1]._getval_py()
+        self.output._setval_py(v, dt=self.delay) 
         
     def _verilog_op(self, a, b) -> str:
         return f'{a} << {b}' 
     
     
 @dispatch('Rshift', Any, [UIntType, int]) 
-class _Rshift(_GateNto1):
+class _Rshift(_GateN):
     
     id = 'Rshift'
     
@@ -450,8 +477,8 @@ class _Rshift(_GateNto1):
         return super().__head__(a, Signal(b), id=id)
     
     def forward(self):
-        v = self.inputs[0]._getval() >> self.inputs[1]._getval()
-        self.output._setval(v, dt=self.delay) 
+        v = self.inputs[0]._getval_py() >> self.inputs[1]._getval_py()
+        self.output._setval_py(v, dt=self.delay) 
         
     def _verilog_op(self, a, b) -> str:
         return f'{a} >> {b}' 
@@ -464,7 +491,7 @@ class _Rshift(_GateNto1):
 #-----------
 
 @dispatch('Pos', Any, None)
-class _Pos(_GateNto1):
+class _Pos(_GateN):
     
     id = 'Pos'
     
@@ -472,14 +499,14 @@ class _Pos(_GateNto1):
         return super().__head__(x, id=id)
         
     def forward(self):
-        self.output._setval(self.inputs[0]._getval(), dt=self.delay)
+        self.output._setval_py(self.inputs[0]._getval_py(), dt=self.delay)
 
     def _verilog_op(self, x: str) -> str:
         return f'+ {x}' 
     
     
 @dispatch('Neg', Any, None)
-class _Neg(_GateNto1):
+class _Neg(_GateN):
     
     id = 'Neg'
     
@@ -487,14 +514,14 @@ class _Neg(_GateNto1):
         return super().__head__(x, id=id)
         
     def forward(self):
-        self.output._setval( - self.inputs[0]._getval(), dt=self.delay)
+        self.output._setval_py( - self.inputs[0]._getval_py(), dt=self.delay)
 
     def _verilog_op(self, x: str) -> str:
         return f'- {x}' 
 
 
 @dispatch('Add', Any, [Any, None])
-class _Add(_GateNto1):
+class _Add(_GateN):
         
     id = 'Add'
     
@@ -502,17 +529,17 @@ class _Add(_GateNto1):
         return super().__head__(*_align(*args), id=id)
     
     def forward(self):
-        v = self.inputs[0]._getval()
+        v = self.inputs[0]._getval_py()
         for i in self.inputs[1:]:
-            v += i._getval() 
-        self.output._setval(v, dt=self.delay)
+            v += i._getval_py() 
+        self.output._setval_py(v, dt=self.delay)
 
     def _verilog_op(self, *args: str) -> str:
         return ' + '.join(args) 
     
     
 @dispatch('AddFull', Any, [Any, None])
-class _AddFull(_GateNto1):
+class _AddFull(_GateN):
         
     id = 'Add'
     
@@ -520,15 +547,15 @@ class _AddFull(_GateNto1):
         return super().__head__(x, y, width=max(len(x), len(y))+1, id=id)
     
     def forward(self):
-        v = self.inputs[0]._getval() + self.inputs[1]._getval()
-        self.output._setval(v, dt=self.delay)
+        v = self.inputs[0]._getval_py() + self.inputs[1]._getval_py()
+        self.output._setval_py(v, dt=self.delay)
 
     def _verilog_op(self, *args: str) -> str:
         return ' + '.join(args) 
 
 
 @dispatch('Sub', Any, [Any, None])
-class _Sub(_GateNto1):
+class _Sub(_GateN):
         
     id = 'Sub'
     
@@ -536,17 +563,17 @@ class _Sub(_GateNto1):
         return super().__head__(*_align(*args), id=id)
     
     def forward(self):
-        v = self.inputs[0]._getval()
+        v = self.inputs[0]._getval_py()
         for i in self.inputs[1:]:
-            v -= i._getval() 
-        self.output._setval(v, dt=self.delay)
+            v -= i._getval_py() 
+        self.output._setval_py(v, dt=self.delay)
 
     def _verilog_op(self, *args: str) -> str:
         return ' - '.join(args)  
     
     
 @dispatch('Mul', Any, [Any, None])
-class _Mul(_GateNto1):
+class _Mul(_GateN):
         
     id = 'Mul'
     
@@ -554,17 +581,17 @@ class _Mul(_GateNto1):
         return super().__head__(*_align(*args), id=id)
     
     def forward(self):
-        v = self.inputs[0]._getval()
+        v = self.inputs[0]._getval_py()
         for i in self.inputs[1:]:
-            v *= i._getval() 
-        self.output._setval(v, dt=self.delay)
+            v *= i._getval_py() 
+        self.output._setval_py(v, dt=self.delay)
 
     def _verilog_op(self, *args: str) -> str:
         return ' * '.join(args) 
     
     
 @dispatch('MulFull', Any, [Any, None])
-class _MulFull(_GateNto1):
+class _MulFull(_GateN):
         
     id = 'Mul'
     
@@ -572,8 +599,8 @@ class _MulFull(_GateNto1):
         return super().__head__(x, y, width = len(x) + len(y), id=id)
     
     def forward(self):
-        v = self.inputs[0]._getval() * self.inputs[1]._getval()
-        self.output._setval(v, dt=self.delay)
+        v = self.inputs[0]._getval_py() * self.inputs[1]._getval_py()
+        self.output._setval_py(v, dt=self.delay)
 
     def _verilog_op(self, *args: str) -> str:
         return ' * '.join(args) 
@@ -581,7 +608,7 @@ class _MulFull(_GateNto1):
     
 # TODO divide by zero, return random value and emit a warning
 @dispatch('Floordiv', Any, Any) 
-class _Floordiv(_GateNto1):
+class _Floordiv(_GateN):
     
     id = 'Floordiv'
     
@@ -589,22 +616,22 @@ class _Floordiv(_GateNto1):
         return super().__head__(a, b, id=id)
     
     def forward(self):
-        a = self.inputs[0]._getval()
-        b = self.inputs[1]._getval()
+        a = self.inputs[0]._getval_py()
+        b = self.inputs[1]._getval_py()
         if b == 0:
             temp = (1 << len(self.inputs[0])) - 1
             v = gmpy2.mpz(random.randint(0, temp))
             # self.sess.log.warning('SimulationWarning: divide by zero', start=5, end=10)
         else:
             v = a // b
-        self.output._setval(v, dt=self.delay) 
+        self.output._setval_py(v, dt=self.delay) 
         
     def _verilog_op(self, a, b) -> str:
         return f'{a} // {b}' 
     
     
 @dispatch('Mod', Any, Any) 
-class _Mod(_GateNto1):
+class _Mod(_GateN):
     
     id = 'Mod'
     
@@ -614,24 +641,34 @@ class _Mod(_GateNto1):
         return super().__head__(a, b, id=id)
     
     def forward(self):
-        a = self.inputs[0]._getval()
-        b = self.inputs[1]._getval()
+        a = self.inputs[0]._getval_py()
+        b = self.inputs[1]._getval_py()
         if b == 0:
             temp = (1 << len(self.inputs[0])) - 1
             v = gmpy2.mpz(random.randint(0, temp))
             # self.sess.log.warning('SimulationWarning: divide by zero', start=1, end=10)
         else:
             v = a % b
-        self.output._setval(v, dt=self.delay) 
+        self.output._setval_py(v, dt=self.delay) 
         
     def _verilog_op(self, a, b) -> str:
         return f'{a} % {b}' 
     
 # TODO Div 
-
+def _align(*args: Reader) -> list:  
+    """ return aligned signals
+    XXX wrong, don't directly use cast 
+    """
+    args = [Signal(i) for i in args]
+    assert all(i._type._storage == 'packed' for i in args), 'signal type has variable length'
+    widths = [len(i) for i in args] 
+    max_w = max(widths)  
+    return [UInt[max_w](s) if w != max_w else s for s, w in zip(args, widths)]
+    
+    
 
 @vectorize
-class Mux(_GateNto1):
+class Mux(_GateN):
         
     id = 'Mux'
     
@@ -642,12 +679,12 @@ class Mux(_GateNto1):
     
     def forward(self): 
         a, b, sel = self.inputs 
-        if sel._getval():
-            v = a._getval()
+        if sel._getval_py():
+            v = a._getval_py()
         else:
-            v = b._getval() 
+            v = b._getval_py() 
 
-        self.output._setval(v, self.delay)
+        self.output._setval_py(v, self.delay)
 
     def _verilog_op(self, *args: str) -> str:
         a, b, sel = args

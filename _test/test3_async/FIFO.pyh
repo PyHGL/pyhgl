@@ -1,5 +1,5 @@
 from pyhgl.logic import *
-from pyhgl.tester import pytest, utils
+from pyhgl.tester import tester, utils
 
 import random
 import time 
@@ -97,7 +97,7 @@ def read_fifo(dut):
             yield from clk
 
 
-@pytest test_fifo:
+@tester test_fifo:
     sess = Session(timing=Timing())
     sess.enter()
 
@@ -114,7 +114,7 @@ def read_fifo(dut):
     sess.run(N * 100) 
 
     for i, o in zip(write_data, read_data):
-        pytest.EQ += i, o
+        tester.EQ += i, o
 
 
     @inline_verilog Verilog(self):

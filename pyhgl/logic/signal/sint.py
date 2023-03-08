@@ -21,7 +21,7 @@
 
 from __future__ import annotations
 from typing import  Optional, Dict, Any, List, Tuple, Generator, Callable, Literal
-from pyhgl.logic.hardware import *
+from pyhgl.logic.hgl_basic import *
 
 
 _sint_cache = {}
