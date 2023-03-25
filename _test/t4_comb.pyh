@@ -70,8 +70,8 @@ with Session(
     sess.run(300) 
 
 
-    sess.emitVCD()
-    sess.emitVerilog('test.sv', delay=True)
+    sess.dumpVCD()
+    sess.dumpVerilog('test.sv', delay=True)
 
     # x = UInt('10').sext(4) 
 
@@ -83,7 +83,7 @@ with Session(
 
     print(UInt(0, w=4)) 
 
-    sess.emitSummary() 
+    sess.summary() 
 
     print(s)  
     print(UInt('111') @ Input ) 
@@ -106,7 +106,7 @@ with Session(
     mat2x3 = Array([[UInt(0), UInt(0), UInt(0)], 
                 [UInt(0), UInt(0), UInt(0)]])
     print(Add(mat2x3, axis=0))
-    sess.emitGraph()
+    sess.dumpGraph()
 
 
 # x = [1,2]

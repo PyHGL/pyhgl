@@ -70,7 +70,7 @@ def compressN(column: list, sums: list, couts: list):
         sess.run(50)
         tester.EQ += getv(dut.io.out), test_x[i]*test_y[i]
     print('pyhgl simulation cost:', time.time()-t)
-    sess.emitVCD('Multiplier.vcd')
+    sess.dumpVCD('Multiplier.vcd')
 
 
     @inline_verilog Verilog(self):
@@ -89,8 +89,8 @@ def compressN(column: list, sums: list, couts: list):
         self.append('end')
 
 
-    sess.emitVerilog('Multiplier.sv', delay=True, top = True).sim()
+    sess.dumpVerilog('Multiplier.sv', delay=True, top = True).sim()
 
-    sess.emitGraph('Multiplier.gv')
-    sess.emitSummary()
+    sess.dumpGraph('Multiplier.gv')
+    sess.summary()
     sess.exit()

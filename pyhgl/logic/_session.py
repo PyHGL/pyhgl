@@ -39,7 +39,6 @@ import pyhgl.logic.module_sv as module_sv
 import pyhgl.logic.simulator_py as simulator_py
 import pyhgl.logic.module_hgl as module_hgl
 import pyhgl.logic.module_cpp as module_cpp
-import pyhgl.logic.hgl_assertion as hgl_assertion
 
 
 class Session(HGL):
@@ -55,13 +54,15 @@ class Session(HGL):
             verbose_conf = False,
             verbose_hardware = False,
             verbose_verilog = False,
-            verbose_sim = False
+            verbose_sim = False,
+            verbose_trace = False,
         ) -> None:
         
         self.verbose_conf       = verbose_conf 
         self.verbose_hardware   = verbose_hardware 
         self.verbose_verilog    = verbose_verilog
-        self.verbose_sim        = verbose_sim 
+        self.verbose_sim        = verbose_sim  
+        self.verbose_trace      = verbose_trace
         self.enable_assert = False 
         self.enable_warning = False
         self.backend = backend 
@@ -107,9 +108,9 @@ class Session(HGL):
             subconfigs: Dict[config.HGLConf, None] = conf_ret[1]
             # default clock and reset
             # clock: (clk, 0|1)  reset: (rst, 0|1)  
-            if not hasattr(self.module, 'clock'):
+            if self.module.clock is None:
                 self.module.clock = (hgl_basic.Clock(), 1)  
-            if not hasattr(self.module, 'reset'):
+            if self.module.reset is None:
                 self.module.reset = (hgl_basic.Wire(hgl_basic.UInt(0, name='reset')), 1)  
 
             self.module._subconfigs.update(subconfigs)        
@@ -125,9 +126,6 @@ class Session(HGL):
         else:
             self.module._submodules[m] = None           # module tree
             return self.module._position + [m]          # position
-        
-    def _new_gate(self, gate: hgl_basic.Gate) -> None:
-        self._add_gate(gate) 
         
     def _add_gate(self, gate: hgl_basic.Gate, module: module_hgl.Module = None):
         """ verilog, mapping from (part of) gates to module
@@ -173,38 +171,38 @@ class Session(HGL):
     def __exit__(self, exc_type, exc_value, traceback):
         self.exit()
     
-    def emitVCD(self, filename='test.vcd'):
+    def dumpVCD(self, filename='test.vcd'):
         with self:
             if filename[-4:] != '.vcd':
                 raise ValueError('invalid filename: use xxx.vcd')  
             
             filename = self._get_filepath(filename)
-            self.waveform._emit(filename)
+            self.waveform._dump(filename)
             print(tester_utils._yellow('Waveform: ') + filename)
             return filename
     
     
-    def emitVerilog(self, filename='test.sv', **kwargs):
+    def dumpVerilog(self, filename='test.sv', **kwargs):
         with self:
             if not (filename[-3:] == '.sv' or filename[-2:] == '.v'):
                 raise ValueError('invalid filename')
             filename = self._get_filepath(filename)
-            self.verilog.emit(filename, **kwargs) 
+            self.verilog.dump(filename, **kwargs) 
             print(tester_utils._yellow('Verilog: ') + filename)
             return _IcarusVerilog(filename)
     
     
-    def emitGraph(self, filename='test.gv'): 
+    def dumpGraph(self, filename='test.gv'): 
         with self:
             if not (filename[-3:] == '.gv' or filename[-4:] == '.dot'):
                 raise ValueError('invalid filename')
             filename = self._get_filepath(filename)
-            ret = self.verilog.emitGraph(filename) 
+            ret = self.verilog.dumpGraph(filename) 
             print(tester_utils._yellow('Graphviz: ') + filename)
             return ret 
             
             
-    def emitSummary(self):
+    def summary(self):
         print(self)
 
     def _get_filepath(self, relative_path: str) -> str:
@@ -240,12 +238,12 @@ class Session(HGL):
         if isinstance(dt, str):
             dt = self.timing._get_timestep(dt)
         if self.backend == 'python':
-                if self.sim_py.t == 0:
-                    self.sim_py.init()
-                self.sim_py.step(dt)
+            if self.sim_py.t == 0:
+                self.sim_py.init()
+            self.sim_py.step(dt)
         else:
             if self.sim_cpp.dll is None:
-                self.sim_cpp.emit() 
+                self.sim_cpp.dump() 
                 self.sim_cpp.build()
             self.sim_py.step_cpp(dt)
         self.exit() 
@@ -254,7 +252,11 @@ class Session(HGL):
         with self:
             for g in args:
                 assert inspect.isgenerator(g)
-                self.sim_py.insert_coroutine_event(0, g)
+                self.sim_py.insert_coroutine_event(0, g) 
+
+    def test_iverilog(self):
+        with self:
+            self.verilog.sim_iverilog()
 
 
 
@@ -304,4 +306,6 @@ class _IcarusVerilog:
         print(f'{tester_utils._yellow("iverilog_compile:")} {filename} -> {target}.vvp, cost {time.time()-t} s')
         t = time.time()
         os.system(f'vvp {target}.vvp')
-        print(f'{tester_utils._yellow("iverilog_sim:")} {time.time()-t} s')
+        print(f'{tester_utils._yellow("iverilog_sim:")} {time.time()-t} s') 
+
+        # subprocess.run(['vvp', f'{target}.vvp'], cwd=build_dir)

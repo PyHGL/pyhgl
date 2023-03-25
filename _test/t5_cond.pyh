@@ -82,11 +82,11 @@ with Session(
     sess.track(test.clock[0], test.out)
     sess.run(500) 
 
-    print(sess.emitVerilog())
-    sess.emitGraph().view()
+    print(sess.dumpVerilog())
+    sess.dumpGraph().view()
 
-    sess.emitVCD()
-    sess.emitSummary()
+    sess.dumpVCD()
+    sess.summary()
 
     UInt[2]('111')
 

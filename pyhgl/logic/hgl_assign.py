@@ -27,7 +27,8 @@ import gmpy2
 from pyhgl.array import *
 import pyhgl.logic._session as _session
 import pyhgl.logic.module_hgl as module_hgl
-import pyhgl.logic.hgl_basic as hgl
+import pyhgl.logic.hgl_basic as hgl_basic 
+import pyhgl.logic.module_sv as sv
 
 
 
@@ -38,7 +39,7 @@ class _Ports(HGLFunction):
     
     def __call__(self, x) -> Any: 
         x = Signal(x) 
-        def f(s: hgl.Reader):
+        def f(s: hgl_basic.Reader):
             s._direction = self.direction
         Map(f, x)  
         return x
@@ -63,9 +64,9 @@ class Copy(HGLFunction):
     """
     _sess: _session.Session
     
-    def __call__(self, x: Union[hgl.Reader, Array]) -> Any:   
+    def __call__(self, x: Union[hgl_basic.Reader, Array]) -> Any:   
         x = Signal(x)
-        def f(s: hgl.Reader):
+        def f(s: hgl_basic.Reader):
             ret = s._type()
             ret._direction = s._direction 
             return ret
@@ -80,9 +81,9 @@ class Flip(HGLFunction):
     
     _sess: _session.Session
     
-    def __call__(self, x: Union[hgl.Reader, Array]) -> Any:  
+    def __call__(self, x: Union[hgl_basic.Reader, Array]) -> Any:  
         x = Signal(x)
-        def f(s: hgl.Reader):
+        def f(s: hgl_basic.Reader):
             ret = s._type()
             if s._direction == 'input':
                 ret._direction = 'output'
@@ -100,7 +101,6 @@ class Flip(HGLFunction):
 class IO(HGLFunction):
     """
     record io to current module
-    insert a DummyGate to each input signal
     """
     _sess: _session.Session
     
@@ -110,19 +110,16 @@ class IO(HGLFunction):
         assert len(module._position) > 1, 'IO should be called inside a module'
 
         def make_io(x):
-            assert isinstance(x, hgl.Reader)
+            assert isinstance(x, hgl_basic.Reader)
             if x._direction == 'input':
                 assert x._data.writer is None  
-                hgl.DummyGate(outputs = [x]) 
+                x._data._module = module._position[-2] 
                 module._temp_inputs.append(x)
             elif x._direction == 'inner':
                 x._direction = 'output' 
         Map(make_io, x) 
         module_hgl._rename_array(x, 'io')
         return x
-
-
-
 
 
 @dispatch('Matmul', Any, [HGLFunction, type(lambda _:_), type])
@@ -138,7 +135,7 @@ def _call(x, f):
 
 
 @register_builtins 
-def  __hgl_partial_assign__(left: Union[hgl.Reader, Array], right, keys=SignalKey()) -> None:  
+def  __hgl_partial_assign__(left: Union[hgl_basic.Reader, Array], right, keys=SignalKey()) -> None:  
     """ PyHGL operator, ex. left[key] <== right
     """
     # turn iterable into array
@@ -158,26 +155,28 @@ def  __hgl_partial_assign__(left: Union[hgl.Reader, Array], right, keys=SignalKe
 
 @register_builtins('__hgl_connect__')
 @vectorize
-def __hgl_connect__(left: hgl.Reader, right: hgl.Reader) -> None:
+def __hgl_connect__(left: hgl_basic.Reader, right: hgl_basic.Reader) -> None:
     """ PyHGL operator <=>
     """
-    assert isinstance(left, hgl.Reader) and isinstance(right, hgl.Reader)
+    assert isinstance(left, hgl_basic.Reader) and isinstance(right, hgl_basic.Reader)
         
-    if left._data.writer is None and right._data.writer is not None:
+    if not _has_driver(left) and _has_driver(right):
         assert type(left._data) is type(right._data) 
         left._exchange(right._data)
-    elif left._data.writer is not None and right._data.writer is None:
+    elif _has_driver(left) and not _has_driver(right):
         assert type(left._data) is type(right._data)   
         right._exchange(left._data)
-    elif left._data.writer is None and right._data.writer is None:
+    elif not _has_driver(left) and not _has_driver(right):
         assert type(left._data) is type(right._data) 
         left._exchange(right._data)
-    else:
-        left_gate: hgl.Assignable = left._data.writer._driver
-        right_gate: hgl.Assignable = right._data.writer._driver 
-        left_gate.__merge__(right_gate)
+    else: 
+        assert left._data.writer is not None and right._data.writer is not None
+        left_gate: hgl_basic.Assignable = left._data.writer._driver
+        right_gate: hgl_basic.Assignable = right._data.writer._driver 
+        left_gate.__merge__(right_gate)   # analog
     
-
+def _has_driver(signal: hgl_basic.Reader) -> bool:
+    return not (signal._data.writer is None and signal._data._module is None)
 
 """
 store nested conditions in python local frame: locals()['__hgl_condition__'] 
@@ -186,49 +185,8 @@ Functional dependency: Bool, UInt, SignalType._eval
 """
 
 
-class WhenElseFrame(HGL):
-    """
-    'when' stmt
-    
-    when a: ... 
-    elsewhen b: ... 
-    elsewhen c: ... 
-    otherwise: ...
-    """
-    def __init__(self):
-        """ list of condition 
-        
-        - condition: None | (signal, 0|1)
-            
-        ex. [(a, 0), (b,1), (c,1), (d,2), None]
-        """
-        # list of (signal, value), ex. [(a, 1), (b,1), (c,1), None]
-        self.branches: List[Optional[Tuple[hgl.Reader, gmpy2.mpz]]] = []    
 
-    def when(self, signal:hgl.Reader):
-        # accept one bit signal
-        assert len(self.branches) == 0  
-        self.branches.append((signal, gmpy2.mpz(1)))
-
-    def elsewhen(self, signal: hgl.Reader):
-        assert len(self.branches) > 0  
-        self.branches.append((signal, gmpy2.mpz(1)))
-
-    def otherwise(self):
-        assert len(self.branches) > 0
-        self.branches.append(None)  
-        
-    def __str__(self):
-        ret = []
-        for i in self.branches:
-            if i is None:
-                ret.append('None')
-            else:
-                ret.append(f"{i[0]._name} == {'|'.join(str(x) for x in i[1:])}")
-        return ', '.join(ret)
-
-
-class CaseFrame(hgl.Gate):
+class CaseFrame(hgl_basic.Gate):
     """
     switch (x, 'unique'):
         once 1: ... 
@@ -247,10 +205,9 @@ class CaseFrame(hgl.Gate):
     - case items: single signal|immd|BitPat
     - do bitwise comparation, which may differ from `==`
     """
-    def __head__(self, sel: Union[hgl.Reader, Tuple], active_signal: hgl.Reader = None):
+    def __head__(self, sel: Union[hgl_basic.Reader, Tuple], active_signal: hgl_basic.Reader = None):
         """ sel: signal | (signal, flag)
         """
-        self.type: hgl.SignalType = None # TODO 
         # unique case flag
         if isinstance(sel, (tuple, list)):
             assert len(sel) == 2
@@ -262,49 +219,47 @@ class CaseFrame(hgl.Gate):
             self.flag_unique: bool = False
         # whether has the default branch
         self.complete: bool = False
-        # init signals
-        self.sel_signal: hgl.Reader = self._to_single_signal(sel_signal)
-        self.active_signal = active_signal
-        self.read(self.sel_signal) 
-        if active_signal is not None:
-            self.read(active_signal)
-        # case items, ex. [(1, a), (2, a), (signal, b), (None, c)]
-        self.items: List[Tuple[Union[int, hgl.Reader, hgl.BitPat, None], hgl.Reader]] = []
-
+        # selector
+        self.sel_signal = self.read(self._to_signal(sel_signal)) 
+        # previous active signal
+        self.active_signal = self.read(active_signal)
+        # case items, ex. [((1x1,x00), branch_1), (signal, branch_2), (None, branch_3)]
+        self.items: List[Tuple[ 
+            Union[hgl_basic.Logic, hgl_basic.Reader, hgl_basic.BitPat, Tuple, None],
+            hgl_basic.Reader,
+        ]] = []
         return self 
 
-    def _to_single_signal(self, v: Union[hgl.Reader, int, str]) -> hgl.Reader:
-        if isinstance(v, hgl.Reader):
-            return v 
+    def _to_signal(self, v: Union[hgl_basic.Reader, int, str]) -> hgl_basic.Reader:
         v = Signal(v)
-        assert isinstance(v, hgl.Reader), 'requires sigle signal'
+        assert isinstance(v, hgl_basic.Reader)
         assert v._type._storage in ['packed', 'packed variable'], 'unsupported signal type'
         return v
 
 
-    def when(self, signal: Union[hgl.Reader, int, str]) -> hgl.Reader:
+    def when(self, signal: Union[hgl_basic.Reader, int, str]) -> hgl_basic.Reader:
         """ return a 1-bit active signal 
         """ 
         assert len(self.items) == 0
-        signal = self._to_single_signal(signal)
-        ret = hgl.UInt[1](0)
+        signal = Bool(self._to_signal(signal))
+        ret = hgl_basic.UInt[1](0)
         self.items.append((self.read(signal), self.write(ret)))
         return ret 
     
-    def elsewhen(self, signal: Union[hgl.Reader, int, str]) -> hgl.Reader:
+    def elsewhen(self, signal: Union[hgl_basic.Reader, int, str]) -> hgl_basic.Reader:
         assert len(self.items) > 0, 'no `when` statement before `elsewhen`'
-        signal = self._to_single_signal(signal)
-        ret = hgl.UInt[1](0)
+        signal = Bool(self._to_signal(signal))
+        ret = hgl_basic.UInt[1](0)
         self.items.append((self.read(signal), self.write(ret)))
         return ret 
         
-    def otherwise(self) -> hgl.Reader:
+    def otherwise(self) -> hgl_basic.Reader:
         assert len(self.items) > 0, 'no `when` statement before `otherwise`'
-        ret = hgl.UInt[1](0)
+        ret = hgl_basic.UInt[1](0)
         self.items.append((None, self.write(ret)))
         return ret 
 
-    def case(self, items:  Tuple[Union[int, hgl.Reader, hgl.BitPat]]) -> hgl.Reader:
+    def case(self, items:  Tuple[Union[int, hgl_basic.Reader, hgl_basic.BitPat]]) -> hgl_basic.Reader:
         """ 
         accept multiple case items,
         BitPat and special immd is allowed
@@ -315,28 +270,105 @@ class CaseFrame(hgl.Gate):
             assert len(items) == 1, 'invalid syntax'
             assert self.items, "no case items before default"
             self.complete = True
-            ret = hgl.UInt[1](0)
+            ret = hgl_basic.UInt[1](0)
             self.items.append((None, self.write(ret)))
             return ret
         else: 
             # single signal, immd, or BitPat
             items_valid = []
             for i in items:
-                if isinstance(i, hgl.Reader):  
+                if isinstance(i, hgl_basic.Reader):  
                     # does not support variable width 
                     assert i._type._storage == 'packed', 'case item must be fixed width'
                     items_valid.append(self.read(i)) 
                 else:
-                    items_valid.append(self.sel_signal._eval(i))
+                    items_valid.append(self.sel_signal._type._eval(i))
 
-            ret = hgl.UInt[1](0)
-            _write = self.write(ret)
-            for i in items_valid: 
-                self.items.append((i, _write))
+            ret = hgl_basic.UInt[1](0) 
+            self.items.append((tuple(items_valid), self.write(ret)))
             return ret
 
-    def forward(self) -> None:
-        pass # TODO 
+    def forward(self) -> None:  
+        if self.active_signal is None:
+            active = hgl_basic.Logic(1,0)
+        else:
+            active = self.active_signal._data._getval_py()
+
+        if active == hgl_basic.Logic(0,0):
+            return 
+        sel: hgl_basic.Logic = self.sel_signal._data._getval_py()
+        is_match: List[hgl_basic.Logic] = [] 
+        flag_matched = hgl_basic.Logic(0,0)
+        for item, _ in self.items:
+            if isinstance(item, tuple):
+                item = [i._data._getval_py() if isinstance(i, hgl_basic.Reader) else i for i in item] 
+                temp = [i._eq(sel) for i in item]
+                matched = hgl_basic.Logic(0,0)
+                for i in temp:
+                    matched = matched | i  
+            elif item is None:
+                matched = ~ flag_matched
+            else: 
+                item = item._data._getval_py() if isinstance(item, hgl_basic.Reader) else item 
+                matched = item._eq(sel) 
+            if flag_matched == hgl_basic.Logic(0,0):
+                flag_matched = matched  
+                matched = matched 
+            elif flag_matched == hgl_basic.Logic(1,0):
+                matched = hgl_basic.Logic(0,0) 
+                flag_matched = flag_matched 
+            else:
+                matched = matched 
+                if matched == hgl_basic.Logic(1,0):
+                    flag_matched = matched
+            is_match.append(matched & active)
+        
+        for matched, (_, active_next) in zip(is_match, self.items):
+            active_next._data._setval_py(matched, dt=self.delay, trace=self)
+    
+
+    def dump_sv(self, builder: sv.ModuleSV): 
+        """
+        always_comb begin   
+            if(active) begin 
+                case(sel)  
+                    xxx,xxx: xxx=1; 
+                    default: xxx=1;
+                endcase
+            end 
+            else begin 
+                xxx = 0; 
+                xxx = 0;
+            end 
+        end
+        """ 
+        active = '1' if self.active_signal is None else builder.get_name(self.active_signal)
+        sel = builder.get_name(self.sel_signal)
+        items_str = []
+        for item, target in self.items:
+            if item is None:
+                items_str.append(('default', builder.get_name(target)))
+            elif isinstance(item, tuple):
+                items_str.append((','.join(builder.get_name(i) for i in item), builder.get_name(target)))
+            else:
+                items_str.append(( builder.get_name(item), builder.get_name(target)))
+        case_body = '\n'.join(f'{item}:{target}=1;' for item, target in items_str) 
+        else_branch = '\n'.join(f'{target}=0;' for _, target in items_str) 
+
+        case_body = '      '.join(case_body.splitlines(keepends=True))
+        else_branch = '    '.join(else_branch.splitlines(keepends=True))
+        builder.Block(self, 
+f"""
+always_comb begin   
+  if({active}) begin 
+    case({sel})  
+      {case_body}
+    endcase
+  end 
+  else begin 
+    {else_branch}
+  end 
+end""" )
 
 
 class SwitchOnceFrame(HGL):
@@ -350,18 +382,18 @@ class SwitchOnceFrame(HGL):
         once ...: ...
     note: only support immd for case items
     """
-    def __init__(self, sel: hgl.Reader):
+    def __init__(self, sel: hgl_basic.Reader):
         """  
         - condition: None | (signal, immd, ...)
             - immd: gmpy2.mpz | state-string | BitPat
             
         ex. [(a, 0), (b,1,2,3), (c,BitPat('1?')), (d,'idle'), None]
         """
-        self.branches: List[Optional[Tuple[hgl.Reader, int]]] = []    
+        self.branches: List[Optional[Tuple[hgl_basic.Reader, int]]] = []    
         self.complete: bool = False  # has default branch
         self.unique: bool = False   # unique case
 
-    def case(self, items: Tuple[Union[int, hgl.Reader, hgl.BitPat, dict, list]]):
+    def case(self, items: Tuple[Union[int, hgl_basic.Reader, hgl_basic.BitPat, dict, list]]):
         if self.complete:
             raise Exception("case item after default")
         elif items[0] is ...:
@@ -394,9 +426,9 @@ class CondStack:
         # exit 'elsewhen' and 'otherwise' stmt
         self.prev_stack: CaseFrame = None     
         
-        self.active_signals: List[Optional[hgl.Reader]] = [None]
+        self.active_signals: List[Optional[hgl_basic.Reader]] = [None]
 
-    def new(self, sel: Union[hgl.Reader, Tuple]):
+    def new(self, sel: Union[hgl_basic.Reader, Tuple]):
         """ new 'when' stmt or 'switch' stmt 
         """
         self.stacks.append(CaseFrame(sel, self.active_signals[-1]))

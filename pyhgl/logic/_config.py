@@ -213,27 +213,21 @@ class ModuleConf:
 
 
 class TimingConf(HGL):
-    """
-    @timing TimingConfig:
-        timescale = '10ns' # timeunit: 'ns' timeprecision '10ns'
-
-        Logic = dict( delay = 1 ) 
-        Gate = dict( delay = 2 ) 
-        
-    {
-        'timescale': '1ns',
-        'Wire': {
-            'delay': 1,
-            'power': 0
-        },
-        'Gate': {
-            'delay': 1,
-            'power':0
-        },
-        'Clock': {
-            'period': 100
+    """        
+        {
+            'timescale': '1ns',
+            'Wire': {
+                'delay': 1,
+                'power': 0
+            },
+            'Gate': {
+                'delay': 1,
+                'power':0
+            },
+            'Clock': {
+                'period': 100
+            }
         }
-    }
     """
     def __init__(self):
         self.timescale: float = None    # 1e-9s

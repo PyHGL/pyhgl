@@ -66,10 +66,10 @@ with Session() as sess:
         out = getv(dut.out)
         print(f'{x} + {y} = {out}\t{(x+y)&mask==out}') 
 
-    sess.emitVCD('Adder.vcd')
-    sess.emitVerilog('Adder.sv')
-    sess.emitGraph('Adder.gv')
-    sess.emitSummary()
+    sess.dumpVCD('Adder.vcd')
+    sess.dumpVerilog('Adder.sv')
+    sess.dumpGraph('Adder.gv')
+    sess.summary()
 ``` 
 
 ## Vending Machine 

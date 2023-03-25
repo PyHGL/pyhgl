@@ -49,8 +49,8 @@ from pyhgl.tester import tester, utils
 
             sess.run(200) 
 
-        sess.emitVCD('target/mem.vcd') 
-        sess.emitGraph('target/mem.gv') 
+        sess.dumpVCD('target/mem.vcd') 
+        sess.dumpGraph('target/mem.gv') 
 
-        sess.emitVerilog('target/mem.sv')
+        sess.dumpVerilog('target/mem.sv')
         print(sess)

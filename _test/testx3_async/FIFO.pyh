@@ -135,9 +135,9 @@ def read_fifo(dut):
         self.append('$finish;')
         self.append('end')
 
-    sess.emitVerilog('FIFO.sv', delay=True, top = True).sim()
+    sess.dumpVerilog('FIFO.sv', delay=True, top = True).sim()
 
-    sess.emitVCD('FIFO.vcd') 
-    sess.emitGraph('FIFO.gv')
-    sess.emitSummary()
+    sess.dumpVCD('FIFO.vcd') 
+    sess.dumpGraph('FIFO.gv')
+    sess.summary()
     sess.exit()

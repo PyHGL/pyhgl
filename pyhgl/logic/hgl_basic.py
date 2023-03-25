@@ -35,7 +35,7 @@ import pyhgl.logic.utils as utils
 
 
 #------------------
-# special immediate
+# Literal
 #------------------
     
 
@@ -55,7 +55,7 @@ class BitPat(HGL):
         """ BitPat has fixed width """
         return self.width
 
-    def __eq__(self, other: LogicData) -> LogicData:
+    def _eq(self, other: Logic) -> Logic:
         """ return 1 bit logic
         """
         mask = ~self.x 
@@ -64,27 +64,310 @@ class BitPat(HGL):
         x2 = other.x & mask 
         if x2:
             if v1 & (~x2) == v2 & (~x2):  # bits without x
-                return LogicData(0,1)
+                return Logic(0,1)
             else:
-                return LogicData(0,0)
+                return Logic(0,0)
         else:
-            return LogicData(v1 == v2,0)
+            return Logic(v1 == v2,0)
 
     def __str__(self):
         ret = re.sub('x', '?', utils.logic2str(self.v, self.x ,width=self.width))
         return f'BitPat({ret})'  
 
 
+@vectorize_first 
+def _ToLogic(a):
+    if isinstance(a, Logic):
+        return a 
+    elif isinstance(a, str):
+        v, x, *_ = utils.str2logic(a)
+        return Logic(v,x)
+    else:   # int
+        return Logic(a, 0)
+
+
+class Logic(HGL):
+    """
+    3-valued logic literal: 0, 1, X 
+
+    00 -> 0 
+    10 -> 1 
+    01 -> X 
+    11 -> X 
+    """
+    
+    __slots__ = 'v', 'x'
+
+    def __head__(self, v: int, x: int) -> None:
+        # value
+        self.v: int = gmpy2.mpz(v)  
+        # unknown
+        self.x: int = gmpy2.mpz(x)
+
+    def __new__(cls, v: Union[int, list, Array], x: Optional[int] = None):
+        if x is None:
+            return _ToLogic(v)
+        else: 
+            self = object.__new__(cls)
+            self.__head__(v, x)
+            return self
+    
+    def __bool__(self):
+        raise Exception('Logic does not support python bool method')  
+    
+    def __hash__(self):
+        return hash((self.v, self.x))
+    
+    def __str__(self):
+        return utils.logic2str(self.v, self.x)
+
+    def __getitem__(self, key) -> Logic:
+        """ bit select, v[0], v[1], ...
+        """
+        return Logic(
+            self.v.__getitem__(key), 
+            self.x.__getitem__(key)
+        ) 
+
+    def __eq__(self, x: Union[str, int, Logic]) -> bool:
+        """ full equal, 01x === 01x, return bool, just for testbench
+        """
+        other = Logic(x)
+        v1, v2 = self.v, other.v 
+        x1, x2 = self.x, other.x
+        if x1 == x2:
+            return (v1 & ~x1) == (v2 & ~x2)
+        else:
+            return False
+
+    #--------------------------------
+    # arithmetic operation
+    #--------------------------------
+    def __invert__(self) -> Logic:
+        return Logic(~self.v, self.x) 
+    
+    def __and__(self, other: Logic) -> Logic:
+        v1, v2 = self.v, other.v 
+        x1, x2 = self.x, other.x
+        return Logic(
+            v1 & v2,
+            x1 & x2 | v1 & x2 | x1 & v2
+        ) 
+
+    def __or__(self, other: Logic) -> Logic:
+        v1, v2 = self.v, other.v 
+        x1, x2 = self.x, other.x
+        return Logic(
+            v1 | v2,
+            x1 & x2 | ~v1 & x2 | x1 & ~v2
+        )
+
+    def __xor__(self, other: Logic) -> Logic:
+        return Logic(
+            self.v ^ other.v, 
+            self.x | other.x
+        )
+
+    def __lshift__(self, l: Logic) -> Logic: 
+        # TODO minimize x
+        if l.x:
+            return Logic(0, -1)
+        else:
+            return Logic(
+                self.v << l.v,
+                self.x << l.v,
+            )
+    
+    def __rshift__(self, l: Logic) -> Logic: 
+        # TODO minimize x
+        if l.x:
+            return Logic(0, -1)
+        else:
+            return Logic(
+                self.v >> l.v,
+                self.x >> l.v,
+            )
+
+    def _eq(self, other: Logic) -> Logic:
+        """ logic equal
+        """
+        v1, v2 = self.v, other.v 
+        x1, x2 = self.x, other.x
+        if x1 or x2:
+            x = ~(x1 | x2)
+            if v1 & x == v2 & x:  # has x, rest eq
+                return Logic(0,1)
+            else:                 # rest not eq
+                return Logic(0,0) 
+        else:
+            return Logic(v1 == v2, 0) 
+        
+    def _ne(self, other: Logic) -> Logic:
+        """ logic equal
+        """
+        v1, v2 = self.v, other.v 
+        x1, x2 = self.x, other.x
+        if x1 or x2:
+            x = ~(x1 | x2)
+            if v1 & x == v2 & x:
+                return Logic(0,1)
+            else:
+                return Logic(1,0) 
+        else:
+            return Logic(v1 != v2, 0) 
+        
+    def _lt(self, other: Logic) -> Logic:
+        v1, v2 = self.v, other.v 
+        x1, x2 = self.x, other.x
+        if x1 or x2:
+            return Logic(0, 1)
+        else:
+            return Logic(v1 < v2, 0) 
+        
+    def _gt(self, other: Logic) -> Logic:
+        v1, v2 = self.v, other.v 
+        x1, x2 = self.x, other.x
+        if x1 or x2:
+            return Logic(0, 1)
+        else:
+            return Logic(v1 > v2, 0) 
+        
+    def _le(self, other: Logic) -> Logic:
+        v1, v2 = self.v, other.v 
+        x1, x2 = self.x, other.x
+        if x1 or x2:
+            return Logic(0, 1)
+        else:
+            return Logic(v1 <= v2, 0) 
+        
+    def _ge(self, other: Logic) -> Logic:
+        v1, v2 = self.v, other.v 
+        x1, x2 = self.x, other.x
+        if x1 or x2:
+            return Logic(0, 1)
+        else:
+            return Logic(v1 >= v2, 0) 
+
+    def _andr(self) -> Logic:
+        """ and reduce
+        """
+        v = self.v 
+        x = self.x 
+        if (~v) & (~x):
+            return Logic(0, 0)
+        elif x:
+            return Logic(0, 1)
+        else:
+            return Logic(1,0)
+    
+    def _orr(self) -> Logic:
+        v = self.v 
+        x = self.x 
+        if v & (~x):
+            return Logic(1, 0)
+        elif x:
+            return Logic(0, 1)
+        else:
+            return Logic(0, 0)
+
+    def _xorr(self) -> Logic:
+        v = self.v 
+        x = self.x 
+        if x:
+            return Logic(0, 1)
+        else:
+            return Logic(utils.parity(v), 0)
+
+    # calculate 
+    def __pos__(self):     
+        return self  
+    
+    def __neg__(self):              
+        if self.x:
+            return Logic(0, -1)
+        else:
+            return Logic(-self.v,0)
+        
+    def __add__(self, other: Logic):   
+        v1, v2 = self.v, other.v 
+        x1, x2 = self.x, other.x
+        if x1 or x2:
+            return Logic(0, -1)
+        else:
+            return Logic(v1 + v2, 0)
+        
+    def __sub__(self, other: Logic):   
+        v1, v2 = self.v, other.v 
+        x1, x2 = self.x, other.x
+        if x1 or x2:
+            return Logic(0, -1)
+        else:
+            return Logic(v1 - v2, 0)
+        
+    def __mul__(self, other: Logic):   
+        v1, v2 = self.v, other.v 
+        x1, x2 = self.x, other.x
+        if x1 or x2:
+            return Logic(0, -1)
+        else:
+            return Logic(v1 * v2, 0)
+        
+    def __mod__(self, other: Logic):   
+        v1, v2 = self.v, other.v 
+        x1, x2 = self.x, other.x
+        if x1 or x2 or v2 == 0:
+            return Logic(0, -1)
+        else:
+            return Logic(v1 % v2, 0)
+        
+    def __floordiv__(self, other: Logic):   
+        v1, v2 = self.v, other.v 
+        x1, x2 = self.x, other.x
+        if x1 or x2 or v2 == 0:
+            return Logic(0, -1)
+        else:
+            return Logic(v1 // v2, 0)
+
+    def __truediv__(self, other):   
+        raise NotImplementedError()
+    
+    def _merge(self, unknown: bool, mask: int, other: Logic) -> Logic:
+        """
+        mask: positions of bits to merge  
+        other: another value, should not overflow
+        unknown: override or merge 
+
+        ex. self = 1001x, other = 0x000, mask = 11000 -> xx01x
+        """
+        v1 = self.v 
+        v2 = other.v 
+        x1 = self.x 
+        x2 = other.x 
+        mask_n = ~mask
+        if unknown:
+            return Logic(
+                v1 & mask_n | v2,
+                x1 & mask_n | x2 | ( (v1 & mask) ^ v2)
+            ) 
+        else: 
+            return Logic(
+                v1 & mask_n | v2,
+                x1 & mask_n | x2,
+            )
+
+
 
 #--------------------------------------
-# data container, updated in simulation
+# signal data, update in simulation
 #--------------------------------------
 
 class SignalData(HGL):
-    """ data container 
+    """ 
+    graph node
     
     Attribute:
-        - _t: time of the latest update
+        - v: value 
+        - x: unknown
         - writer: None | Writer 
             - Writer: out-edge of Gate
         - reader: Dict[Reader]
@@ -94,7 +377,7 @@ class SignalData(HGL):
 
     _sess: _session.Session
 
-    __slots__ = 'writer', 'reader', '_name', '_module', '_t', 'v', 'x', '_v', '_x'
+    __slots__ = 'writer', 'reader', '_name', '_module', 'v', 'x', '_v', '_x'
     
     def __init__(self, v: Union[int, gmpy2.mpz], x: Union[int, gmpy2.mpz]):  
         # value
@@ -108,102 +391,90 @@ class SignalData(HGL):
         self.writer: Optional[Writer] = None 
         # any number of reader
         self.reader: Dict[Reader, None] = {}
-        # time stamp of the latest update
-        self._t: int = 0   
         # prefered name 
         self._name: str = 'temp'
-        # position, None means constant 
+        # position, None means constant value 
+        # if len(self._sess.module._position) == 1: # top level 
+        #     self._module: module_hgl.Module = self._sess.module 
+        # else:
         self._module: module_hgl.Module = None
 
 
-    def _update_py(self, mask: gmpy2.mpz, new: LogicData) -> bool:
-        """ only called by python simulator, return whether value changes
+    def _update_py(self, new: Logic) -> bool:
+        """ only called by python simulator, return whether value changes or not
         """
-        mask_n = ~mask
-        v1 = self.v 
-        x1 = self.x 
-        v2 = new.v 
-        x2 = new.x 
-        if (v1 & mask) == v2 and (x1 & mask) == x2:  # same masked value
+        if self.v == new.v and self.x == new.x:  
             return False
         else:
-            self.v = v1 & mask_n | v2
-            self.x = x1 & mask_n | x2
+            self.v = new.v 
+            self.x = new.x 
             return True
-
-    def _dump_cpp(self) -> None:
-        """ dump cpp
-        """
-        raise NotImplementedError() 
         
     def _dump_sv(self, builder: sv.ModuleSV):
         """ dump declaration to builder. if necessary, also dump constant assignment
+
+        ex. logic [7:0] a; assign a = '1;
         """
-        raise NotImplementedError()
+        raise NotImplementedError() 
+    
+    def _dump_sv_slice(self, low_key: Tuple, builder: sv.ModuleSV) -> str: 
+        """ ex. x[idx +: 2]
+        """
+        raise NotImplementedError()  
 
-    def _dump_sv_immd(self) -> str:
-        raise NotImplementedError()
 
-    def _getval_py(self, low_key: Optional[Tuple]) -> LogicData:
-        """ return current value, called by Gate or user tasks
+    def _getval_py(self, low_key: Optional[Tuple] = None) -> Logic:
+        """ return current value, called by Gate or testbench 
+
+        low_key: for bit select
         """
         raise NotImplementedError()  
 
     def _setval_py(
         self, 
-        values: Union[LogicData, List[LogicData]],
-        low_keys: Optional[List[Optional[Tuple]]] = None,
+        value: Union[Logic, List], 
+        multiple: bool = False,
         dt: int = 1, 
+        trace: Union[None, Gate, str] = None,
     ):
-        """ 
-            get mask and value from multiple assignments, 
-            insert a signal updata event to py/cpp simulator 
-            called by Gate or user tasks 
+        """  
+        low_keys: 
+            - None: updata the whole data  
+            - List: multiple assignments, calculate corresponding mask and value 
+        
+        insert a signal update event to py/cpp simulator, called by Gate or testbench
         """
         raise NotImplementedError()   
 
-    def _getval_cpp(
-        self, 
-        low_key: Optional[Tuple], 
-        part: Literal['v', 'x'],
-        builder: cpp.Node = None,
-    ) -> List[LogicData]:
-        """ dump cpp. return data list of value/unknown
+    def _getval_cpp(self, part: Literal['v', 'x']) -> List[cpp.TData]:
+        """ dump to cpp. return list of TData of value/unknown
         """
-        raise NotImplementedError()    
+        raise NotImplementedError() 
 
     def _setval_cpp(
         self, 
-        low_keys: Optional[List[Optional[Tuple]]], 
-        values: Union[List[cpp.TData],List[List[cpp.TData]]],
+        values: List[List[cpp.TData]],
+        low_keys: List[Optional[Tuple]], 
         dt: int,
         part: Literal['v', 'x'],
         builder: cpp.Node,
     ) -> None:
-        """ dump cpp. accept multiple assignments
+        """ accept multiple assignments, mainly for wire
         """
-
+        raise NotImplementedError() 
 
 
 
 class LogicData(SignalData):
     """ 
-    3-state signal value: 0, 1, X 
+    packed 3-valued logic 
 
-    00 -> 0 
-    10 -> 1 
-    01 -> X 
-    11 -> X 
-
-    - variable width (depends on the writer)
-    - packed
+    - support variable width  
     - default is 0 
-    - used for both SignalData and literal
-        - for SignalData, should always be unsigned
 
     type casting: only valid for same fixed bit length
 
-    XXX: xmpz does not support LogicNot, do not slice negative xmpz, slice key must be python int
+    XXX notice: xmpz does not support LogicNot;do not slice negative xmpz;key must be python int
     """
     
     __slots__ = ()
@@ -221,100 +492,6 @@ class LogicData(SignalData):
     def __hash__(self):             
         return id(self) 
 
-    #--------------------------------
-    # arithmetic operation in python
-    #--------------------------------
-    def __getitem__(self, key) -> LogicData:
-        return LogicData(
-            self.v.__getitem__(key), 
-            self.x.__getitem__(key)
-        )
-
-    def __invert__(self) -> LogicData:
-        return LogicData( 
-            ~ self.v, 
-            self.x
-        ) 
-
-    def __and__(self, other: Union[LogicData, int, gmpy2.mpz]) -> LogicData:
-        if isinstance(other, LogicData):
-            v1, v2 = self.v, other.v 
-            x1, x2 = self.x, other.x
-            return LogicData(
-                v1 & v2,
-                x1 & x2 | v1 & x2 | x1 & v2
-            ) 
-        else:
-            return LogicData(self.v & other, self.x & other)
-
-    def __or__(self, other: LogicData) -> LogicData:
-        v1, v2 = self.v, other.v 
-        x1, x2 = self.x, other.x
-        return LogicData(
-            v1 | v2,
-            x1 & x2 | ~v1 & x2 | x1 & ~v2
-        )
-
-    def __xor__(self, other: LogicData) -> LogicData:
-        return LogicData(
-            self.v ^ other.v, 
-            self.x | other.x
-        )
-
-    def __lshift__(self, l: int) -> LogicData:
-        """ input: int. insert 0 to lsb
-        """
-        return LogicData(
-            self.v << l,
-            self.x << l
-        )
-
-    def __add__(self, other: LogicData) -> LogicData:
-        """
-        if input x, return all x
-        """
-        v1, v2 = self.v, other.v 
-        x1, x2 = self.x, other.x
-        if x1 or x2:
-            return LogicData(0, -1)
-        else:
-            return LogicData(v1 + v2, 0)
-
-    def _eq(self, other: LogicData) -> LogicData:
-        """ logic equal
-        """
-        v1, v2 = self.v, other.v 
-        x1, x2 = self.x, other.x
-        if x1 or x2:
-            x = ~(x1 | x2)
-            if v1 & x == v2 & x:
-                return LogicData(0,1)
-            else:
-                return LogicData(0,0) 
-        else:
-            return LogicData(v1 == v2, 0) 
-
-    def __matmul__(self, other: LogicData) -> LogicData:
-        """ merge two values
-        """
-        return LogicData(
-            self.v | other.v,
-            self.x | other.x | (self.v ^ other.v)
-        )
-    
-    def __eq__(self, x: Union[str, int, LogicData]) -> bool:
-        """ full equal, 01x == 01x, return bool, just for testbench
-        """
-        other = Logic(x)
-        v1, v2 = self.v, other.v 
-        x1, x2 = self.x, other.x
-        if x1 == x2:
-            return (v1 & ~x1) == (v2 & ~x2)
-        else:
-            return False
-
-    def __bool__(self):
-        raise Exception('LogicData does not support python bool method')
 
     def _dump_sv(self, builder: sv.ModuleSV) -> None:
 
@@ -330,30 +507,33 @@ class LogicData(SignalData):
                 width = ''
             else:
                 width = f'[{len(self)-1}:0]'
-            builder.signals[self] = f'{netlist} {width}'   # declaration 
+            builder.signals[self] = f'{netlist} {width} {{}}'   # declaration 
 
         if self.writer is None:                         # assignment
             _builder = self._module._module
             if self not in _builder.gates:
-                _builder.gates[self] = f'assign {_builder.get_name(self)} = {self._dump_sv_immd()};'
+                _builder.Block(self, f'assign {_builder.get_name(self)} = {_builder._sv_immd(self)};')
 
-    def _dump_sv_immd(self) -> str:
-        width = len(self)
-        body = utils.logic2str(self.v, self.x)
-        return f"{width}'b{body}"
-
-    def _dump_cpp(self) -> None:
-        # get current bit width 
-        bit_length = len(self) 
-        assert bit_length, 'unused signal (no reader and no writer)' 
-        self._v = cpp.GlobalArray(self.v, bit_length, self._name+'_v')
-        self._x = cpp.GlobalArray(self.x, bit_length, self._name+'_x')
+    def _dump_sv_slice(self, low_key: Tuple, builder: sv.ModuleSV) -> str: 
+        """ ex. x[idx +: 2]
+        """ 
+        ret = builder.get_name(self)
+        if low_key is None:
+            return ret 
+        else:
+            start, length = low_key 
+            if length == 1:
+                key_str = f'[{builder.get_name(start)}]'
+            else:
+                key_str = f'[{builder.get_name(start)}+:{length}]' 
+            return f'{ret}{key_str}'
         
-    def _getval_py(self, low_key: Optional[Tuple] = None) -> LogicData:
-        """ low_key: None | (start, length)
-
-            start: int | signal 
-            length: int
+    def _getval_py(self, low_key: Optional[Tuple] = None) -> Logic:
+        """ 
+        - low_key: None | (start, length)
+            - start: Logic | Signal 
+            - length: int
+        - return: Logic with certain width
         """
         if self._v:
             v: gmpy2.xmpz = cpp.getval(self._v)
@@ -362,115 +542,106 @@ class LogicData(SignalData):
             v = self.v 
             x = self.x 
         if low_key is None:
-            return LogicData(v, x)
+            return Logic(v, x)
         else:
             start, length = low_key 
             if isinstance(start, Reader):       # dynamic part select
-                start: LogicData = start._data._getval_py() 
+                start = start._data._getval_py() 
                 if start.x:                     # unknown key, return unknown
-                    return LogicData(0, gmpy2.bit_length(length)) 
+                    return Logic(0, gmpy2.bit_length(length)) 
                 else:
                     start = start.v 
             end = start + length
             max_width = len(self)
             if start >= max_width:
-                return LogicData(0, gmpy2.bit_length(length)) # out of range, return unknown 
+                return Logic(0, gmpy2.bit_length(length)) # out of range, return unknown 
             elif end <= max_width:
-                return LogicData(v[start:end], x[start:end])  # in range 
+                return Logic(v[start:end], x[start:end])  # in range 
             else:                                             # partly in range
-                mask =  gmpy2.bit_length(end - max_width) << max_width
-                return LogicData(v[start:end], x[start:end] | mask)
+                mask =  gmpy2.bit_length(end - max_width) << (max_width-start)
+                return Logic(v[start:end], x[start:end] | mask)
 
     def _setval_py(
         self, 
-        values: Union[LogicData, List[LogicData]],
-        low_keys: Optional[List[Optional[Tuple]]] = None,
+        value: Union[Logic, List], 
+        multiple: bool = False,
         dt: int = 1, 
-    ) -> None:
+        trace: Union[None, Gate, str] = None,
+    ):
         """ multiple dynamic partial assignment
 
-        low_keys:
-            List[low_key] | low_key
-        low_key:
-            (start, length) | None 
-        values:
-            List[LogicData] | LogicData, no overflow
+        value:
+            Logic | List[(cond, key, value)]
+        multiple:
+            true when there are multiple assignments
         dt: delay
-
-        signal event: (target, mask, value)
-            - target: SignalData
-            - mask: gmpy2.mpz, bits to change 
-            - value: gmpy2.mpz, new value, in range
-        """
-        if low_keys is None:
-            new: LogicData = values 
-            mask = gmpy2.mpz(-1)
+        """ 
+        if not multiple: 
+            data: Logic = value
         else:
-            if isinstance(values, LogicData):
-                values = [values]
-                low_keys = [low_keys]
-            new = LogicData(0,0)
-            mask = gmpy2.mpz(0) 
-            for value, low_key in zip(values, low_keys):
-                if low_key is None:                     # update whole  
-                    new = value 
-                    mask = gmpy2.mpz(-1) 
-                else:
-                    start, length = low_key 
-                    if isinstance(start, Reader):       # dynamic
-                        start: LogicData = start._data._getval_py() 
-                        if start.x:                     # unknown key
-                            new = LogicData(0, -1)
-                            mask = gmpy2.mpz(-1)  
-                            continue
-                        else:
-                            start = start.v 
-                    mask_curr = gmpy2.bit_mask(length) << start 
-                    mask_n_curr = ~ mask_curr
-                                                        # merge logic
-                    new = LogicData(
-                        new.v & mask_n_curr | (value.v << start), 
-                        new.x & mask_n_curr | (value.x << start),
-                    ) 
-                                                        # merge mask
-                    mask = mask | mask_curr  
+            data = Logic(0,0)  
+            w = len(self) 
+            mask_full = gmpy2.bit_mask(w) 
+            for cond, key, new in value: 
+                if isinstance(new, Reader):
+                    new: Logic = new._data._getval_py()
 
+                if cond is None:
+                    unknown = False  
+                else:
+                    cond: Logic = cond._data._getval_py()  
+                    if cond.v == 0 and cond.x == 0:         # skip untriggered 
+                        continue 
+                    unknown = cond.x > 0 
+
+                if key is None:
+                    mask_curr = mask_full
+                    new = Logic(new.v & mask_full, new.x & mask_full) 
+                else:
+                    start, width = key 
+                    if isinstance(start, Reader):
+                        start: Logic = start._data._getval_py() 
+                    else:
+                        start: Logic = Logic(start,0)
+                
+                    if start.x: 
+                        mask_curr = mask_full 
+                        new = Logic(0, mask_full)
+                    else:
+                        start: int = start.v 
+                        mask_curr = (gmpy2.bit_mask(width) << start) & mask_full  
+                        new = Logic(
+                            (new.v << start) & mask_curr,
+                            (new.x << start) & mask_curr,
+                        ) 
+                data = data._merge(unknown, mask_curr, new)
+        # TODO
         if self._v: 
             w = len(self._v) * 64
-            new_v = utils.split64(new.v, w) 
-            new_x = utils.split64(new.x, w)
-            masks = utils.split64(mask, w)
-            for _target, _mask, _new in zip(self._v, masks, new_v):
-                cpp.setval(_target, _mask, _new, dt) 
-            for _target, _mask, _new in zip(self._x, masks, new_x):
-                cpp.setval(_target, _mask, _new, dt) 
+            # new_v = utils.split64(new.v, w) 
+            # new_x = utils.split64(new.x, w)
+            # masks = utils.split64(mask, w)
+            # for _target, _mask, _new in zip(self._v, masks, new_v):
+            #     cpp.setval(_target, _mask, _new, dt) 
+            # for _target, _mask, _new in zip(self._x, masks, new_x):
+            #     cpp.setval(_target, _mask, _new, dt) 
         else:
-            self._sess.sim_py.insert_signal_event(dt, (self, mask, new)) 
-                    
+            self._sess.sim_py.insert_signal_event(dt, self, data, trace) 
 
-    def _getval_cpp(
-        self, 
-        low_key: Optional[Tuple], 
-        part: Literal['v', 'x'], 
-        builder: cpp.Node = None
-    ) -> List[LogicData]:
-        if not self._v: 
-            self._dump_cpp()
-        if low_key is None:
-            return self._v if part == 'v' else self._x 
+    def _getval_cpp(self, part: Literal['v', 'x']) -> List[cpp.TData]:
+        """ dump cpp. return list of value & unknown
+        """
+        if not self._v:
+            bit_length = len(self) 
+            assert bit_length, 'unused signal (no reader and no writer)' 
+            self._v = cpp.GlobalArray(self.v, bit_length, self._name+'_v')
+            self._x = cpp.GlobalArray(self.x, bit_length, self._name+'_x')
+        if part == 'v':
+            return self._v 
+        elif part == 'x':
+            return self._x 
         else:
-            pass # TODO 
-
-    def _setval_cpp(
-        self, 
-        low_keys: Optional[List[Optional[Tuple]]], 
-        values: Union[List[cpp.TData], List[List[cpp.TData]]], 
-        dt: int, 
-        part: Literal['v', 'x'], 
-        builder: cpp.Node
-    ) -> None:
-        pass # TODO
-
+            raise ValueError()
 
     def __str__(self):
         w = len(self)
@@ -480,15 +651,6 @@ class LogicData(SignalData):
             return utils.logic2str(self.v, self.x)
 
 
-@vectorize
-def Logic(a: Union[int, str, LogicData]):
-    if isinstance(a, LogicData):
-        return a
-    elif isinstance(a, str):
-        v, x, _ = utils.str2logic(a)
-        return LogicData(v,x)  
-    else:
-        return LogicData(a,0)
 
 
 class MemData(SignalData):
@@ -501,7 +663,7 @@ class MemData(SignalData):
 
     """
 
-    __slots__ = 'v','shape'
+    __slots__ = 'shape', 'length'
 
     def __init__(
         self, 
@@ -509,31 +671,106 @@ class MemData(SignalData):
         x: Union[int, gmpy2.mpz, gmpy2.xmpz],
         shape: Tuple[int,...]
     ) -> None:
-        super().__init__()
-        self.v: gmpy2.xmpz = gmpy2.xmpz(gmpy2.mpz(v))   
-        self.x: gmpy2.xmpz = gmpy2.xmpz(gmpy2.mpz(x))   
+        super().__init__(v, x)
         # shape 
         assert len(shape) >= 2 and all(int(i)>0 for i in shape), f'error shape {shape}'
-        self.shape: Tuple[int,...] = shape 
-        # to cpp 
-        self._v: list = None
-        self._x: list = None
-
-    def dump_cpp(self) -> None:
-        ...# TODO
-
+        self.shape: Tuple[int,...] = shape  
+        self.length: int = 1 
+        for i in self.shape:
+            self.length *= i 
+    
+    def __len__(self):
+        return self.length
 
     def __str__(self):
-        # TODO
         ret = hex(self.v)[2:] 
         if len(ret) > 35:
             return f'mem{self.shape}{ret[-32:]}'
         else:
             return f'mem{self.shape}{ret}'
-    
+        
+    def _dump_sv(self, builder: sv.ModuleSV):
+        """ dump declaration to builder. if necessary, also dump constant assignment
+        """
+        if self._module is None:  # constant
+            return 
+        if self not in builder.signals:
+            if self.writer is not None:
+                netlist = self.writer._driver._netlist 
+            else:
+                netlist = 'logic'
+            bit_length = self.shape[-1] - 1
+            shape = ''.join(f'[0:{w-1}]' for w in self.shape[:-1]) 
+            builder.signals[self] = f'{netlist} [{bit_length}:0] {{}} {shape}' 
+
+        if self.writer is None:    # constant assignment 
+            _builder = self._module._module 
+            if self not in _builder.gates:
+                _builder.gates[self] = f'assign {_builder.get_name(self)} = {_builder._sv_immd(self)};'
+
+
+    def _getval_py(self, low_key: tuple) -> Logic:
+        """ low_key: idxes   idx: int | signal
+        """
+        assert len(low_key) == len(self.shape) - 1 
+        valid_keys: List[int] = []
+        for key, max_width in zip(low_key, self.shape):
+            if isinstance(key, Reader):
+                key: Logic = key._data._getval_py()
+            if key.x:
+                return Logic(0, gmpy2.bit_length(self.shape[-1])) 
+            else:
+                idx = key.v 
+                if idx >= max_width:
+                    return Logic(0, gmpy2.bit_length(self.shape[-1]))
+                else:
+                    valid_keys.append(idx) 
+
+        if self._v:
+            _v = self._v 
+            _x = self._x 
+            for i in valid_keys:
+                _v = _v[i]
+                _x = _x[i]
+            return Logic(cpp.getval(_v), cpp.getval(_x))
+        else:
+            ret_width = self.shape[-1] 
+            shift_width = ret_width 
+            start: int = 0
+            for width_n, key_n in zip(reversed(self.shape[:-1]),reversed(valid_keys)):
+                start += key_n * shift_width 
+                shift_width *= width_n  
+            end = start + ret_width 
+            return Logic(self.v[start, end], self.x[start, end])
+            
+    def _setval_py(
+        self, 
+        value: Union[Logic, List], 
+        multiple: bool = False,
+        dt: int = 1, 
+        trace: Union[None, Gate, str] = None,
+    ):
+        value = values[0]
+        keys = low_keys[0] 
+        valid_keys: List[int] = []
+        # TODO x in key?
+        
+
+    def _getval_cpp(self, part: Literal['v', 'x']) -> List[cpp.TData]:
+        """ dump cpp. return data list of value/unknown
+        """
+        if not self._v:
+            self._v = cpp.GlobalMem(self.v, self.shape, self._name+'_v', part='v')
+            self._x = cpp.GlobalMem(self.x, self.shape, self._name+'_x', part='x')
+        if part == 'v':
+            return self._v 
+        elif part == 'x':
+            return self._x 
+        else:
+            raise ValueError()
 
 #-----------------------------------------
-# Signal: driver/driven edge of SignalData
+# Signal: in/out edge of SignalData
 #-----------------------------------------
     
 
@@ -548,7 +785,8 @@ class Writer(HGL):
         self._type: SignalType = type
         self._driver: Gate = driver 
         assert data.writer is None, 'cannot drive data already has driver'
-        data.writer = self  
+        data.writer = self   
+        data._module = self._sess.module
         
     def _exchange(self, new_data: SignalData) -> SignalData:
         """ write another data
@@ -590,24 +828,15 @@ class Reader(HGL):
         get attr of _type. if method, bound to self 
     """
     
-    __slots__ = ('_sess', '_data', '_type', '_direction', '_driven', 
-                 '_events', '_timestamps', '_values')
+    __slots__ = '_data', '_type', '_direction', '_driven'
     
     def __init__(self, data: SignalData, type: SignalType, name: str = ''):
-        self._sess: _session.Session = HGL._sess
         self._data: SignalData = data; self._data.reader[self] = None
         self._type: SignalType = type 
         self._direction: Literal['inner', 'input', 'output', 'inout'] = 'inner'
+        self._driven: Dict[Gate, int] = {}
 
         if name: self._data._name = name
-        # simulation
-        # driven gates, a gate may read this signal multiple times
-        self._driven: Dict[Gate, int] = {}
-        # driven events, coroutine_events that triggered when signal changing 
-        self._events: List[Generator] = []
-        # store history values for verification and waveform
-        self._timestamps: list[int] = []
-        self._values: list[LogicData] = []
         
     @property 
     def __hgl_type__(self) -> type:
@@ -664,32 +893,6 @@ class Reader(HGL):
         if self._data.writer is None or not isinstance(self._data.writer._driver, Assignable):
             Wire(self)  
         self._data.writer._driver.__partial_assign__(self, conds, value, high_key)  
-
-
-    def _track(self) -> None:
-        """ track signal waveform
-        """
-        if not self._timestamps:
-            self._timestamps.append(self._sess.sim_py.t+1)
-            self._values.append(self._data._getval_py()) 
-        
-    def _update(self) -> None:
-        """ called after _track, store current time and value
-        """
-        v = self._data._getval_py()
-        if self._values[-1] == v:
-            return 
-        else:
-            self._timestamps.append(self._sess.sim_py.t+1)
-            self._values.append(v) 
-        
-    def _history(self, t:int) -> Any:
-        """ called after _track, get value at time t
-        """
-        idx = bisect.bisect(self._timestamps, t) - 1
-        if idx < 0: 
-            idx = 0 
-        return self._values[idx]
 
     def __getattr__(self, name: str) -> Any:
         """ 
@@ -771,7 +974,7 @@ class SignalType(HGL):
     
     - the bit width of signal may not fixed value during building stage
     - _eval accept python literal such as int, str, list, return Immd
-        - Immd: LogicData | BitPat   
+        - Immd: Logic | BitPat   
         - overflow is not allowed
     - __call__ create and return a signal. 
         - default value is 0
@@ -785,8 +988,6 @@ class SignalType(HGL):
     # determines the validity of bitwise operation, type casting, ...
     _storage:  Literal['packed', 'unpacked', 'packed variable'] = 'packed'
 
-    __slots__ = ()
-    
     def __len__(self) -> int:
         raise NotImplementedError() 
     
@@ -807,63 +1008,9 @@ class SignalType(HGL):
         return (low_key, SignalType)
         """
         raise NotImplementedError()  
-
-
-    def _verilog_name(self, x: Union[Reader, SignalData], m) -> str: 
-        """
-        x:
-            SignalData: LHS, return a new defination name
-            Reader: RHS, if casted type, return a new signal name  
-        """
-        if len(self) == 1:
-            verilog_width = ''
-        else:
-            verilog_width = f'[{len(self)-1}:0]'
-
-        if isinstance(x, SignalData):
-            ret = m.new_name(x, x._name)  
-            m.new_signal(x, f'{x.writer._driver._netlist} {verilog_width} {ret}') 
-            return ret
-        elif isinstance(x, Reader):  
-            data = x._data 
-            assert isinstance(data, LogicData)
-            origin = m.get_name(data) 
-            assert origin
-            # same bit width
-            if len(data.writer._type) == len(self): 
-                m.update_name(x, origin)
-                return origin
-            else:
-                ret = m.new_name(x, x._name) 
-                m.new_signal(x, f'{data.writer._driver._netlist} {verilog_width} {ret}') 
-                m.new_gate(f'assign {ret} = {origin};') 
-                return ret
-        else:
-            raise TypeError(x)
-
-    def _verilog_immd(self, x: Union[int, gmpy2.mpz, BitPat]) -> str: 
-        """ python immd to verilog immd 
-        """
-        width = len(self)
-        if isinstance(x, (int, gmpy2.mpz, gmpy2.xmpz)):
-            return f"{width}'d{x}"
-        elif isinstance(x, BitPat):
-            v ='0' * (width-len(x)) + x._v
-            return f"{width}'b{v}" 
-
-    def _verilog_key(self, low_key: Optional[tuple], gate: Gate) -> str:
-        if low_key is None:
-            return ''
-        else:
-            if isinstance(low_key[0], Reader):
-                start, length = gate.get_name(low_key[0]), str(low_key[1])
-            else:
-                start, length = str(low_key[0]), str(low_key[1])
-            return f'[{start} +: {length}]'
-
     
     def __call__(self) -> Reader:
-        """ create a signal with/without arguments
+        """ create a signal with default value
         """
         raise NotImplementedError()  
         
@@ -873,9 +1020,7 @@ class SignalType(HGL):
         
 @dispatch('Signal', Any)
 def _signal(obj) -> Reader:
-    """ python literal -> Reader
-
-    TODO return constant signal type
+    """ literal to signal
     """
     if isinstance(obj, Reader):
         return obj 
@@ -884,7 +1029,7 @@ def _signal(obj) -> Reader:
     elif isinstance(obj, SignalType):
         return obj()
     else: 
-        return UInt(gmpy2.mpz(obj))
+        return UInt(obj)
 
 
         
@@ -907,87 +1052,87 @@ class LogicType(SignalType):
             return f"{T}({data})"
 
 
-    def _getval_cpp(
-        self, 
-        data: LogicData, 
-        low_key: Optional[Tuple[int, int]], 
-        builder: cpp.Node,
-        unknown: bool                       # slice value or unknown bits
-    ) -> List[cpp.TData]:
-        """
-        perform slicing and return sliced data
+    # def _getval_cpp(
+    #     self, 
+    #     data: LogicData, 
+    #     low_key: Optional[Tuple[int, int]], 
+    #     builder: cpp.Node,
+    #     unknown: bool                       # slice value or unknown bits
+    # ) -> List[cpp.TData]:
+    #     """
+    #     perform slicing and return sliced data
 
-        special case: low_key is None, return original data since there is no down casting
-        """ 
-        if data._x is None:
-            data.dump_cpp()
-        source = data._x if unknown else data._v
-        source_bit_length: int = source.bit_length
-        source_array: List[cpp.TData] = source[:]
+    #     special case: low_key is None, return original data since there is no down casting
+    #     """ 
+        # if data._x is None:
+        #     data.dump_cpp()
+        # source = data._x if unknown else data._v
+        # source_bit_length: int = source.bit_length
+        # source_array: List[cpp.TData] = source[:]
 
-        if low_key is None:
-            low_key = (0, self._width)       
+        # if low_key is None:
+        #     low_key = (0, self._width)       
 
-        start, length = low_key             
-        ret_size = (length + 63) // 64      # number of return data
-        if isinstance(start, Reader):       # TODO dynamic part select
-            pass
-        else:                               # static part select
-            end = min(start + length, source_bit_length)  # out of range is 0
-            start_idx = start // 64 
-            end_idx = (end + 63) // 64  
-            used = source_array[start_idx:end_idx] 
-            for i in used:                  # record 
-                builder.read(i)
-            if end % 64 != 0 and end < source_bit_length:   # mask
-                end_mask = gmpy2.bit_mask(end % 64)
-                used[-1] = builder.And(used[-1], cpp.TData(end_mask, const=True))
-            if start % 64 != 0:         # shift 
-                right_shift = start % 64 
-                left_shift = 64 - right_shift 
-                for i in range(len(used)-1):
-                    used[i] = builder.And(
-                        builder.RShift(used[i], right_shift), 
-                        builder.LShift(used[i+1], left_shift)
+        # start, length = low_key             
+        # ret_size = (length + 63) // 64      # number of return data
+        # if isinstance(start, Reader):       # TODO dynamic part select
+        #     pass
+        # else:                               # static part select
+        #     end = min(start + length, source_bit_length)  # out of range is 0
+        #     start_idx = start // 64 
+        #     end_idx = (end + 63) // 64  
+        #     used = source_array[start_idx:end_idx] 
+        #     for i in used:                  # record 
+        #         builder.read(i)
+        #     if end % 64 != 0 and end < source_bit_length:   # mask
+        #         end_mask = gmpy2.bit_mask(end % 64)
+        #         used[-1] = builder.And(used[-1], cpp.TData(end_mask, const=True))
+        #     if start % 64 != 0:         # shift 
+        #         right_shift = start % 64 
+        #         left_shift = 64 - right_shift 
+        #         for i in range(len(used)-1):
+        #             used[i] = builder.And(
+        #                 builder.RShift(used[i], right_shift), 
+        #                 builder.LShift(used[i+1], left_shift)
 
-                    ) 
-                if used:
-                    used[-1] = builder.RShift(used[-1], right_shift)
-            used = used[:ret_size]
-            for _ in range(len(used), ret_size):
-                used.append(cpp.TData(0, const=True))        
-            return used
+        #             ) 
+        #         if used:
+        #             used[-1] = builder.RShift(used[-1], right_shift)
+        #     used = used[:ret_size]
+        #     for _ in range(len(used), ret_size):
+        #         used.append(cpp.TData(0, const=True))        
+        #     return used
 
 
  
-    def _setval_cpp(
-        self, 
-        data: LogicData, 
-        v: List[cpp.TData],
-        low_key: Optional[Tuple[int, int]], 
-        builder: cpp.Node, 
-        unknown: bool
-    ) -> Tuple[List[cpp.TData], List[cpp.TData]]:
-        """ no overflow, no mask, 
-        """
-        if data._v is None: 
-            data.dump_cpp()
-        target = data._x if unknown else data._v 
-        target_bit_legth: int = target.bit_length 
-        target_array: List[cpp.TData] = target[:]
-        if low_key is None:
-            low_key = (0, self._width)
+    # def _setval_cpp(
+    #     self, 
+    #     data: LogicData, 
+    #     v: List[cpp.TData],
+    #     low_key: Optional[Tuple[int, int]], 
+    #     builder: cpp.Node, 
+    #     unknown: bool
+    # ) -> Tuple[List[cpp.TData], List[cpp.TData]]:
+    #     """ no overflow, no mask, 
+    #     """
+    #     if data._v is None: 
+    #         data.dump_cpp()
+    #     target = data._x if unknown else data._v 
+    #     target_bit_legth: int = target.bit_length 
+    #     target_array: List[cpp.TData] = target[:]
+    #     if low_key is None:
+    #         low_key = (0, self._width)
 
-        start, length = low_key 
-        size = (length+63) // 64   # number of changed data 
-        if isinstance(start, Reader): # TODO dynamic partial assign 
-            pass 
-        else:                   # static assign should in range, only shift is needed
-            ...
+    #     start, length = low_key 
+    #     size = (length+63) // 64   # number of changed data 
+    #     if isinstance(start, Reader): # TODO dynamic partial assign 
+    #         pass 
+    #     else:                   # static assign should in range, only shift is needed
+    #         ...
 
-        v = data._v 
-        x = data._x 
-        return (v[:], x[:])
+    #     v = data._v 
+    #     x = data._x 
+    #     return (v[:], x[:])
 
     
     def _slice(self, high_key) -> Tuple[Tuple[Union[int, Reader], int], SignalType]:
@@ -1007,8 +1152,7 @@ class LogicType(SignalType):
             - x[3::2]
         
         """
-        if self._width == 0:
-            raise TypeError(f'{self} is not complete signal type')
+        assert self._storage == 'packed', f'{self} has variable bit length'
         
         if isinstance(high_key, slice):
             start, stop, step = high_key.start, high_key.stop, high_key.step 
@@ -1108,7 +1252,7 @@ class UIntType(LogicType):
         assert width > 0
         super().__init__(width)
 
-    def _eval(self, v: Union[int, str, float, LogicData, BitPat]) -> Union[LogicData, BitPat]:
+    def _eval(self, v: Union[int, str, Logic, BitPat]) -> Union[Logic, BitPat]:
         """ 
         called when:
             - signal <== immd 
@@ -1125,7 +1269,7 @@ class UIntType(LogicType):
 
         if isinstance(v, str): 
             _v, _x, _w =  utils.str2logic(v) 
-        elif isinstance(v, LogicData):
+        elif isinstance(v, Logic):
             _v = v.v 
             _x = v.x 
             _w = max(utils.width_infer(v.v), utils.width_infer(v.x))
@@ -1134,36 +1278,28 @@ class UIntType(LogicType):
             _x = 0
             _w = utils.width_infer(_v) 
         # overflow not allowed
-        if self._width < _w or _v < 0:
+        if self._width < _w or _v < 0 or _x < 0:
             raise Exception(f'value {v} overflow for {self}') 
-        return LogicData(_v, _x)
+        return Logic(_v, _x)
 
     def __call__(
         self, 
-        v: Union[int, str, float, Reader, Iterable, LogicData]=0, 
+        v: Union[int, str, Reader, Logic]=0, 
         *, 
         name: str = ''
     ) -> Reader: 
-        """
-        v:
-            - int, str, float 
-            - signal 
-            - Iterable container of above
-        """ 
-        # array
-        v = ToArray(v)
-        if isinstance(v, Array):
-            return Map(self, v, name=name)
         name = name or 'uint'
-        # is type cast
+        # is type casting
         if isinstance(v, Reader):    
-            data = v._data  
-            if not isinstance(data, LogicData):
-                raise ValueError(f'signal {v} is not logic signal')
+            data = v._data   
+            assert isinstance(data, LogicData), f'signal {v} is not logic signal' 
+            assert v._type._storage == 'packed', f'signal {v} has variable bit length'
+            assert len(v) == len(self), 'bit length mismatch'
             return Reader(data=data, type=self, name=name) 
         else:
-            data = self._eval(v) 
-            return Reader(data=data, type=self, name=name) 
+            data = self._eval(v)  
+            assert isinstance(data, Logic)
+            return Reader(data=LogicData(data.v, data.x), type=self, name=name) 
     
 
 @singleton
@@ -1183,9 +1319,9 @@ class UInt(HGLFunction):
 
     def __call__(
         self, 
-        v: Union[int, str, float, Reader, Iterable, LogicData]=0, 
+        v: Union[int, str, float, Reader, Iterable, Logic]=0, 
         w: int = None,
-        name: str = 'uint'
+        name: str = ''
     ) -> Reader: 
 
         # array
@@ -1194,21 +1330,20 @@ class UInt(HGLFunction):
         if isinstance(v, Array) or isinstance(w, Array):
             return Map(self, v, w, name=name)
 
-        # with width
+        # with width, pass
         if w is not None:
             return UInt[w](v, name=name)
         # without width
-        # is type casting
         if isinstance(v, Reader):    
-            return UInt[len(v)](v, name=name)  
+            _w = len(v)
         else:
             if isinstance(v, str):
                 _, _, _w = utils.str2logic(v) 
-            elif isinstance(v, LogicData):
-                _w = len(v)
+            elif isinstance(v, Logic):
+                _w = max(utils.width_infer(v.v), utils.width_infer(v.x))
             else:
                 _w = utils.width_infer(v)
-            return UInt[_w](v, name=name)
+        return UInt[_w](v, name=name)
 
 
 def Split(signal: Reader) -> Array:
@@ -1265,18 +1400,21 @@ class Vector(LogicType):
         super().__init__(self._length * len(self._T))
     
     
-    def _eval(self, v: Union[int, str, Iterable]) -> gmpy2.mpz:
+    def _eval(self, v: Union[int, str, Iterable, Logic]) -> Logic:
         """ if not iterable, set UInt(v) as whole; if iterable, set each value 
         """
         v = ToArray(v) 
         
         if isinstance(v, Array): 
             assert len(v) == self._length, 'shape mismatch' 
-            _v = gmpy2.mpz(0)
+            _v = gmpy2.mpz(0) 
+            _x = gmpy2.mpz(0)
             _w = len(self._T)
-            for i, x in enumerate(v):
-                _v |= (self._T._eval(x)) << (i*_w)
-            return _v
+            for i, x in enumerate(v): 
+                temp: Logic = self._T._eval(x)
+                _v |= (temp.v) << (i*_w) 
+                _x |= (temp.x) << (i*_w)
+            return Logic(_v, _x)
         # regard as UInt
         else:
             return UInt[len(self)]._eval(v) 
@@ -1290,11 +1428,12 @@ class Vector(LogicType):
         
         if isinstance(v, Reader):
             v = v._data  
-            assert isinstance(v, LogicData)  
+            assert isinstance(v, LogicData)   
+            assert len(v) == len(self)
             return Reader(data=v, type=self, name=name)
         else:
             _v = self._eval(v)
-            return Reader(data=LogicData(_v), type=self, name=name)
+            return Reader(data=LogicData(_v.v, _v.x), type=self, name=name)
     
     def _slice(self, keys: Union[int, Reader, tuple]) -> Tuple[Any, SignalType]: 
         # TODO index overflow    
@@ -1362,13 +1501,13 @@ class Struct(LogicType):
     """ 1-d struct
 
     ex. Struct(
-        a = UInt[3]             @2,
-        b = (3,4) * UInt[4]     @7,
-        c = Struct(
-            x = UInt[1],
-            y = UInt[2]
-        )                       @14
-)
+            a = UInt[3]             @2,
+            b = (3,4) * UInt[4]     @7,
+            c = Struct(
+                x = UInt[1],
+                y = UInt[2]
+            )                       @14
+        )
     """
     def __init__(self, **kwargs):
         super().__init__()
@@ -1390,37 +1529,38 @@ class Struct(LogicType):
             self._width = max(self._width, curr_position)
 
      
-    def _eval(self, v: Union[int, str, Array, dict]) -> gmpy2.mpz:
+    def _eval(self, v: Union[int, str, Array, dict, Logic]) -> Logic:
                 
         if not isinstance(v, (Array, dict)):
             return UInt[len(self)]._eval(v)
         else:
             v = Array(v)
-            ret = gmpy2.mpz(0)
+            ret_v = gmpy2.mpz(0)
+            ret_x = gmpy2.mpz(0)
             for key, value in v._items():
                 T, start = self._fields[key]
-                _v = T._eval(value) 
-                _w = len(T)
-                ret &= ~(((1 << _w) - 1) << start)
-                ret |= _v << start
-                
-            return ret 
+                _v: Logic = T._eval(value) 
+                _w: int = len(T) 
+                ret_v = ret_v & ~(gmpy2.bit_mask(_w) << start) | _v.v << start 
+                ret_x = ret_x & ~(gmpy2.bit_mask(_w) << start) | _v.x << start 
+            return Logic(ret_v, ret_x) 
     
     def __call__(
         self, 
-        v: Union[LogicData, Reader, Iterable]=0, 
+        v: Union[Logic, Reader, Iterable]=0, 
         *, 
         name: str = 'vector'
     ) -> Reader:
         
         if isinstance(v, Reader):
             v = v._data  
-            assert isinstance(v, LogicData)  
+            assert isinstance(v, LogicData)   
+            assert len(v) == len(self) 
+            assert v._type._storage == 'packed'
             return Reader(data=v, type=self, name=name)
         else:
             _v = self._eval(v)
-            _w = len(self)
-            return Reader(data=LogicData(_v), type=self, name=name)
+            return Reader(data=LogicData(_v.v, _v.x), type=self, name=name)
         
     def _slice(self, keys: Union[str, tuple]) -> Tuple[tuple, SignalType]: 
         
@@ -1504,46 +1644,46 @@ class MemType(SignalType):
     def __len__(self) -> int:
         return self._width 
 
-    def _getval_py(self, data: MemData, immd_key: Optional[Tuple[int]]) -> LogicData:
-        """ get integer value. out of range bits are 0 
+    # def _getval_py(self, data: MemData, immd_key: Optional[Tuple[int]]) -> Logic:
+    #     """ get integer value. out of range bits are 0 
         
-        return: gmpy2.mpz 
-        """
-        if immd_key is None: 
-            return data.v[0:self._width] 
-        else:
-            start = 0
-            for x, w in zip(immd_key, self._idxes):
-                start += x * w  
-            return data.v[start:start+self._shape[-1]]
+    #     return: gmpy2.mpz 
+    #     """
+    #     if immd_key is None: 
+    #         return data.v[0:self._width] 
+    #     else:
+    #         start = 0
+    #         for x, w in zip(immd_key, self._idxes):
+    #             start += x * w  
+    #         return data.v[start:start+self._shape[-1]]
 
-    def _setval_py(self, data: MemData, immd_key: Optional[Tuple[int]], v: LogicData) -> bool: 
-        """ set some bits, reutrn True if value changes 
+    # def _setval_py(self, data: MemData, immd_key: Optional[Tuple[int]], v: Logic) -> bool: 
+    #     """ set some bits, reutrn True if value changes 
 
-        immd_key: maybe mpz, turn into int
-        """ 
-        target: gmpy2.xmpz = data.v 
-        if immd_key is None:
-            odd = target.copy()
-            target[0:self._width] = v  
-            return target != odd
+    #     immd_key: maybe mpz, turn into int
+    #     """ 
+    #     target: gmpy2.xmpz = data.v 
+    #     if immd_key is None:
+    #         odd = target.copy()
+    #         target[0:self._width] = v  
+    #         return target != odd
 
-        v = v & gmpy2.bit_mask(self._shape[-1]) 
-        start = 0
-        for idx, max_idx, w in zip(immd_key, self._shape, self._idxes):
-            if idx >= max_idx:
-                return False  
-            start += idx * w  
-        stop = start + self._shape[-1] 
+    #     v = v & gmpy2.bit_mask(self._shape[-1]) 
+    #     start = 0
+    #     for idx, max_idx, w in zip(immd_key, self._shape, self._idxes):
+    #         if idx >= max_idx:
+    #             return False  
+    #         start += idx * w  
+    #     stop = start + self._shape[-1] 
 
-        start = int(start)
-        stop = int(stop) 
-        print(immd_key, v, self._sess.sim_py.t)
-        if target[start:stop] == v:
-            return False 
-        else:
-            target[start:stop] = v 
-            return True
+    #     start = int(start)
+    #     stop = int(stop) 
+    #     print(immd_key, v, self._sess.sim_py.t)
+    #     if target[start:stop] == v:
+    #         return False 
+    #     else:
+    #         target[start:stop] = v 
+    #         return True
 
 
     
@@ -1561,7 +1701,7 @@ class MemType(SignalType):
         return high_key, self._T
 
     
-    def _eval(self, v: Union[int, str, Iterable]) -> LogicData:
+    def _eval(self, v: Union[int, str, Iterable]) -> Logic:
         v = ToArray(v)
         ret = gmpy2.xmpz(0)
         if isinstance(v, Array):
@@ -1590,6 +1730,7 @@ class MemType(SignalType):
             return f"{T}({data})" 
 
     def _verilog_name(self, x: Union[Reader, SignalData], m: sv.sv) -> str: 
+        return
         if self._shape[-1] == 1:
             verilog_width = ''
         else:
@@ -1614,6 +1755,7 @@ class MemType(SignalType):
             return origin
 
     def _verilog_key(self, low_key: Optional[tuple], gate: Gate) -> str:
+        return 
         if low_key is None:
             return ''
         else:
@@ -1646,27 +1788,28 @@ class Gate(HGL):
         output signals 
     """
 
-    id: str = 'Gate'
-    timing: Dict[str,int] = {'delay': 1} 
-    delay: int = 1
+    id = 'Gate'
+    timing = {'delay': 1} 
+    delay = 1 
+    trace = 'no trace'
 
     iports: Dict[Reader, None] 
     oports: Dict[Writer, None]
-    
-    _netlist: str = 'logic'   # verilog netlist type of output signal
     _sess: _session.Session 
-    sess: _session.Session 
-    
-    __slots__ = '_sess', '__dict__'
+
+    _netlist: str = 'logic'   # verilog netlist type of output signal
+
     
     def __head__(self, *args, **kwargs) -> Union[Reader, Tuple[Reader]]:
         """ initializating,  return Signal or Tuple[Signal]
         """
         pass
 
-    def read(self, x: Reader) -> Reader:
+    def read(self, x: Optional[Reader]) -> Optional[Reader]:
         """ add x as input signal
-        """ 
+        """  
+        if x is None:
+            return x 
         if self not in x._driven:
             x._driven[self] = 1 
         else:
@@ -1682,40 +1825,29 @@ class Gate(HGL):
                 raise Exception('cannot drive signal that already has driver')
             ret = Writer(x._data, x._type, self) 
             self.oports[ret] = None 
-            x._data._module = self._sess.module
             return ret 
         elif isinstance(x, Writer):
             assert x._driver is self 
             self.oports[x] = None 
-            x._data._module = self._sess.module
             return x
-        
-
-    def _get_timing(self):
-        timing: dict = self._sess._get_timing(self.id) or self.timing 
-        if 'delay' in timing:
-            self.delay = timing['delay'] 
-
         
     def __new__(cls, *args, **kwargs):
         
         self = object.__new__(cls) 
-        self._sess: _session.Session = HGL._sess
-        self.sess: _session.Session = HGL._sess
-        self._sess._new_gate(self) 
+        self._sess._add_gate(self) 
         self.iports = {}
         self.oports = {}
         ret = self.__head__(*args, **kwargs)
-        # get simulation parameters
-        self._get_timing()
-        
+        # get timing config
+        timing: dict = self._sess._get_timing(self.id) or self.timing 
+        if 'delay' in timing:
+            self.delay = timing['delay']         
         # ---------------------------------
         if self._sess.verbose_hardware:
-            trace = utils.format_hgl_stack(2, 4)
             self._sess.print(f'{self}, {self.id}={self.timing}')
-            self._sess.print(trace)
+        if self._sess.verbose_trace:
+            self.trace = utils.format_hgl_stack(2,4)
         #----------------------------------
-        
         return ret 
     
     
@@ -1734,7 +1866,7 @@ class Gate(HGL):
         """
         pass
         
-    def _emit_graphviz(self, g, iports: List[Reader], oports: List[Writer], body = 'Node'):
+    def _graphviz(self, g, iports: List[Reader], oports: List[Writer], body = 'Node'):
         newline = '&#92;n'
         iports_str = '|'.join(f"<i{id(i)}> {i._data._name}{newline}{i._type.__str__(i._data)}" for i in iports)
         oports_str = '|'.join(f"<o{id(o._data)}> {o._data._name}{newline}{o._type.__str__(o._data)}" for o in oports)
@@ -1748,8 +1880,8 @@ class Gate(HGL):
                 source_gate = str(id(signal._data.writer._driver))
                 g.edge(f"{source_gate}:o{id(signal._data)}", f"{curr_gate}:i{id(signal)}")
         
-    def emitGraph(self, g):
-        self._emit_graphviz(g, self.iports, self.oports, self.id) 
+    def dumpGraph(self, g):
+        self._graphviz(g, self.iports, self.oports, self.id) 
 
     def __str__(self):
         return f"{self.__class__.__name__}"
@@ -1960,7 +2092,7 @@ class CondTreeNode:
         body.append('└──────────────────────────────────────────────────')
         return '\n'.join(body) 
     
-    def emitVerilog(self, op: str = '=') -> str:
+    def dumpVerilog(self, op: str = '=') -> str:
         """
         ex. 
         out = 0
@@ -1980,7 +2112,7 @@ class CondTreeNode:
                 for idx, t in enumerate(i):
                     cond, node = t  
                     ret.append(self._verilog_cond(idx, cond) + ' begin')
-                    ret.extend('  ' + x for x in node.emitVerilog(op).splitlines())
+                    ret.extend('  ' + x for x in node.dumpVerilog(op).splitlines())
                     ret.append('end') 
         return '\n'.join(ret)
         
@@ -2036,12 +2168,13 @@ def _part_select_wire(signal: Reader, keys: Any) -> Reader:
         return _Wire(signal, next=True, input_key=low_key, output_type = T)
 
 
-@dispatch('Slice', Any) 
+@dispatch('Slice', UIntType) 
 class _Slice(Gate):
     
     id = 'Slice'
     
     def __head__(self, signal: Reader, key: Any = None, id='') -> Reader:
+        assert isinstance(signal._data, LogicData) and signal._type._storage == 'packed'
         self.id = id or self.id
         self.input = self.read(signal)
         low_key, T = signal._type._slice(key)
@@ -2051,10 +2184,16 @@ class _Slice(Gate):
         return ret 
     
     def forward(self):
-        mask , v = self.output._type._setval_py(self.low_key, self.input)
-        self.output._setval_py(v, dt = self.delay, mask=mask)
+        out = self.input._data._getval_py(self.low_key)
+        self.output._data._setval_py(out, dt = self.delay, trace=self)
 
-        
+    def dump_cpp(self):
+        raise NotImplementedError(self)
+
+    def dump_sv(self, builder: sv.ModuleSV): 
+        x =self.input._data._dump_sv_slice(self.low_key, builder)
+        y = builder.get_name(self.output) 
+        builder.Assign(self, y, x, delay=self.delay) 
 
 
 # class Assignable(Gate):
@@ -2101,33 +2240,53 @@ class Assignable(Gate):
     """
     
     output: Writer 
-    branches: List[Optional[Tuple[Any, Any, Any]]]
+    branches: List[Optional[Tuple[Reader, Any, Any]]]  # (cond, key, value)
 
     def __partial_assign__(
         self, 
         signal: Reader,
-        conds: List[Reader],
+        conds: List[Reader],  # [None, signal, signal, ...]
         value: Union[Reader, int, Any], 
         high_key: Optional[Tuple[Union[Reader, int],int]], 
     ) -> None: 
-        """ 
-        TODO casted type bit-width mismatch
-        """ 
         assert signal._data.writer._driver is self
         # get simplified_key 
         low_key ,T = signal._type._slice(high_key) 
         # get valid immd
         if not isinstance(value, Reader):
             value = T._eval(value) 
-        assignment = (conds[-1], low_key, value)
-        if conds[-1] == None and low_key == None: 
-            if isinstance(self, _Wire):
-                self.branches.clear()
-        self.branches.append((conds[-1], low_key, value))
-        # self.condtree.insert(conds, _Assignment(low_key, value, None)) 
+        if conds[-1] is None and low_key is None and not isinstance(self, Analog): 
+            self.branches.clear() 
+        if not isinstance(self, _Reg):    # sensitive
+            if isinstance(conds[-1], Reader):
+                self.read(conds[-1])  
+            if low_key is not None:
+                for i in low_key:
+                    if isinstance(i, Reader):
+                        self.read(i)
+            if isinstance(value, Reader):
+                self.read(value)
+        self.branches.append((conds[-1], low_key, value)) 
+
+    def _sv_assignment(self, assignment: Tuple, builder: sv.ModuleSV, op='=') -> str:
+        """ conditioanl dynamic partial assignment  
+        assignment:
+            (cond, key, value)
+        return: 
+            if (cond) begin
+                x[idx +: 2] = y;
+            end
+        """
+        cond, key, value = assignment  
+        target = self.output._data._dump_sv_slice(key, builder=builder) 
+        if cond is None:
+            return f'{target} {op} {builder.get_name(value)};'  
+        else:
+            return f'if({builder.get_name(cond)}) {target}{op} {builder.get_name(value)};'
 
     def __merge__(self, other: Assignable):
-        raise Exception()
+        # for analog
+        raise NotImplementedError()
 
         
 class _Wire(Assignable): 
@@ -2147,15 +2306,15 @@ class _Wire(Assignable):
         else insert a wire between input x and its writer, width=len(x._data)
         
         branches: (active signal, low_key, value)
-        - active signal: UInt[1]|None
-        - low_key: None | signals | immd, depends on SignalType
-        - values: signal|immd depends on SignalType
+            - active signal: UInt[1]|None
+            - low_key: None | signals | immd, depends on SignalType
+            - value: signal|immd depends on SignalType
         """
         self.id = id or self.id    # timing config id   
         self.branches: List[Tuple[
             Union[Reader, None], 
             Union[None,Tuple],
-            Union[Reader, LogicData]
+            Union[Reader, Logic]
         ]] = []  
         self.output: Writer = None
         
@@ -2163,10 +2322,10 @@ class _Wire(Assignable):
         if not next:
             if x._data.writer is None:
                 self.output = self.write(x)  # width = len(x)
-                self.branches.append((None, None, x._data._getval_py())) # no active signal, no key, init value
+                self.branches.append((None, None, x._data._getval_py()))
                 return x 
             elif not isinstance(x._data.writer._driver, Assignable):
-                # driver:Gate -> new_x:SignalData -> self:Wire -> x:SignalData
+                # driver:Gate -> new_x:SignalData -> self:Gate -> x:SignalData
                 new_x = x._data.writer._type()
                 x._data.writer._exchange(new_x._data)
                 self.branches.append((None, None, self.read(new_x)))
@@ -2184,27 +2343,30 @@ class _Wire(Assignable):
     def forward(self):
         """ simulation function 
         """
-        # no cond, no key
+        # no cond, no key, direct assignment
         if len(self.branches) == 1:
-            source = self.branches[-1][-1] 
-            self.output._data._setval_py(source, dt = self.delay)
-            return 
+            data = self.branches[-1][-1]  
+            if isinstance(data, Reader):
+                data = data._data._getval_py()
+            self.output._data._setval_py(data, dt = self.delay, trace=self)
+        else:
+            self.output._data._setval_py(self.branches, multiple=True, dt=self.delay, trace=self)
         # active == 1: cover; active == x: merge; mask: merge
-        mask = gmpy2.mpz(0)
-        v = LogicData(0,0)
-        for active, low_key, value in self.branches:
-            active: LogicData = active._getval_py()
-            if active:
-                _mask, _v = self.output._type._setval_py(low_key, value)
-                mask |= _mask 
-                v &= ~_mask
-                v |= _v 
-            elif active._unknown: 
-                _mask, _v = self.output._type._setval_py(low_key, value)
-                mask |= _mask
-                v @= _v 
+        # mask = gmpy2.mpz(0)
+        # v = Logic(0,0)
+        # for active, low_key, value in self.branches:
+        #     active: LogicData = active._getval_py()
+        #     if active:
+        #         _mask, _v = self.output._type._setval_py(low_key, value)
+        #         mask |= _mask 
+        #         v &= ~_mask
+        #         v |= _v 
+        #     elif active._unknown: 
+        #         _mask, _v = self.output._type._setval_py(low_key, value)
+        #         mask |= _mask
+        #         v @= _v 
         
-        self.output._setval_py(v, dt=self.delay, mask = mask)
+        # self.output._setval_py(v, dt=self.delay, mask = mask)
         # active = []
         # # TODO record different cond frames. for tri-state, warning or merge; for wire, has priority
         # # multiple partial assign from multiple frames
@@ -2223,14 +2385,30 @@ class _Wire(Assignable):
         #         _type._setval_py(_data, key, value) 
         #     value = _type._getval_py(_data, None) 
         #     self.output._setval_py(value, self.delay, None)          
-    
-    
-    def emitVerilog(self, v: sv.Verilog) -> str: 
-        # body = self.condtree.emitVerilog('=') 
-        # body = '  ' + '  '.join(body.splitlines(keepends=True))
-        body = ''
-        return '\n'.join(['always_comb begin', body , 'end'])
-            
+
+    def dump_cpp(self):
+        raise NotImplementedError(self)
+
+    def dump_sv(self, builder: sv.ModuleSV):
+        # TODO 
+        """
+        always_comb begin 
+            x = '0;
+            if (cond1) begin 
+                x = v1;
+            end
+            if (cond2) begin 
+                x[idx +: 3] = v2;
+            end
+            if (cond3) begin 
+                x = v3;
+            end
+        end
+        """ 
+        body = [self._sv_assignment(i, builder=builder) for i in self.branches] 
+        body.insert(0, 'always_comb begin')
+        body.append('end')
+        builder.gates[self] = '\n'.join(body)
         
     def __str__(self):
         return f'Wire(name={self.output._data._name})'
@@ -2240,10 +2418,6 @@ class _Wire(Assignable):
 class _Reg(Assignable): 
   
     id = 'Reg'         # id
-    condtree: CondTreeNode 
-    output: Writer 
-    _netlist = 'logic'   # netlist type
-    _sess: _session.Session
   
     def __head__(self, 
             x: Reader, 
@@ -2264,24 +2438,33 @@ class _Reg(Assignable):
         clock: (clk, 0) | (clk, 1)
         """
         self.id = id or self.id
-        self.condtree =  CondTreeNode(gate=self, is_analog=False, is_reg=True)
+        self.branches: List[Tuple[
+            Union[Reader, None], 
+            Union[None,Tuple],
+            Union[Reader, Logic]
+        ]] = []  
         
-        self.posedge_clk: List[Reader, gmpy2.mpz] = []
-        self.negedge_clk: List[Reader, gmpy2.mpz] = [] 
+        self.posedge_clk: List[Reader, bool] = []   # store previous value
+        self.negedge_clk: List[Reader, bool] = [] 
         self.pos_rst: Reader = None
         self.neg_rst: Reader = None
-        self.reset_value: gmpy2.mpz = x._getval_py()
+        self.reset_value: Logic = x._data._getval_py()
         
         if clock is ...:   clock = self._sess.module.clock 
         if reset is ...:   reset = self._sess.module.reset
 
-        # record initial value of clock
-        if clock[1]:
-            self.posedge_clk = [self.read(clock[0]), clock[0]._getval_py()] 
+        # record initial value of clock 
+        clk_init = clock[0]._data._getval_py() 
+        if clk_init.x:
+            _clk_init = False 
         else:
-            self.negedge_clk = [self.read(clock[0]), clock[0]._getval_py()] 
+            _clk_init = clk_init.v > 0
+        if clock[1]:
+            self.posedge_clk = [self.read(clock[0]), _clk_init] 
+        else:
+            self.negedge_clk = [self.read(clock[0]), _clk_init] 
             
-        # record initial value of reset 
+        # reset signal
         if reset is None:
             pass 
         elif reset[1]:
@@ -2293,85 +2476,141 @@ class _Reg(Assignable):
         if not next:
             if x._data.writer is not None:
                 raise ValueError('Reg(signal) requires constant signal')
-            self.output = self.write(x)
-            self.condtree.insert(conds=[], assignment=_Assignment(None, x, None)) 
+            self.output = self.write(x) 
+            self.branches.append((None, None, x))
             return x  
         # reg next
         else:
             ret = x._type()
-            self.output = self.write(ret)
-            self.condtree.insert(conds=[], assignment=_Assignment(None, x, None)) 
+            self.output = self.write(ret) 
+            self.branches.append((None, None, x))
             return ret 
 
     def forward(self):
+        # TODO x state
         if (rst:=self.pos_rst) is not None: 
-            if rst._getval_py():
-                self.output._setval_py(self.reset_value, self.delay) 
+            if rst._data._getval_py() == Logic(1,0):
+                self.output._data._setval_py(self.reset_value, dt = self.delay, trace=self) 
                 return
         if (rst:=self.neg_rst) is not None:
-            if not rst._getval_py():
-                self.output._setval_py(self.reset_value, self.delay) 
+            if rst._data._getval_py() == Logic(0,0):
+                self.output._data._setval_py(self.reset_value, dt = self.delay, trace=self) 
                 return 
+        # don't store x value, let x means keep unchanged! so that 0-x-1 is posedge
         if s:=self.posedge_clk: 
             clk, odd = s 
-            new = clk._getval_py()
-            s[1] = new 
-            if not (odd==0 and new != 0):
+            new = clk._data._getval_py() 
+            if new.x:
+                return 
+            s[1] = new.v > 0
+            if not (odd==False and s[1]==True):
                 return    
         if s:=self.negedge_clk:
             clk, odd = s 
-            new = clk._getval_py() 
-            s[1] = new  
-            if not (odd != 0 and new == 0):
+            new = clk._data._getval_py()  
+            if new.x:
+                return
+            s[1] = new.v > 0
+            if not (odd==True and s[1]==False):
                 return  
             
-        assignments: List[_Assignment] = []  
-        self.condtree.eval(assignments)   # 800ms  
+        # assignments: List[_Assignment] = []  
+        # self.condtree.eval(assignments)   # 800ms  
 
-        if len(assignments) == 1:
-            key, value = assignments[0].eval()
-            self.output._setval_py(value, self.delay, key) 
-        else: 
-            _data = self.output._data.copy()
-            _type = self.output._type  
-            for assignment in reversed(assignments):
-                key, value = assignment.eval() 
-                _type._setval_py(_data, key, value)
-            value = _type._getval_py(_data, None)
-            self.output._setval_py(value, self.delay, None)
-            
-    
-    def emitVerilog(self, v: sv.Verilog) -> str: 
+        # if len(assignments) == 1:
+        #     key, value = assignments[0].eval()
+        #     self.output._setval_py(value, self.delay, key) 
+        # else: 
+        #     _data = self.output._data.copy()
+        #     _type = self.output._type  
+        #     for assignment in reversed(assignments):
+        #         key, value = assignment.eval() 
+        #         _type._setval_py(_data, key, value)
+        #     value = _type._getval_py(_data, None)
+        #     self.output._setval_py(value, self.delay, None)
+        if len(self.branches) == 1:
+            data = self.branches[-1][-1]  
+            if isinstance(data, Reader):
+                data = data._data._getval_py()
+            self.output._data._setval_py(data, dt = self.delay, trace=self)
+        else:
+            self.output._data._setval_py(self.branches, multiple=True, dt=self.delay, trace=self)
+
+    def dump_cpp(self):
+        raise NotImplementedError(self)
+
+    def dump_sv(self, builder: sv.ModuleSV): 
+        """
+        always_ff @(posedge clk) begin 
+            if (reset) out <= init; 
+            else begin 
+
+            end 
+        end 
+        """
         triggers = [] 
         has_reset = False
         if (rst:=self.pos_rst) is not None: 
-            triggers.append(f'posedge {self.get_name(rst)}')  
-            reset = self.get_name(rst)
+            triggers.append(f'posedge {builder.get_name(rst)}')  
+            reset = builder.get_name(rst)
             has_reset = True 
         elif (rst:=self.neg_rst) is not None:
-            triggers.append(f'negedge {self.get_name(rst)}') 
-            reset = f'!{self.get_name(rst)}'
+            triggers.append(f'negedge {builder.get_name(rst)}') 
+            reset = f'!{builder.get_name(rst)}'
             has_reset = True  
             
         if self.posedge_clk:
-            triggers.append(f'posedge {self.get_name(self.posedge_clk[0])}')
+            triggers.append(f'posedge {builder.get_name(self.posedge_clk[0])}')
         else:
-            triggers.append(f'negedge {self.get_name(self.negedge_clk[0])}')
+            triggers.append(f'negedge {builder.get_name(self.negedge_clk[0])}')
         triggers = ' or '.join(triggers)
         
-        out = self.get_name(self.output)
-        body = self.condtree.emitVerilog('<=')
-        body = '    ' + '    '.join(body.splitlines(keepends=True))
+        out = builder.get_name(self.output)
+        body = '\n'.join(self._sv_assignment(i, builder=builder,op='<=') for i in self.branches)   
         if has_reset:
-            body = f'  if ({reset}) {out} <= {utils.const_int(self.reset_value)}; else begin\n{body}\n  end'
-
-        return '\n'.join([
+            body = f'if ({reset}) {out} <= {builder.get_name(self.reset_value)}; else begin\n{body}\nend'
+        body = '  ' + '  '.join(body.splitlines(keepends=True))
+        res = '\n'.join([
             # FIXME modelsim error
             # f'initial begin {out} = {self.reset_value}; end',
             f'always_ff @({triggers}) begin',
             body, 
             'end'
         ])
+        builder.Block(self, res)
+
+
+    # def dumpVerilog(self, v: sv.Verilog) -> str: 
+    #     triggers = [] 
+    #     has_reset = False
+    #     if (rst:=self.pos_rst) is not None: 
+    #         triggers.append(f'posedge {self.get_name(rst)}')  
+    #         reset = self.get_name(rst)
+    #         has_reset = True 
+    #     elif (rst:=self.neg_rst) is not None:
+    #         triggers.append(f'negedge {self.get_name(rst)}') 
+    #         reset = f'!{self.get_name(rst)}'
+    #         has_reset = True  
+            
+    #     if self.posedge_clk:
+    #         triggers.append(f'posedge {self.get_name(self.posedge_clk[0])}')
+    #     else:
+    #         triggers.append(f'negedge {self.get_name(self.negedge_clk[0])}')
+    #     triggers = ' or '.join(triggers)
+        
+    #     out = self.get_name(self.output)
+    #     body = self.condtree.dumpVerilog('<=')
+    #     body = '    ' + '    '.join(body.splitlines(keepends=True))
+    #     if has_reset:
+    #         body = f'  if ({reset}) {out} <= {utils.const_int(self.reset_value)}; else begin\n{body}\n  end'
+
+    #     return '\n'.join([
+    #         # FIXME modelsim error
+    #         # f'initial begin {out} = {self.reset_value}; end',
+    #         f'always_ff @({triggers}) begin',
+    #         body, 
+    #         'end'
+    #     ])
             
 
     def __str__(self):
@@ -2387,10 +2626,13 @@ class _Latch(Assignable):
     output: Writer 
     _netlist = 'logic'
     
-    def __head__(self, x: Reader, *, id: str = '') -> Reader:
-        """ no LatchNext, turn x into latch
-
-        TODO reset
+    def __head__(self, x: Reader, *, id: str = '', enable: Tuple[Reader, int] = None) -> Reader:
+        """  
+            always_latch begin
+                if (enable) begin
+                    a_latch <= something;
+                end
+            end
         """
         self.id = id or self.id  
         self.condtree = CondTreeNode(gate=self, is_analog=False, is_reg=False)
@@ -2422,8 +2664,8 @@ class _Latch(Assignable):
             self.output._setval_py(value, self.delay, None)      
 
                 
-    def emitVerilog(self, v: sv.Verilog) -> str:
-        body = self.condtree.emitVerilog('=') 
+    def dumpVerilog(self, v: sv.Verilog) -> str:
+        body = self.condtree.dumpVerilog('=') 
         body = '  ' + '  '.join(body.splitlines(keepends=True))
         return '\n'.join(['always_latch begin', body , 'end'])
 
@@ -2506,7 +2748,7 @@ class Mem(Assignable):
         self.output._setval_py(value, self.delay, key) 
             
     
-    def emitVerilog(self, v: sv.Verilog) -> str: 
+    def dumpVerilog(self, v: sv.Verilog) -> str: 
         triggers = [] 
             
         if self.posedge_clk:
@@ -2516,7 +2758,7 @@ class Mem(Assignable):
         triggers = ' or '.join(triggers)
         
         out = self.get_name(self.output)
-        body = self.condtree.emitVerilog('<=')
+        body = self.condtree.dumpVerilog('<=')
         body = '    ' + '    '.join(body.splitlines(keepends=True)) 
 
         return '\n'.join([
@@ -2606,8 +2848,8 @@ class _WireTri(Analog):
             self.output._setval_py(value, self.delay, key)  
     
     
-    def emitVerilog(self, v) -> str: 
-        body = self.condtree.emitVerilog('=')  
+    def dumpVerilog(self, v) -> str: 
+        body = self.condtree.dumpVerilog('=')  
         body = f"{self.get_name(self.output)} = 'z;\n{body}" 
         body = '  ' + '  '.join(body.splitlines(keepends=True))
         return '\n'.join(['always_comb begin', body , 'end'])
@@ -2673,11 +2915,11 @@ class Clock(Gate):
         return ret
 
     def forward(self):
-        odd: LogicData = self.clk._data._getval_py() 
+        odd: Logic = self.clk._data._getval_py() 
         if odd.v:  # 1 -> 0
-            self.clk_w._data._setval_py(LogicData(0,0), dt=self.high) 
+            self.clk_w._data._setval_py(Logic(0,0), dt=self.high, trace=self) 
         else:    # 0 -> 1
-            self.clk_w._data._setval_py(LogicData(1,0), dt=self.low)
+            self.clk_w._data._setval_py(Logic(1,0), dt=self.low, trace=self)
 
     def dump_cpp(self):
         # TODO 
@@ -2685,9 +2927,9 @@ class Clock(Gate):
     
     def dump_sv(self, builder: sv.ModuleSV) -> None:
         clk = builder.get_name(self.clk)
-        builder.gates[self] = f'always begin {clk} = 0; # {self.low}; {clk} = 1; # {self.high}; end'
+        builder.Task(self, f'always begin {clk} = 0; # {self.low}; {clk} = 1; # {self.high}; end')
     
-    def emitVerilog(self, v: sv.Verilog) -> str: 
+    def dumpVerilog(self, v: sv.Verilog) -> str: 
         clk = self.get_name(self.clk) 
         low = self.low
         high = self.high
@@ -2723,11 +2965,37 @@ class ClockDomain(HGL):
         self._sess.module.reset = self._clk_restore.pop()
         self._sess.module.clock = self._rst_restore.pop()
     
+# TODO use a generator
+class _Track(Gate):
+    def __head__(self, x: Reader):
+        self.input = self.read(x) 
+        # store history values for verification and waveform
+        self._timestamps: list[int] = []
+        self._values: list[Logic] = []
+        return self
     
-        
+    def forward(self) -> None:   
+        # called by python simulator after value updated at t, so current value is the next t
+        self._timestamps.append(self._sess.sim_py.t + 1)  
+        self._values.append(self.input._data._getval_py()) 
+
+    def history(self, t: int) -> Logic:
+        """ get value at time t
+        """
+        idx = bisect.bisect(self._timestamps, t) - 1
+        if idx < 0: 
+            idx = 0 
+        return self._values[idx]
+    
+    def dump_cpp(self):
+        # TODO 
+        raise NotImplementedError(self)
+
+
+# TODO make root signal non-constant
 
     
-class DummyGate(Assignable):
+class BlackBox(Gate):
 
     id = 'DummyGate'
 
@@ -2738,45 +3006,42 @@ class DummyGate(Assignable):
             self.inputs.append(self.read(i))
         for i in outputs:
             self.outputs.append(self.write(i))
-        self.verilog: List[str] = []
+        self.verilog: List[str] = [] 
+        self.builder: sv.ModuleSV = None
         return self 
 
-    def __partial_assign__(self, *args, **kwargs) -> None: 
-        raise Exception()
+    def get_name(self, obj):
+        return self.builder.get_name(obj) 
 
-
-    def delete(self): 
-        for i in self.iports:
-            i._driven.pop(self)
-        for o in self.oports: 
-            o._delete() 
-        self.iports.clear()
-        self.oports.clear()
-        self._sess._remove_gate(self)
-    
-    def append(self, v: str):
-        self.verilog.append(v)
+    def append(self, *args: str):
+        self.verilog.extend(args) 
         
-    def assign(self, s: Reader, v: Any):
-        self.verilog.append(f'{self.get_name(s)} = {v};')
+    def forward(self):
+        pass
     
-    def emitVerilog(self, v: sv.Verilog) -> str:
-        self.verilog.clear()
+    def dump_cpp(self):
+        pass
+
+    def dump_sv(self, builder: sv.ModuleSV):  
+        self.builder = builder
         self.__body__()
-        return '\n'.join(self.verilog)
+        builder.Task(self, '\n'.join(self.verilog))
+        self.builder = None
 
     def __body__(self):
         return 
 
 
-def inline_verilog(f: Callable):
+def blackbox(f: Callable):
     assert len(inspect.signature(f).parameters) == 1
-    type(f.__name__, (DummyGate,),{'__body__':f})()
+    type(f.__name__, (BlackBox,),{'__body__':f})() 
+
+
 
 """
-@blackbox
-def emit(self, verilog):
-    name = v.insert_module('module adder(x,y); endmodule')
+@blackbox testbench(self, builder): 
+    builder.get_name(dut) 
+    builder.get_name(dut.io.x)
 
     x = self.get_name(dut.x)
     y = self.get_name(dut.y) 
@@ -2793,34 +3058,57 @@ end
 
 
 @vectorize_first
-def setv(left: Reader, right: Any, *, key = None, dt=0): 
+def setv(left: Reader, right: Any, *, key = None, dt=0) -> None: 
     assert dt >= 0
     if key is None:
-        immd: LogicData = left._type._eval(right) 
-        left._data._setval_py(immd, low_keys=None, dt = dt)
+        immd: Logic = left._type._eval(right)  
+        low_key = None
     else:
         low_key, sub_type = left._type._slice(key)  
-        immd = sub_type._eval(right) 
-        left._data._setval_py(immd, low_keys=low_key,dt=dt )
+        immd: Logic = sub_type._eval(right) 
+    
+    if HGL._sess.verbose_trace:
+        trace = utils.format_hgl_stack(2, 4) 
+    else:
+        trace = None 
+    
+    if low_key is None:
+        left._data._setval_py(immd, dt=dt, trace=trace)
+    else:
+        left._data._setval_py(branches=[(None, low_key, immd)],dt=dt, trace=trace)
+    
+    
     
 @vectorize_first
-def setr(left: Reader, dt=0): 
+def setr(left: Reader, dt=0) -> Logic: 
+    """ random 2-valued logic
+    """
     T = left._type 
     v = T._eval(random.randrange(1 << len(T))) 
-    left._data._setval_py(v, low_keys=None, dt=dt)
+    if HGL._sess.verbose_trace:
+        trace = utils.format_hgl_stack(2, 4) 
+    else:
+        trace = None
+    left._data._setval_py(v, dt=dt, trace=trace)
     return v
 
 @vectorize_first
-def setx(left: Reader, dt=0): # TODO 
+def setx(left: Reader, dt=0) -> Logic:  
+    """ random 3-valued logic
+    """
     T = left._type  
     _max = 1 << len(T)
-    v = LogicData(random.randrange(_max), random.randrange(_max))
+    v = Logic(random.randrange(_max), random.randrange(_max))
     v = T._eval(v) 
-    left._data._setval_py(v, low_keys=None, dt=dt) 
+    if HGL._sess.verbose_trace:
+        trace = utils.format_hgl_stack(2, 4) 
+    else:
+        trace = None
+    left._data._setval_py(v, dt=dt, trace=trace)
     return v
 
 @vectorize 
-def getv(signal: Reader, key = None) -> LogicData: 
+def getv(signal: Reader, key = None) -> Logic: 
     # key: high key
     if key is None:
         return signal._data._getval_py()

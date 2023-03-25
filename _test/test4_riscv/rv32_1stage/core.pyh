@@ -550,7 +550,7 @@ ffff0000
             setv(dut.io.req.op, 'Read')
             setv(dut.io.req.addr, i*4) 
             sess.run(100) 
-        sess.emitVCD('build/mem.vcd')
+        sess.dumpVCD('build/mem.vcd')
 
 
 @tester test_core(): 
@@ -563,7 +563,7 @@ ffff0000
         t = time.time()
         sess.run(50*100)  
         print('riscv pyhgl sim cost:', time.time()-t)
-        sess.emitVCD('build/core.vcd') 
+        sess.dumpVCD('build/core.vcd') 
 
         @inline_verilog Verilog(self):
             reset = self.get_name(dut.reset[0])
@@ -576,7 +576,7 @@ ffff0000
             self.append('$finish;')
             self.append('end')
 
-        sess.emitVerilog('build/core.sv', delay=False, top = False) 
+        sess.dumpVerilog('build/core.sv', delay=False, top = False) 
 
-        sess.emitGraph('build/core.gv')
-        sess.emitSummary()
+        sess.dumpGraph('build/core.gv')
+        sess.summary()

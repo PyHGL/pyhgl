@@ -61,8 +61,8 @@ AdderIO = lambda w: Bundle(
             sess.run(100)
             tester.EQ += getv(adder1.io.out), x1+y1 
             tester.EQ += getv(adder2.io.out), x2+y2 
-        sess.emitVCD('Adder.vcd') 
-        sess.emitGraph('Adder.gv')
+        sess.dumpVCD('Adder.vcd') 
+        sess.dumpGraph('Adder.gv')
         print(sess)
 
         dut = adder1
@@ -80,6 +80,6 @@ AdderIO = lambda w: Bundle(
             self.append('$finish;')
             self.append('end')
 
-        sess.emitVerilog('Adder.sv', delay=True, top = True)
+        sess.dumpVerilog('Adder.sv', delay=True, top = True)
 
 

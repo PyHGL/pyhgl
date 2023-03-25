@@ -19,16 +19,16 @@ class _Property:
     def __get__(self, obj, cls=None):   return self.__v       
 
 
-class _Test:
+class _Base:
     # {filename:[testcases]}
     _results: Dict[str, List[_TestCase]] = _Property({})
     # testcase1.testcase2...
     _stack: List[_TestCase] = _Property([])    
 
-class _Assertion(_Test):
+class _Assertion(_Base):
     pass 
 
-class _TestCase(_Test):
+class _TestCase(_Base):
     """ test cases are functions in test file 
     """
     def __init__(self, f: types.FunctionType, file: str, name: str) -> None:
@@ -83,7 +83,7 @@ def singleton(cls):
     return cls()
 
 
-class _Runtest(_Test):
+class _Tester(_Base):
     """ decorator
     """
 
@@ -143,7 +143,7 @@ class _Runtest(_Test):
         return f   
 
     @singleton 
-    class EQ(_Test):
+    class EQ(_Base):
         def __iadd__(self, v: Tuple[Any, Any]):
             # skip if not inside test function
             if self._stack:
@@ -151,20 +151,23 @@ class _Runtest(_Test):
             return self 
 
     @singleton 
-    class NE(_Test):
+    class NE(_Base):
         def __iadd__(self, v: Tuple[Any, Any]):
             # skip if not inside test function
             if self._stack:
-                # TODO not equal
-                _AssertEq(v) 
-            return self 
+                _AssertNe(v)
+            return self  
+        
+    def Assert(self, v: bool):
+        if self._stack:
+            _AssertTrue(v)
 
-    def copy(self) -> _Runtest:
-        ret = object.__new__(_Runtest)
+    def copy(self) -> _Tester:
+        ret = object.__new__(_Tester)
         ret.__dict__.update(self.__dict__)
         return ret
 
-    def when(self, cond) -> _Runtest:
+    def when(self, cond) -> _Tester:
         """
         @tester.when(1) ...
         """
@@ -173,7 +176,7 @@ class _Runtest(_Test):
         return ret
 
     @property 
-    def debug(self) -> _Runtest:
+    def debug(self) -> _Tester:
         """ debug mode, exit when exception
         """
         ret = self.copy()
@@ -181,7 +184,7 @@ class _Runtest(_Test):
         return ret
     
     @property 
-    def disable(self) -> _Runtest:
+    def disable(self) -> _Tester:
         """ skip mode
         """
         ret = self.copy()
@@ -197,12 +200,12 @@ class _Runtest(_Test):
     def filter(self, s) -> None:
         """ set a global filter that matches case name
         """
-        _Runtest._global_filter = re.compile(s)
+        _Tester._global_filter = re.compile(s)
 
     def close(self):
         """ disable all test cases
         """
-        _Runtest._global_enable = False
+        _Tester._global_enable = False
         
     def summary(self):
         """ print summary
@@ -221,20 +224,7 @@ class _Runtest(_Test):
                 print(testcase.__str__('  '), end='') 
         print(f'\n{_yellow("tester:")} {_green(total_passed)} passed, {_red(total_failed)} failed, total_time: {total_t:.4f}s\n')  
         
-"""
-usage:
-
-@tester 
-def test_case():
-    tester.Assert == 1,0
-
-@tester.debug
-def test_case():
-    tester.Assert == 1,1
-
-tester.summary()
-"""
-tester: _Runtest =  _Runtest()
+tester: _Tester =  _Tester()
 
     
 
@@ -263,5 +253,48 @@ class _AssertEq(_Assertion):
     def __str__(self) -> str:
         return self.msg        
         
+class _AssertNe(_Assertion):
 
+    def __init__(self, v: Tuple[Any, Any]):
+        curr = self._stack[-1]
+        a, b = v
+        self.msg = ''
+        # should support ==, otherwise will stop testcase
+        passed = a != b  
+        if passed:
+            curr.count_passed += 1 
+            return 
+        
+        # if failed, store information
+        curr.count_failed += 1
+        curr.assertions_failed.append(self)
 
+        r = f"{_red('assertion fail')} because {repr(a)} == {repr(b)}"
+        n = curr.count_failed + curr.count_passed - 1
+        frame,filename,line_number,function_name,lines,index = inspect.stack()[2]
+        self.msg = f"  {filename}:{line_number:<5} {n:<6} {r}\n"
+
+    def __str__(self) -> str:
+        return self.msg    
+
+class _AssertTrue(_Assertion):
+
+    def __init__(self, v: bool):
+        curr = self._stack[-1]
+        self.msg = ''
+        passed = bool(v)  
+        if passed:
+            curr.count_passed += 1 
+            return 
+        
+        # if failed, store information
+        curr.count_failed += 1
+        curr.assertions_failed.append(self)
+
+        r = f"{_red('assertion fail')} {passed}"
+        n = curr.count_failed + curr.count_passed - 1
+        frame,filename,line_number,function_name,lines,index = inspect.stack()[2]
+        self.msg = f"  {filename}:{line_number:<5} {n:<6} {r}\n"
+
+    def __str__(self) -> str:
+        return self.msg    

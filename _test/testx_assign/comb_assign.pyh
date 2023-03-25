@@ -47,6 +47,6 @@ with Session() as sess:
 
 
 
-sess.emitVCD('comb_assign.vcd')
-sess.emitVerilog('comb_assign.sv') 
+sess.dumpVCD('comb_assign.vcd')
+sess.dumpVerilog('comb_assign.sv') 
 

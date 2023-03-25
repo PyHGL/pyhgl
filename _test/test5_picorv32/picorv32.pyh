@@ -189,4 +189,4 @@ from pyhgl.logic import *
 
 with Session(PicoConfig()) as sess:
     dut = Picorv32()
-    sess.emitVerilog('target/picorv32.sv')
+    sess.dumpVerilog('target/picorv32.sv')

@@ -1,0 +1,84 @@
+
+from pyhgl.logic import *
+from pyhgl.tester import tester, utils
+
+import time 
+import sys 
+
+@conf Global:
+    @conf RippleCarry:
+        w = 5
+    @conf KoggeStone:
+        w = 5
+
+AdderIO = lambda w: Bundle(
+    x   = UInt[w](0)    @ Input,
+    y   = UInt[w](0)    @ Input,
+    out = UInt[w+1](0)  @ Output, 
+)
+
+@module FA:
+    a, b, cin = UInt(0), UInt(0), UInt(0)
+    s = a ^ b ^ cin 
+    cout = a & b | (a ^ b) & cin 
+
+@module RippleCarry:
+    io = AdderIO(conf.p.w) 
+    fa = Array(FA() for _ in range(conf.p.w))
+    fa[:, 'a']   <== io.x.split()
+    fa[:, 'b']   <== io.y.split()
+    fa[0, 'cin'] <== 0 
+    fa[1:,'cin'] <== fa[:-1,'cout']
+    io.out <== Cat(*fa[:,'s'], fa[-1,'cout']) 
+
+@module KoggeStone:
+    io = AdderIO(conf.p.w) 
+    P_odd = io.x ^ io.y
+    P = P_odd.split()
+    G = (io.x & io.y).split()
+    dist = 1 
+    while dist < conf.p.w:
+        for i in reversed(range(dist,conf.p.w)): 
+            G[i] = G[i] | (P[i] & G[i-dist])
+            if i >= dist * 2:
+                P[i] = P[i] & P[i-dist]
+        dist *= 2 
+    io.out <== Cat(0, *G) ^ P_odd
+
+
+@tester test_adder: 
+    with Session(conf=Global(), verbose_sim=False) as sess: 
+
+        adder1 = RippleCarry()
+        adder2 = KoggeStone()
+        sess.track(adder1.io, adder2.io)  
+
+        test_data = []
+        for i in range(100):
+            x, y = setr(adder1.io[['x','y']]) 
+            test_data.append((x,y))
+            setv(adder2.io[['x','y']], (x,y))
+            sess.run(100)
+            tester.EQ += getv(adder1.io.out), x + y 
+            tester.EQ += getv(adder2.io.out), x + y
+        sess.dumpVCD('Adder.vcd') 
+        sess.dumpGraph('Adder.gv')
+        print(sess)
+
+        @blackbox testbench(builder):
+            dut1 = builder.get_name(adder1) 
+            dut2 = builder.get_name(adder2)
+            x1 = builder.get_name(adder1.io.x)
+            y1 = builder.get_name(adder1.io.y) 
+            x2 = builder.get_name(adder2.io.x)
+            y2 = builder.get_name(adder2.io.y)
+
+            builder.append('initial begin\n$dumpfile("Adder_iverilog.vcd");$dumpvars(0);') 
+            for test_x, test_y in test_data:
+                builder.append(f'{x1}={test_x};{y1}={test_y};{x2}={test_x};{y2}={test_y};#200;')
+            builder.append('$finish;\nend')
+
+        sess.dumpVerilog('Adder.sv', delay=True, top = True) 
+        sess.test_iverilog()
+
+

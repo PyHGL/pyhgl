@@ -22,14 +22,17 @@
 from __future__ import annotations
 from itertools import chain, islice
 from typing import Any, Dict, List, Set, Union, Tuple
-
+import gmpy2
+import os 
+import subprocess
+import time 
 
 from pyhgl.array import *
 import pyhgl.logic.hgl_basic as hgl_basic
 import pyhgl.logic.module_hgl as module_hgl
 import pyhgl.logic._session as _session
 import pyhgl.logic.utils as utils
-
+import pyhgl.tester.utils as tester_utils
 
 
 class ModuleSV(HGL):
@@ -69,10 +72,12 @@ class ModuleSV(HGL):
 
         # instance names, ex. uint_0, uint_1, ...
         self.names: Dict[Any, str] = {}
-        # signal : type, ex. a:logic[7:0]
+        # {signal : type}, ex. {a:'logic[7:0] {}'}
         self.signals: Dict[hgl_basic.SignalData, str] = {} 
         # verilog code of gate defination. ex. assign x = a & b;
-        self.gates: Dict[Union[hgl_basic.Gate, hgl_basic.SignalData], str] = {}
+        self.gates: Dict[Union[hgl_basic.Gate, hgl_basic.SignalData], str] = {} 
+        # verilog code of unsynthesizable bolcks. ex. initial begin ... end 
+        self.extra_blocks: Dict[Union[hgl_basic.Gate, hgl_basic.SignalData], str] = {} 
         
     def clear(self):
         self.module_name = ''
@@ -85,19 +90,22 @@ class ModuleSV(HGL):
         self.signals.clear()
         self.gates.clear()
         
-    def record_io(self):
-        # deal with inputs, outputs, inouts of module
+    def record_io(self): 
+        # TODO record _module first
+        # deal with inputs, outputs, inouts of module 
+        up_module = self.module._position[-2]._module
         for i in self.inputs: 
-            if i._data.writer is None: 
+            if i._data.writer is None and i._data._module is None: 
                 i._data._module = self.module._position[-2]  # input belongs to father
-            self._sess.verilog._solve_dependency(self.module, i) 
+            self.get_name(i) 
         for o in self.outputs: 
-            if o._data.writer is None:
+            if o._data.writer is None and o._data._module is None:
                 o._data._module = self.module
-            self._sess.verilog._solve_dependency(self.module._position[-2], o) 
+            self.get_name(o)
+            up_module.get_name(o)
         for x in self.inouts:
             assert isinstance(x._data.writer._driver, hgl_basic.Analog) 
-            self._sess.verilog._solve_dependency(self.module, x)
+            self.get_name(x)
 
 
     def get_name( self, obj: Union[
@@ -117,21 +125,26 @@ class ModuleSV(HGL):
         # new name
         if isinstance(obj, hgl_basic.SignalData): 
             if obj._module is None:     # constant
-                ret = obj._dump_sv_immd()
+                ret = self._sv_immd(obj)
             else:
-                ret = self.new_name(obj, obj._name)  # assign a new name
-            obj._dump_sv(self)                          # will call get_name
-            self._sess.verilog._solve_dependency(self.module, obj)
+                ret = self._new_name(obj, obj._name)  # assign a new name
+                obj._dump_sv(self)                          # will call get_name
+                self._sess.verilog._solve_dependency(self.module, obj)
             return ret
         elif isinstance(obj, module_hgl.Module):
             assert obj in self.module._submodules      # only submodule is allowed 
-            ret = self.new_name(obj, obj._name)        # assign a new name
+            ret = self._new_name(obj, obj._name)        # assign a new name
             return ret 
+        elif isinstance(obj, (hgl_basic.Logic, hgl_basic.BitPat, int, gmpy2.mpz)):
+            return str(obj)
         else:
-            raise TypeError(obj)
+            raise TypeError(f'{type(obj)}({obj})')
 
+    def _sv_immd(self, data: hgl_basic.SignalData) -> str:
+        width = len(data)
+        return utils.logic2str(data.v, data.x, width=width)
 
-    def new_name(self, obj: Any, prefered: str) -> str:
+    def _new_name(self, obj: Any, prefered: str) -> str:
         """ get a new name of object. ex. uint_0, sint_1, ...
         """
         assert obj not in self.names
@@ -160,13 +173,21 @@ class ModuleSV(HGL):
         
         inputs = self.inputs_data
         outputs = self.outputs_data 
-        inouts = self.inouts_data
+        inouts = self.inouts_data 
+        io_signals = {}
+        io_signals.update(inputs)
+        io_signals.update(outputs)
+        io_signals.update(inouts) 
+        assert len(io_signals) == len(inputs) + len(outputs) + len(inouts), 'duplicated io'
         
+        head = ','.join(self.get_name(i) for i in io_signals)
+        head = f'({head});'    
+
         io: List[str] = [] 
         signals: List[str] = []
-             
+
         for signaldata, T in self.signals.items():
-            s = f'{T} {self.get_name(signaldata)}'
+            s = T.format(self.get_name(signaldata))
             if signaldata in inputs:
                 io.append(f'input {s};')
             elif signaldata in outputs:
@@ -174,13 +195,14 @@ class ModuleSV(HGL):
             elif signaldata in inouts:
                 io.append(f'inout {s};')
             else:
-                signals.append(f'{s};')   
+                signals.append(f'{s};')    
         
-        head = ','.join(self.get_name(i) for i in chain(inputs, outputs, inouts))
-        head = f'({head});'            
+        if len(self.module._position) == 1:
+            gates = self.extra_blocks.values()
+        else:
+            gates = chain(self.gates.values(), self.extra_blocks.values()) 
             
-        return '\n'.join(chain([head], io, signals, [''], submodules, [''], self.gates.values(), ['']))
-         
+        return '\n'.join(chain([head], io, signals, [''], submodules, [''], gates, ['']))
         
         
     def dump_sv(self, v: Verilog) -> None:
@@ -214,7 +236,7 @@ class ModuleSV(HGL):
     def __str__(self):
         return f"module_sv:{self.module._unique_name}"
             
-        
+    # TODO top module only allow initial block and blackbox 
     def Assign(
         self, 
         gate: hgl_basic.Gate,
@@ -232,21 +254,14 @@ class ModuleSV(HGL):
             body = f'assign {left} = {right};'
         self.gates[gate] = body
 
-    def AssignOP(
-        self, 
-        left: Union[LocalVar, Any], 
-        right: List, 
-        delay: int, 
-        op: str,
-    ) -> None:
-        left = self.get_name(left)
-        op.join(self.get_name(i) for i in right)
+    def Block(self, gate: hgl_basic.Gate, body: str):
+        self.gates[gate] = body 
 
-class AST:
-    pass 
+    def Task(self, gate: hgl_basic.Gate, body: str): 
+        self.extra_blocks[gate] = body
+    
 
-class LocalVar(AST):
-    pass
+
 
 class Verilog(HGL): 
     """
@@ -261,15 +276,17 @@ class Verilog(HGL):
     _sess: _session.Session
         
     def __init__(self, sess: _session.Session):
-        # record all modules, the first is global module
+        # record all modules, the first is the global module
         self.modules: List[module_hgl.Module] = []  
-        # map all synthesizable gates to their modules
+        # map from gate to module
         self.gates: Dict[hgl_basic.Gate, module_hgl.Module] = {}  
-        # body:name,  ex. {"(a,b,c,d) input a, b; output c,d; ..." : "my_module"}
+        # {body:name},  ex. {"(a,b,c,d) input a, b; output c,d; ..." : "my_module"}
         self.module_bodys: Dict[str, str] = {}
         
-        # ex. assign #2 a = b & c
-        self.emit_delay: bool = False
+        # ex. assign #2 a = b & c;
+        self.emit_delay: bool = False 
+        # dumped file
+        self.filepath: str = None
         
     def insert_module(self, body: str, unique_name: str) -> str:
         """ insert a module declaration. if duplicated, return odd name
@@ -281,14 +298,14 @@ class Verilog(HGL):
             return unique_name 
         
         
-    def emit(self, path: str, *, delay: bool = False, top = False) -> None:
+    def dump(self, path: str, *, delay: bool = False, top = False) -> None:
         """ generate verilog for all modules in this session
         
         delay:
             True: assign #1 a = b;
             False: assign a = b;
         top:
-            True: emit the global dummy module
+            True: dump the global dummy module
         """                 
         with self._sess:
             self.emit_delay = delay
@@ -297,7 +314,7 @@ class Verilog(HGL):
             for m in self.modules:
                 m._module.clear() 
             # solve recorded io dependency 
-            for m in self.modules:
+            for m in self.modules[1:]:
                 m._module.record_io()
             
             # record gate to verilog module
@@ -318,7 +335,8 @@ class Verilog(HGL):
             output.insert(0, f'`timescale 1{_unit}/{_v}{_unit}\n')
             
             with open(path, 'w', encoding='utf8') as f:
-                f.write('\n'.join(output))
+                f.write('\n'.join(output)) 
+            self.filepath = path
     
 
     def _solve_dependency(
@@ -340,7 +358,7 @@ class Verilog(HGL):
         # skip signals without position. regard as constant
         if right._module is None:
             return 
-        right_pos = right._module._position
+        right_pos = right._module._position 
 
         if isinstance(gate, hgl_basic.Gate):
             left_pos = self.gates[gate]._position 
@@ -368,7 +386,7 @@ class Verilog(HGL):
                 m._module.outputs_data[right] = None
             
             
-    def emitGraph(self, filename:str):
+    def dumpGraph(self, filename:str):
         import graphviz
             
         g = graphviz.Digraph(
@@ -381,10 +399,31 @@ class Verilog(HGL):
         ) 
             
         for gate in self.gates:
-            gate.emitGraph(g)
+            gate.dumpGraph(g)
 
         g.save()
-        return g
+        return g 
+    
+    def sim_iverilog(self):
+        """ test third-party simulator on dumped verilog """
+        filename = self.filepath 
+        if filename is None or not os.path.isfile(filename):
+            return 
+        if filename[-3:] == '.sv':
+            target = filename[:-3]  
+        elif filename[-2:] == '.v':
+            target = filename[:-2] 
+        else:
+            raise Exception(f'invalid filename {filename}')
         
+        t = time.time() 
+        subprocess.run(['iverilog', '-g2012', '-o', f'{target}.vvp', filename])
+        # os.system(f'iverilog -g2012 -o {target}.vvp {filename}')
+        print(f'{tester_utils._yellow("iverilog_compile:")} {filename} -> {target}.vvp, cost {time.time()-t} s')
+        t = time.time() 
+        subprocess.run(['vvp', f'{target}.vvp'], cwd=self._sess.build_dir)
+        # os.system(f'vvp {target}.vvp')
+        print(f'{tester_utils._yellow("iverilog_sim:")} {time.time()-t} s') 
+
 
 

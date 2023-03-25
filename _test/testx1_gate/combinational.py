@@ -58,11 +58,11 @@ def test_single_input():
         tester.EQ += getv(result_not), (~v) & Logic('111111')
 
 
-sess.emitGraph()
+sess.dumpGraph()
 sess.sim_cpp.dump()
 sess.sim_cpp.build()
 tester.summary() 
-sess.emitVerilog(top=True)
+sess.dumpVerilog(top=True)
 
 """
 @tester

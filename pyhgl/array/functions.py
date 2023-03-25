@@ -49,18 +49,6 @@ def Nand(*args, **kwargs):
     args = (Signal(i) for i in args)
     return HGL._sess.module.dispatcher.call('Nand', *args, **kwargs)  
 
-@vectorize 
-def AndR(a, **kwargs):
-    """ a: Signal or Immd
-    """
-    return HGL._sess.module.dispatcher.call('AndR', Signal(a), **kwargs) 
-
-@vectorize 
-def NandR(a, **kwargs):
-    """ a: Signal or Immd
-    """
-    return HGL._sess.module.dispatcher.call('NandR', Signal(a), **kwargs) 
-
 @vectorize_axis
 def Nor(*args, **kwargs):
     """ args: Signal or Immd
@@ -68,18 +56,6 @@ def Nor(*args, **kwargs):
     args = (Signal(i) for i in args)
     return HGL._sess.module.dispatcher.call('Nor', *args, **kwargs) 
 
-@vectorize 
-def OrR(a, **kwargs):
-    """ a: Signal or Immd
-    """
-    return HGL._sess.module.dispatcher.call('OrR', Signal(a), **kwargs) 
-
-@vectorize 
-def NorR(a, **kwargs):
-    """ a: Signal or Immd
-    """
-    return HGL._sess.module.dispatcher.call('NorR', Signal(a), **kwargs) 
- 
 @vectorize_axis
 def Nxor(*args, **kwargs):
     """ args: Signal or Immd
@@ -88,25 +64,22 @@ def Nxor(*args, **kwargs):
     return HGL._sess.module.dispatcher.call('Nxor', *args, **kwargs) 
 
 @vectorize 
+def AndR(a, **kwargs):
+    """ a: Signal or Immd
+    """
+    return HGL._sess.module.dispatcher.call('AndR', Signal(a), **kwargs) 
+
+@vectorize 
+def OrR(a, **kwargs):
+    """ a: Signal or Immd
+    """
+    return HGL._sess.module.dispatcher.call('OrR', Signal(a), **kwargs) 
+
+@vectorize 
 def XorR(a, **kwargs):
     """ a: Signal or Immd
     """
     return HGL._sess.module.dispatcher.call('XorR', Signal(a), **kwargs) 
-
-@vectorize 
-def NxorR(a, **kwargs):
-    """ a: Signal or Immd
-    """
-    return HGL._sess.module.dispatcher.call('NxorR', Signal(a), **kwargs) 
- 
- 
-@vectorize_axis
-def Cat(*args, **kwargs):
-    """ args: Signal or Immd
-    """
-    args = (Signal(i) for i in args)
-    return HGL._sess.module.dispatcher.call('Cat', *args, **kwargs) 
-    
  
 @vectorize
 def AddFull(a, b, **kwargs):
@@ -159,9 +132,16 @@ def LogicOr(*args, **kwargs):
 #--------
 # slicing
 #--------
+@vectorize_axis
+def Cat(*args, **kwargs):
+    """ args: Signal or Immd
+    """
+    args = (Signal(i) for i in args)
+    return HGL._sess.module.dispatcher.call('Cat', *args, **kwargs) 
+    
 @vectorize_first 
 def Slice(x, **kwargs):
-    """ a: Signal or Immd, b: Signal or Immd
+    """ x: Signal or Immd, key = ...
     """
     return HGL._sess.module.dispatcher.call('Slice', Signal(x), **kwargs)
 
@@ -175,9 +155,9 @@ def Convert(a, b, **kwargs):
     return HGL._sess.module.dispatcher.call('Convert', a, b, **kwargs)
 
 
-#---- 
-# net
-#----- 
+#--------
+# netlist
+#-------- 
 @vectorize
 def Wire(x, **kwargs):
     return HGL._sess.module.dispatcher.call('Wire', Signal(x), **kwargs) 
@@ -249,7 +229,8 @@ class __hgl_logicor__(HGL):
 
 @singleton 
 class __hgl_unit__(HGL):
-    """ unit: 1.2`ms`
+    """ unit: 1.2`m/s`
     """
-    def __call__(self, v, f):
+    def __call__(self, v, f: callable):
+        # f()
         pass

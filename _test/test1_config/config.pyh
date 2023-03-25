@@ -15,13 +15,14 @@ from pyhgl.tester import *
             y = 'a'
 
 @module FASub:
-    assert conf.p.y == 'a'
+    tester.Assert(conf.p.y == 'a')
 
 @module FA: 
-    assert conf.p.x == 12
-    assert conf.p.w == 6 
+    tester.Assert(conf.p.x == 12)
+    tester.Assert(conf.p.w == 6 )
     fasub = FASub['Sub']()
 
-with Session(conf=Global(3)) as sess:
-    fa = FA()
+@tester test_config:
+    with Session(conf=Global(3)) as sess:
+        fa = FA()
 

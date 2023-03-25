@@ -185,10 +185,10 @@
         <span class="n">out</span> <span class="o">=</span> <span class="n">getv</span><span class="p">(</span><span class="n">dut</span><span class="o">.</span><span class="n">out</span><span class="p">)</span>
         <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;</span><span class="si">{</span><span class="n">x</span><span class="si">}</span><span class="s1"> + </span><span class="si">{</span><span class="n">y</span><span class="si">}</span><span class="s1"> = </span><span class="si">{</span><span class="n">out</span><span class="si">}</span><span class="se">\t</span><span class="si">{</span><span class="p">(</span><span class="n">x</span><span class="o">+</span><span class="n">y</span><span class="p">)</span><span class="o">&amp;</span><span class="n">mask</span><span class="o">==</span><span class="n">out</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">)</span> 
 
-    <span class="n">sess</span><span class="o">.</span><span class="n">emitVCD</span><span class="p">(</span><span class="s1">&#39;Adder.vcd&#39;</span><span class="p">)</span>
-    <span class="n">sess</span><span class="o">.</span><span class="n">emitVerilog</span><span class="p">(</span><span class="s1">&#39;Adder.sv&#39;</span><span class="p">)</span>
-    <span class="n">sess</span><span class="o">.</span><span class="n">emitGraph</span><span class="p">(</span><span class="s1">&#39;Adder.gv&#39;</span><span class="p">)</span>
-    <span class="n">sess</span><span class="o">.</span><span class="n">emitSummary</span><span class="p">()</span>
+    <span class="n">sess</span><span class="o">.</span><span class="n">dumpVCD</span><span class="p">(</span><span class="s1">&#39;Adder.vcd&#39;</span><span class="p">)</span>
+    <span class="n">sess</span><span class="o">.</span><span class="n">dumpVerilog</span><span class="p">(</span><span class="s1">&#39;Adder.sv&#39;</span><span class="p">)</span>
+    <span class="n">sess</span><span class="o">.</span><span class="n">dumpGraph</span><span class="p">(</span><span class="s1">&#39;Adder.gv&#39;</span><span class="p">)</span>
+    <span class="n">sess</span><span class="o">.</span><span class="n">summary</span><span class="p">()</span>
 </pre></div>
 </div>
 </section>

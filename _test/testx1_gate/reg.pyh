@@ -45,7 +45,7 @@ with Session() as sess:
     sess.run(100)
 
 
-sess.emitVCD('./reg.vcd')
-sess.emitVerilog() 
+sess.dumpVCD('./reg.vcd')
+sess.dumpVerilog() 
 # print(check_a.show())
 # print(check_b.show())

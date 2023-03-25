@@ -105,7 +105,7 @@ import itertools
     sess.run(clock_period * 2 * (W) * N) 
     print('pyhgl simulation cost:', time.time()-t)
 
-    sess.emitVCD('Divider.vcd')
+    sess.dumpVCD('Divider.vcd')
 
     @inline_verilog Verilog(self):
         dut_name = self.get_name(dut)
@@ -128,8 +128,8 @@ import itertools
         self.append('end')
 
 
-    sess.emitVerilog('Divider.sv', delay=True, top = True).sim()
+    sess.dumpVerilog('Divider.sv', delay=True, top = True).sim()
 
-    sess.emitGraph('Divider.gv')
-    sess.emitSummary()
+    sess.dumpGraph('Divider.gv')
+    sess.summary()
     sess.exit()

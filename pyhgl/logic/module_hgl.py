@@ -71,12 +71,8 @@ class MetaModule(type):
 
 class Module(Container, metaclass=MetaModule):
     
-    clock: Tuple[hgl_basic.Reader, int]
-    reset: Tuple[hgl_basic.Reader, int]
-    dispatcher: Dispatcher 
-    io: Array
 
-    __slots__ = '_sess', 'dispatcher', '__dict__'
+    __slots__ = '_sess', 'dispatcher', 'clock', 'reset', 'io', '__dict__'
     
     def __head__(self):  
         self._sess: _session.Session = HGL._sess 
@@ -101,7 +97,9 @@ class Module(Container, metaclass=MetaModule):
 
         # default module level parameters
         # dispatcher
-        self.dispatcher: Dispatcher = None
+        self.dispatcher: Dispatcher = None 
+        self.clock: Tuple[hgl_basic.Reader, int] = None 
+        self.reset: Tuple[hgl_basic.Reader, int] = None 
         # io 
         self.io: Array = None 
 
@@ -162,11 +160,9 @@ class Module(Container, metaclass=MetaModule):
 
 
     def __tail__(self, f_locals:dict):  
-        # delete dummy gate
+        # delete input driver
         for i in self._temp_inputs:
-            driver = i._data.writer._driver
-            assert isinstance(driver, hgl_basic.DummyGate), 'unexcepted assignment to inputs'  
-            driver.delete()
+            i._data._module = None
 
         # record 
         io = None
@@ -190,18 +186,16 @@ class Module(Container, metaclass=MetaModule):
             def make_io(x):
                 assert isinstance(x, hgl_basic.Reader)
                 if x._direction == 'input':
-                    assert x._data.writer is None 
                     self._sess.module._module.inputs[x] = None
                 elif x._direction in ['inner','output']:
                     x._direction = 'output' 
                     self._sess.module._module.outputs[x] = None 
-                    if x._data.writer is None:
-                        Wire(x)  
+                    if x._data.writer is None and x._data._module is None:
+                        x._data._module = self
                 elif x._direction == 'inout':
                     self._sess.module._module.inouts[x] = None
             Map(make_io, self.io) 
             _rename_array(self.io, 'io')
-
 
         # ---------------------------------
         if self._sess.verbose_conf:
@@ -270,51 +264,7 @@ class Module(Container, metaclass=MetaModule):
         """ return full name, ex. Global.Top.Adder_1
         """
         return '.'.join(i._unique_name for i in self._position)
-
-
-    def _verilog_name(
-        self, 
-        obj: Union[hgl_basic.Reader, hgl_basic.Writer, module_sv.ModuleSV]
-    ) -> str: 
-        return
-        """ return instance name inside this module 
-
-        TODO 
-
-        writer: name of data 
-        leaf signal with reader: name of data, width = first reader 
-
-        type  casting: use local variable to convert
-        """
-        if isinstance(obj, hgl_basic.Writer):
-            # name already exists
-            if ret:=self._module.get_name(obj._data):
-                return ret  
-            # make a new name
-            else:
-                return obj._type._verilog_name(obj._data, self._module) 
-        elif isinstance(obj, hgl_basic.Reader):
-            # return constant for unrecorded constant signal
-            if obj._data.writer is None:
-                return obj._type._verilog_immd(obj._type._getval_py(obj._data, None)) 
-            # name already exists
-            elif ret:=self._module.get_name(obj): 
-                return ret   
-            # if no casting, return odd name, else new name
-            else:
-                self._sess.verilog._solve_dependency(self, obj) 
-                if not self._module.get_name(obj._data):
-                    obj._type._verilog_name(obj._data, self._module)
-                return obj._type._verilog_name(obj, self._module)
-        elif isinstance(obj, Module):
-            assert obj in self._submodules 
-            if ret:=self._module.get_name(obj._module):
-                return ret 
-            else:
-                ret = self._module.new_name(obj._module, obj._name) 
-                return ret
-        else:
-            raise TypeError(obj) 
+ 
 
 
 def _rename_array(obj: Union[Array, hgl_basic.Reader], name: str):

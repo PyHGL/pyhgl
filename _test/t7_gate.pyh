@@ -81,10 +81,10 @@ import random
         print(f'sim time: {time.time() - start} s' )
         print(f'sim mem : {process.memory_info().rss / 1024 / 1024} MB')
 
-        # sess.emitVCD()
-        # sess.emitSummary()
-        # print(sess.emitVerilog())
-        # sess.emitGraph().view()
+        # sess.dumpVCD()
+        # sess.summary()
+        # print(sess.dumpVerilog())
+        # sess.dumpGraph().view()
 
 
 

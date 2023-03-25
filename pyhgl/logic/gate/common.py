@@ -46,7 +46,7 @@ class _GateN(Gate):
     
     _op: Tuple[str, str] = ('','')   # verilog operator ex. Nand -> ('~', '&')
     
-    def __head__(self, *args: Reader, id: str='', name: str='res_n') -> Reader:
+    def __head__(self, *args: Reader, id: str='', name: str='temp_n') -> Reader:
 
         args = [Signal(i) for i in args]
         assert args, 'at least 1 signal'
@@ -85,20 +85,20 @@ class _Not(_GateN):
     _op = ('~', '')
 
     def forward(self):
-        input_not: LogicData = ~self.inputs[0]._data._getval_py()
+        v: Logic = self.inputs[0]._data._getval_py()
         mask = gmpy2.bit_mask(self.width) 
-        out = LogicData(
-            input_not.v & mask,
-            input_not.x & mask,
+        out = Logic(
+            (~v.v) & mask,
+            v.x,
         )
-        self.output._data._setval_py(out, low_keys=None, dt=self.delay)
+        self.output._data._setval_py(out, dt=self.delay, trace=self)
 
 
     def dump_cpp(self) -> None:
-        input_v: List[cpp.TData] = self.inputs[0]._data._getval_cpp(low_key=None, part='v') 
-        input_x: List[cpp.TData] = self.inputs[0]._data._getval_cpp(low_key=None, part='x') 
-        output_v: List[cpp.TData] = self.output._data._getval_cpp(low_key=None, part='v') 
-        output_x: List[cpp.TData] = self.output._data._getval_cpp(low_key=None, part='x') 
+        input_v: List[cpp.TData] = self.inputs[0]._data._getval_cpp('v') 
+        input_x: List[cpp.TData] = self.inputs[0]._data._getval_cpp('x') 
+        output_v: List[cpp.TData] = self.output._data._getval_cpp('v') 
+        output_x: List[cpp.TData] = self.output._data._getval_cpp('x') 
 
         for i in range(len(output_v)):
             node = cpp.Node(name='not_exec')
@@ -119,13 +119,17 @@ class _And(_GateN):
         v = self.inputs[0]._data._getval_py()
         for i in self.inputs[1:]:
             v = v & i._data._getval_py() 
-        self.output._data._setval_py(v, dt=self.delay)
+        self.output._data._setval_py(v, dt=self.delay, trace=self)
 
     def dump_cpp(self) -> None:
-        inputs_v = [i._data._getval_cpp(low_key=None, part='v') for i in self.inputs]
-        inputs_x = [i._data._getval_cpp(low_key=None, part='x') for i in self.inputs]
-        output_v = self.output._data._getval_cpp(low_key=None, part='v')
-        output_x = self.output._data._getval_cpp(low_key=None, part='x') 
+        """
+        v3 = v1 & v2 
+        x3 = x1 & x2 | v1 & x2 | v2 & x1
+        """
+        inputs_v = [i._data._getval_cpp('v') for i in self.inputs]
+        inputs_x = [i._data._getval_cpp('x') for i in self.inputs]
+        output_v = self.output._data._getval_cpp('v')
+        output_x = self.output._data._getval_cpp('x') 
         
         for i in range(len(output_v)):
             in_v_i: List[cpp.TData] = []
@@ -162,10 +166,40 @@ class _Or(_GateN):
         v = self.inputs[0]._data._getval_py()
         for i in self.inputs[1:]:
             v = v | i._data._getval_py() 
-        self.output._data._setval_py(v, dt=self.delay)
+        self.output._data._setval_py(v, dt=self.delay, trace=self)
 
     def dump_cpp(self):
-        return super().dump_cpp()
+        """
+        v3 = v1 | v2 
+        x3 = x1 & x2 | (~v2) & x1 | (~v1) & x2
+        """
+        inputs_v = [i._data._getval_cpp('v') for i in self.inputs]
+        inputs_x = [i._data._getval_cpp('x') for i in self.inputs]
+        output_v = self.output._data._getval_cpp('v')
+        output_x = self.output._data._getval_cpp('x') 
+        
+        for i in range(len(output_v)):
+            in_v_i: List[cpp.TData] = []
+            in_x_i: List[cpp.TData] = []
+            for v, x in zip(inputs_v, inputs_x):
+                if i < len(v):
+                    in_v_i.append(v[i])
+                    in_x_i.append(x[i])
+            node = cpp.Node(name='and_exec')
+            node.dump_value() 
+            node.Or(*in_v_i, target=output_v[i], delay=self.delay) 
+            node.dump_unknown()
+            out_v_i = in_v_i[0]
+            out_x_i = in_x_i[0]
+            for in_v, in_x in zip(in_v_i[1:], in_x_i[1:]):
+                out_v_i, out_x_i = node.Or(
+                    in_v, out_v_i
+                ), node.Or(
+                    node.And(in_x, out_x_i),
+                    node.And(in_x, node.Not(out_v_i)), 
+                    node.And(out_x_i, node.Not(in_v)),
+                ) 
+            node.And(out_x_i, target=output_x[i], delay=self.delay)
 
 
 @dispatch('Xor', Any, [Any, None])
@@ -178,10 +212,30 @@ class _Xor(_GateN):
         v = self.inputs[0]._data._getval_py()
         for i in self.inputs[1:]:
             v = v ^ i._data._getval_py() 
-        self.output._data._setval_py(v, dt=self.delay)
+        self.output._data._setval_py(v, dt=self.delay, trace=self)
 
     def dump_cpp(self):
-        return super().dump_cpp()
+        """
+        v3 = v1 ^ v2 
+        x3 = x1 | x2 
+        """
+        inputs_v = [i._data._getval_cpp('v') for i in self.inputs]
+        inputs_x = [i._data._getval_cpp('x') for i in self.inputs]
+        output_v = self.output._data._getval_cpp('v')
+        output_x = self.output._data._getval_cpp('x') 
+        
+        for i in range(len(output_v)):
+            in_v_i: List[cpp.TData] = []
+            in_x_i: List[cpp.TData] = []
+            for v, x in zip(inputs_v, inputs_x):
+                if i < len(v):
+                    in_v_i.append(v[i])
+                    in_x_i.append(x[i])
+            node = cpp.Node(name='and_exec')
+            node.dump_value() 
+            node.Xor(*in_v_i, target=output_v[i], delay=self.delay) 
+            node.dump_unknown()
+            node.Or(*in_x_i, target=output_x[i], delay=self.delay)
 
     
 @dispatch('Nand', Any, [Any, None])
@@ -191,19 +245,45 @@ class _Nand(_GateN):
     _op = ('~', '&')
 
     def forward(self): 
-        v = self.inputs[0]._data._getval_py()
+        v: Logic = self.inputs[0]._data._getval_py()
         for i in self.inputs[1:]:
             v = v & i._data._getval_py() 
-        input_not: LogicData = ~ v
-        mask = gmpy2.bit_mask(self.width)
-        out = LogicData(
-            input_not.v & mask,
-            input_not.x & mask,
+        mask = gmpy2.bit_mask(self.width) 
+        out = Logic(
+            (~v.v) & mask,
+            v.x,
         )
-        self.output._data._setval_py(out, dt=self.delay) 
+        self.output._data._setval_py(out, dt=self.delay, trace=self) 
 
     def dump_cpp(self):
-        return super().dump_cpp()
+        inputs_v = [i._data._getval_cpp('v') for i in self.inputs]
+        inputs_x = [i._data._getval_cpp('x') for i in self.inputs]
+        output_v = self.output._data._getval_cpp('v')
+        output_x = self.output._data._getval_cpp('x') 
+        
+        for i in range(len(output_v)):
+            in_v_i: List[cpp.TData] = []
+            in_x_i: List[cpp.TData] = []
+            for v, x in zip(inputs_v, inputs_x):
+                if i < len(v):
+                    in_v_i.append(v[i])
+                    in_x_i.append(x[i])
+            node = cpp.Node(name='and_exec')
+            node.dump_value() 
+            temp = node.And(*in_v_i, delay=self.delay) 
+            node.Not(temp, target=output_v[i], delay = self.delay)
+            node.dump_unknown()
+            out_v_i = in_v_i[0]
+            out_x_i = in_x_i[0]
+            for in_v, in_x in zip(in_v_i[1:], in_x_i[1:]):
+                out_v_i, out_x_i = node.And(
+                    in_v, out_v_i
+                ), node.Or(
+                    node.And(in_x, out_x_i),
+                    node.And(in_x, out_v_i), 
+                    node.And(in_v, out_x_i),
+                ) 
+            node.And(out_x_i, target=output_x[i], delay=self.delay)  # x does not change
     
     
 @dispatch('Nor', Any, [Any, None])
@@ -213,19 +293,45 @@ class _Nor(_GateN):
     _op = ('~', '|')
         
     def forward(self): 
-        v = self.inputs[0]._data._getval_py()
+        v: Logic = self.inputs[0]._data._getval_py()
         for i in self.inputs[1:]:
             v = v | i._data._getval_py() 
-        input_not: LogicData = ~ v
-        mask = gmpy2.bit_mask(self.width)
-        out = LogicData(
-            input_not.v & mask,
-            input_not.x & mask,
+        mask = gmpy2.bit_mask(self.width) 
+        out = Logic(
+            (~v.v) & mask,
+            v.x,
         )
-        self.output._data._setval_py(out, dt=self.delay) 
+        self.output._data._setval_py(out, dt=self.delay, trace=self) 
 
     def dump_cpp(self):
-        return super().dump_cpp()
+        inputs_v = [i._data._getval_cpp('v') for i in self.inputs]
+        inputs_x = [i._data._getval_cpp('x') for i in self.inputs]
+        output_v = self.output._data._getval_cpp('v')
+        output_x = self.output._data._getval_cpp('x') 
+        
+        for i in range(len(output_v)):
+            in_v_i: List[cpp.TData] = []
+            in_x_i: List[cpp.TData] = []
+            for v, x in zip(inputs_v, inputs_x):
+                if i < len(v):
+                    in_v_i.append(v[i])
+                    in_x_i.append(x[i])
+            node = cpp.Node(name='and_exec')
+            node.dump_value() 
+            temp = node.Or(*in_v_i, delay=self.delay) 
+            node.Not(temp, target=output_v[i], delay = self.delay)
+            node.dump_unknown()
+            out_v_i = in_v_i[0]
+            out_x_i = in_x_i[0]
+            for in_v, in_x in zip(in_v_i[1:], in_x_i[1:]):
+                out_v_i, out_x_i = node.Or(
+                    in_v, out_v_i
+                ), node.Or(
+                    node.And(in_x, out_x_i),
+                    node.And(in_x, node.Not(out_v_i)), 
+                    node.And(out_x_i, node.Not(in_v)),
+                ) 
+            node.And(out_x_i, target=output_x[i], delay=self.delay)
 
 
 @dispatch('Nxor', Any, [Any, None])
@@ -235,166 +341,165 @@ class _Nxor(_GateN):
     _op = ('~', '^')
         
     def forward(self): 
-        v = self.inputs[0]._data._getval_py()
+        v: Logic = self.inputs[0]._data._getval_py()
         for i in self.inputs[1:]:
             v = v ^ i._data._getval_py() 
-        input_not: LogicData = ~ v
-        mask = gmpy2.bit_mask(self.width)
-        out = LogicData(
-            input_not.v & mask,
-            input_not.x & mask,
+        mask = gmpy2.bit_mask(self.width) 
+        out = Logic(
+            (~v.v) & mask,
+            v.x,
         )
-        self.output._data._setval_py(out, dt=self.delay) 
+        self.output._data._setval_py(out, dt=self.delay, trace=self) 
 
     def dump_cpp(self):
-        return super().dump_cpp()
+        inputs_v = [i._data._getval_cpp('v') for i in self.inputs]
+        inputs_x = [i._data._getval_cpp('x') for i in self.inputs]
+        output_v = self.output._data._getval_cpp('v')
+        output_x = self.output._data._getval_cpp('x') 
+        
+        for i in range(len(output_v)):
+            in_v_i: List[cpp.TData] = []
+            in_x_i: List[cpp.TData] = []
+            for v, x in zip(inputs_v, inputs_x):
+                if i < len(v):
+                    in_v_i.append(v[i])
+                    in_x_i.append(x[i])
+            node = cpp.Node(name='and_exec')
+            node.dump_value() 
+            temp = node.Xor(*in_v_i, delay=self.delay) 
+            node.Not(temp, target=output_v[i], delay=self.delay)
+            node.dump_unknown() 
+            node.Or(*in_x_i, target=output_x[i], delay=self.delay)
 
 
+class _Reduce(_GateN):
+
+    def __head__(self, x: Reader, id: str = '', name: str = 'temp_r') -> Reader:
+        """ reduce gate, accept variable length, return 1 bit uint
+        """
+        assert isinstance(x._data, LogicData), 'not logic signal' 
+        self.id: str = id or self.id 
+        self.input = self.read(x)
+        ret: Reader = UInt[1](0, name=name)
+        self.output = self.write(ret)
+        return ret 
 
 
-# TODO reduce gate, accept variable length, return 1 bit uint
 @dispatch('AndR', Any) 
-class _AndR(_GateN):
+class _AndR(_Reduce):
     
     id = 'AndR'
-    
-    def __head__(self, x: Reader, id: str = ''):
-        return super().__head__(x, width=1, id=id)
+    _op = ('&', '')
     
     def forward(self):
-        v: gmpy2.mpz = self.inputs[0]._getval_py()
-        for i in range(len(self.inputs[0])):
-            if v[i] == 0:
-                self.output._setval_py(gmpy2.mpz(0), dt=self.delay)
-                return 
-        self.output._setval_py(gmpy2.mpz(1), dt=self.delay) 
+        data: Logic = self.input._data._getval_py()
+        v: gmpy2.mpz = data.v 
+        x: gmpy2.mpz = data.x
+        mask = gmpy2.bit_mask(len(self.input))  
+        if (~v) & (~x) & mask:   # exists 0
+            self.output._data._setval_py(Logic(0,0), dt=self.delay, trace=self)
+        elif x:             # unknown
+            self.output._data._setval_py(Logic(0,1), dt=self.delay, trace=self)
+        else:       # all 1
+            self.output._data._setval_py(Logic(1,0), dt=self.delay, trace=self)
         
-    def _verilog_op(self, x: str) -> str:
-        return f'& {x}'
+    def dump_cpp(self) -> None: 
+        input_v: List[cpp.TData] = self.input._data._getval_cpp('v')
+        input_x: List[cpp.TData] = self.input._data._getval_cpp('x')
+        output_v: cpp.TData = self.output._data._getval_cpp('v')[0]
+        output_x: cpp.TData = self.output._data._getval_cpp('x')[0]
+        
+        node = cpp.Node(name='andr_exec')
+        node.dump_value() 
+        node.AndR(*input_v, target=output_v, delay=self.delay)
+        node.dump_unknown()  
 
 
-@dispatch('NandR', Any) 
-class _NandR(_GateN):
-    
-    id = 'NandR'
-    
-    def __head__(self, x: Reader, id: str = ''):
-        return super().__head__(x, width=1, id=id)
-    
-    def forward(self):
-        v = self.inputs[0]._getval_py()
-        for i in range(len(self.inputs[0])):
-            if v[i] == 0:
-                self.output._setval_py(gmpy2.mpz(1), dt=self.delay)
-                return 
-        self.output._setval_py(gmpy2.mpz(0), dt=self.delay)
-
-    def _verilog_op(self, x: str) -> str:
-        return f'~& {x}'
-
-    
 @dispatch('OrR', Any) 
-class _OrR(_GateN):
+class _OrR(_Reduce):
     
     id = 'OrR'
-    
-    def __head__(self, x: Reader, id: str = ''):
-        return super().__head__(x, width=1, id=id)
+    _op = ('|', '')
     
     def forward(self):
-        if self.inputs[0]._getval_py() == 0:
-            self.output._setval_py(gmpy2.mpz(0), dt=self.delay) 
-        else:
-            self.output._setval_py(gmpy2.mpz(1), dt=self.delay) 
+        data: Logic = self.input._data._getval_py()
+        v: gmpy2.mpz = data.v 
+        x: gmpy2.mpz = data.x
+        if  v & (~x):   # exists 1
+            self.output._data._setval_py(Logic(1,0), dt=self.delay, trace=self)
+        elif x:             # unknown
+            self.output._data._setval_py(Logic(0,1), dt=self.delay, trace=self)
+        else:       # all 0
+            self.output._data._setval_py(Logic(0,0), dt=self.delay, trace=self)
         
-    def _verilog_op(self, x: str) -> str:
-        return f'| {x}'
+    def dump_cpp(self) -> None: 
+        pass # TODO 
 
-
-@dispatch('NorR', Any) 
-class _NorR(_GateN):
-    
-    id = 'NorR'
-    
-    def __head__(self, x: Reader, id: str = ''):
-        return super().__head__(x, width=1, id=id)
-    
-    def forward(self):
-        if self.inputs[0]._getval_py() == 0:
-            self.output._setval_py(gmpy2.mpz(1), dt=self.delay) 
-        else:
-            self.output._setval_py(gmpy2.mpz(0), dt=self.delay) 
-        
-    def _verilog_op(self, x: str) -> str:
-        return f'~| {x}'
-    
 
 @dispatch('XorR', Any) 
-class _XorR(_GateN):
+class _XorR(_Reduce):
     
     id = 'XorR'
-    
-    def __head__(self, x: Reader, id: str = ''):
-        return super().__head__(x, width=1, id=id)
+    _op = ('^', '')
     
     def forward(self):
-        v = self.inputs[0]._getval_py()
-        ret = utils.parity(v)
-        self.output._setval_py(gmpy2.mpz(ret), dt=self.delay) 
+        data: Logic = self.input._data._getval_py()
+        v: gmpy2.mpz = data.v 
+        x: gmpy2.mpz = data.x
+        if x:           # unknown
+            self.output._data._setval_py(Logic(0,1), dt=self.delay, trace=self)
+        else:
+            self.output._data._setval_py(Logic(utils.parity(v),0), dt=self.delay, trace=self)
         
-    def _verilog_op(self, x: str) -> str:
-        return f'^ {x}' 
+    def dump_cpp(self) -> None: 
+        pass # TODO 
     
-
-@dispatch('NxorR', Any) 
-class _NxorR(_GateN):
-    
-    id = 'NxorR'
-    
-    def __head__(self, x: Reader, id: str = ''):
-        return super().__head__(x, width=1, id=id)
-    
-    def forward(self):
-        v = self.inputs[0]._getval_py()
-        ret = utils.parity(v)
-        self.output._setval_py(gmpy2.mpz(1-ret), dt=self.delay) 
-        
-    def _verilog_op(self, x: str) -> str:
-        return f'~^ {x}' 
-
-
         
 @dispatch('Cat', Any, [Any, None])
-class _Cat(_GateN):
-    """ Cat signals, return UInt
-    """
+class _Cat(Gate):
     
     id = 'Cat'
     
-    __slots__ = 'widths'
-    
-    def __head__(self, *args: Reader, id: str=''): 
-        self.widths = [len(i) for i in args]
-        return super().__head__(*args, width=sum(self.widths), id=id)
+    def __head__(self, *args: Reader, id: str='', name: str = 'temp_cat') -> Reader: 
+        args = [Signal(i) for i in args]
+        assert args, 'at least 1 signal'
+        assert all(isinstance(i._data, LogicData) for i in args), 'not logic signal'
+        assert all(i._type._storage == 'packed' for i in args), 'signal with variable length'
+
+        self.id: str = id or self.id
+        self.inputs: List[Reader] = [self.read(i) for i in args]    # read 
+        self.widths: List[int] = [len(i) for i in args]
+        ret: Reader = UInt[sum(self.widths)](0, name=name)
+        self.output: Writer = self.write(ret)                       # write 
+        return ret
         
     def forward(self):
-        v = LogicData(0,0)
+        v = gmpy2.mpz(0)
+        x = gmpy2.mpz(0)
         start = 0
         for width, s in zip(self.widths, self.inputs): 
-            v = v | (s._getval_py() << start)
+            data: Logic = s._data._getval_py() 
+            _v = data.v 
+            _x = data.x
+            v = v | (_v << start)
+            x = x | (_x << start)
             start += width 
-        mask, v = self.output._type._setval_py(None, v)
-        self.output._setval_py(v, dt = self.delay, mask=mask)
+        self.output._data._setval_py(Logic(v, x), dt=self.delay, trace=self)
     
-    def _verilog_op(self, *args: str) -> str:
-        args = reversed(args)
-        return f"{{{','.join(args)}}}"    
+    def dump_cpp(self):
+        raise NotImplementedError(self)
+
+    def dump_sv(self, builder: sv.ModuleSV):
+        x = [builder.get_name(i) for i in reversed(self.inputs)]
+        y = builder.get_name(self.output) 
+        x = f"{{{','.join(x)}}}"
+        builder.Assign(self, y, x, delay=self.delay) 
 
     
 @dispatch('Pow', Any, int)
 def _pow(x: Reader, n: int, id: str='') -> Reader:
     if n < 1:
-        raise ValueError('duplicate bits positive times')
+        raise ValueError('signal duplication should be positive integer')
     return _Cat(*(x for _ in range(n)), id=id)
     
 
@@ -410,81 +515,176 @@ def _bool(x: Reader, id: str='') -> Reader:
         return _OrR(x, id=id)
 
 
-@dispatch('LogicNot', Any)
-def _logicnot(x: Reader, id: str='') -> Reader:
-    return _NorR(x, id=id)
-
+@dispatch('LogicNot', Any) 
+class _LogicNot(_Reduce):
+    
+    id = 'LogicNot'
+    _op = ('!', '')
+    
+    def forward(self):
+        data: Logic = self.input._data._getval_py()
+        v: gmpy2.mpz = data.v 
+        x: gmpy2.mpz = data.x
+        if  v & (~x):   # exists 1
+            self.output._data._setval_py(Logic(0,0), dt=self.delay, trace=self)
+        elif x:             # unknown
+            self.output._data._setval_py(Logic(0,1), dt=self.delay, trace=self)
+        else:       # all 0
+            self.output._data._setval_py(Logic(1,0), dt=self.delay, trace=self)
+        
+    def dump_cpp(self) -> None: 
+        pass # TODO 
 
 
 @dispatch('LogicAnd', Any, [Any, None])
-class _LogicAnd(_GateN):
+class _LogicAnd(Gate):
         
     id = 'LogicAnd'
+    _op = '&&'
     
-    def __head__(self, *args: Reader, id: str = ''):
-        return super().__head__(*args, width=1, id=id)
+    def __head__(self, *args: Reader, id: str='', name: str = 'temp_logic') -> Reader: 
+        args = [Signal(i) for i in args]
+        assert args, 'at least 1 signal'
+        assert all(isinstance(i._data, LogicData) for i in args), 'not logic signal'
+        assert all(i._type._storage == 'packed' for i in args), 'signal with variable length'
+
+        self.id: str = id or self.id
+        self.inputs: List[Reader] = [self.read(i) for i in args]    # read 
+        ret: Reader = UInt[1](0, name=name)
+        self.output: Writer = self.write(ret)                       # write 
+        return ret
     
     def forward(self): 
-        v = all(i._getval_py() > 0 for i in self.inputs)
-        self.output._setval_py(gmpy2.mpz(v), self.delay)
+        v, x = self._bool()
+        zeros = [(not _v) and (not _x) for _v, _x in zip(v,x)] 
+        if any(zeros):    # exists false
+            self.output._data._setval_py(Logic(0,0), dt=self.delay, trace=self)
+        elif any(x):        # unknown
+            self.output._data._setval_py(Logic(0,1), dt=self.delay, trace=self)
+        else:               # all true
+            self.output._data._setval_py(Logic(1,0), dt=self.delay, trace=self) 
 
-    def _verilog_op(self, *args: str) -> str:
-        return ' && '.join(args) 
+    def _bool(self):
+        """ perform Or Reduce
+        """
+        ret_v = []
+        ret_x = []
+        for i in self.inputs:
+            data: Logic = i._data._getval_py()
+            if data.v & (~data.x):
+                ret_v.append(1)
+                ret_x.append(0)
+            elif data.x:
+                ret_v.append(0)
+                ret_x.append(1)
+            else:
+                ret_v.append(0)
+                ret_x.append(0) 
+        return ret_v, ret_x
+
+    def dump_cpp(self):
+        raise NotImplementedError(self)
+
+    def dump_sv(self, builder: sv.ModuleSV):
+        x = self._op.join(builder.get_name(i) for i in self.inputs)
+        y = builder.get_name(self.output) 
+        builder.Assign(self, y, x, delay=self.delay) 
     
     
 @dispatch('LogicOr', Any, [Any, None])
-class _LogicOr(_GateN):
+class _LogicOr(_LogicAnd):
         
     id = 'LogicOr'
+    _op = '||'
     
-    def __head__(self, *args: Reader, id: str = ''):
-        return super().__head__(*args, width=1, id=id)
-    
-    def forward(self):
-        v = any(i._getval_py() > 0 for i in self.inputs)
-        self.output._setval_py(gmpy2.mpz(v), self.delay)
+    def forward(self): 
+        v, x = self._bool()
+        ones = [_v and not _x for _v, _x in zip(v,x)] 
+        if any(ones):    # exists True
+            self.output._data._setval_py(Logic(1,0), dt=self.delay, trace=self)
+        elif any(x):        # unknown
+            self.output._data._setval_py(Logic(0,1), dt=self.delay, trace=self)
+        else:               # all False
+            self.output._data._setval_py(Logic(0,0), dt=self.delay, trace=self) 
 
-    def _verilog_op(self, *args: str) -> str:
-        return ' || '.join(args)
-     
+    def dump_cpp(self):
+        raise NotImplementedError(self)
     
 #------- 
 # shift
 #------- 
     
-@dispatch('Lshift', Any, [UIntType, int]) 
-class _Lshift(_GateN):
+@dispatch('Lshift', Any, Any) 
+class _Lshift(Gate):
     
     id = 'Lshift'
+    _op = '<<'
     
-    def __head__(self, a: Reader, b: Union[int, Reader], id: str = ''):
-        return super().__head__(a, Signal(b), id=id)
+    def __head__(self, a: Reader, b: Union[int, Reader, Logic], id: str = '', name: str='temp_shift'):
+        assert isinstance(a._data, LogicData) 
+        self.id: str = id or self.id
+        self.width = len(a)
+        self.a = self.read(a)
+        if isinstance(b, Reader):
+            self.b = self.read(b)
+        else:
+            self.b = Logic(b)
+            assert self.b.v >= 0 and self.b.x == 0
+        ret: Reader = UInt[self.width](0, name=name) 
+        self.output: Writer = self.write(ret)
+        return ret
     
     def forward(self):
-        v = self.inputs[0]._getval_py() << self.inputs[1]._getval_py()
-        self.output._setval_py(v, dt=self.delay) 
-        
-    def _verilog_op(self, a, b) -> str:
-        return f'{a} << {b}' 
+        a: Logic = self.a._data._getval_py()
+        b: Logic = self.b 
+        mask = gmpy2.bit_mask(self.width)
+        if isinstance(b, Reader):
+            b = b._data._getval_py() 
+        if b.x:    # unknown
+            self.output._data._setval_py(Logic(0, mask), dt=self.delay, trace=self)
+        else:
+            self.output._data._setval_py(
+                Logic(
+                    (a.v << b.v) & mask,
+                    (a.x << b.v) & mask,
+                ),
+                dt = self.delay, trace=self
+            )
+
+    def dump_cpp(self):
+        raise NotImplementedError(self)
+
+    def dump_sv(self, builder: sv.ModuleSV):
+        x = f"{builder.get_name(self.a)} {self._op} {builder.get_name(self.b)}"
+        y = builder.get_name(self.output) 
+        builder.Assign(self, y, x, delay=self.delay) 
     
     
-@dispatch('Rshift', Any, [UIntType, int]) 
-class _Rshift(_GateN):
+@dispatch('Rshift', Any, Any) 
+class _Rshift(_Lshift):
     
     id = 'Rshift'
-    
-    def __head__(self, a: Reader, b: Union[int, Reader], id: str = ''):
-        return super().__head__(a, Signal(b), id=id)
+    _op = '>>'
     
     def forward(self):
-        v = self.inputs[0]._getval_py() >> self.inputs[1]._getval_py()
-        self.output._setval_py(v, dt=self.delay) 
-        
-    def _verilog_op(self, a, b) -> str:
-        return f'{a} >> {b}' 
+        a: Logic = self.a._data._getval_py()
+        b: Logic = self.b 
+        mask = gmpy2.bit_mask(self.width)
+        if isinstance(b, Reader):
+            b = b._data._getval_py() 
+        if b.x:    # unknown
+            self.output._data._setval_py(Logic(0, mask), dt=self.delay, trace=self)
+        else:
+            self.output._data._setval_py(
+                Logic(
+                    (a.v >> b.v) & mask,
+                    (a.x >> b.v) & mask,
+                ),
+                dt = self.delay, trace=self
+            )
     
-# TODO round shift, SInt shift
-    
+    def dump_cpp(self):
+        raise NotImplementedError(self)
 
 #-----------
 # arithmetic
@@ -494,202 +694,283 @@ class _Rshift(_GateN):
 class _Pos(_GateN):
     
     id = 'Pos'
-    
-    def __head__(self, x: Reader, id: str = ''):
-        return super().__head__(x, id=id)
+    _op = ('+', '')
         
     def forward(self):
-        self.output._setval_py(self.inputs[0]._getval_py(), dt=self.delay)
+        self.output._data._setval_py(self.inputs[0]._data._getval_py(), dt=self.delay, trace=self)
 
-    def _verilog_op(self, x: str) -> str:
-        return f'+ {x}' 
+    def dump_cpp(self):
+        raise NotImplementedError(self)
     
     
 @dispatch('Neg', Any, None)
 class _Neg(_GateN):
     
     id = 'Neg'
+    _op = ('-', '')
     
-    def __head__(self, x: Reader, id: str = ''):
-        return super().__head__(x, id=id)
-        
     def forward(self):
-        self.output._setval_py( - self.inputs[0]._getval_py(), dt=self.delay)
+        v: Logic = self.inputs[0]._data._getval_py() 
+        mask = gmpy2.bit_mask(self.width)
+        if v.x: 
+            self.output._data._setval_py(Logic(0, mask), dt=self.delay, trace=self) 
+        else:
+            self.output._data._setval_py(
+                Logic(
+                    (-v.v) & mask,
+                    0,
+                ),
+                dt = self.delay, trace=self
+            )
 
-    def _verilog_op(self, x: str) -> str:
-        return f'- {x}' 
+    def dump_cpp(self):
+        raise NotImplementedError(self)
 
 
 @dispatch('Add', Any, [Any, None])
 class _Add(_GateN):
         
     id = 'Add'
+    _op = ('', '+')
     
-    def __head__(self, *args: Reader, id: str = ''):
-        return super().__head__(*_align(*args), id=id)
-    
-    def forward(self):
-        v = self.inputs[0]._getval_py()
-        for i in self.inputs[1:]:
-            v += i._getval_py() 
-        self.output._setval_py(v, dt=self.delay)
+    def forward(self): 
+        data: List[Logic] = [i._data._getval_py() for i in self.inputs]
+        mask = gmpy2.bit_mask(self.width)
+        if any(i.x for i in data):
+            self.output._data._setval_py(Logic(0, mask), dt=self.delay, trace=self)  
+        else:
+            self.output._data._setval_py(
+                Logic( 
+                    sum(i.v for i in data) & mask,
+                    0,
+                ),
+                dt = self.delay, trace=self
+            )
 
-    def _verilog_op(self, *args: str) -> str:
-        return ' + '.join(args) 
+    def dump_cpp(self):
+        raise NotImplementedError(self)
     
+
     
 @dispatch('AddFull', Any, [Any, None])
 class _AddFull(_GateN):
         
     id = 'Add'
     
-    def __head__(self, x: Reader, y: Reader, id: str = ''):
-        return super().__head__(x, y, width=max(len(x), len(y))+1, id=id)
+    def __head__(self, a: Reader, b: Reader, id: str = '', name: str='temp_addfull'):
+        assert isinstance(a._data, LogicData) and isinstance(b._data, LogicData)
+        assert a._type._storage == 'packed' and b._type._storage == 'packed'
+        self.id: str = id or self.id
+        self.width = max(len(a), len(b)) + 1 
+        self.a = self.read(a)
+        self.b = self.read(b)
+
+        ret: Reader = UInt[self.width](0, name=name) 
+        self.output: Writer = self.write(ret)
+        return ret
     
     def forward(self):
-        v = self.inputs[0]._getval_py() + self.inputs[1]._getval_py()
-        self.output._setval_py(v, dt=self.delay)
+        a: Logic = self.a._data._getval_py()
+        b: Logic = self.b._data._getval_py()
+        if a.x or b.x:
+            self.output._data._setval_py(Logic(0, gmpy2.bit_mask(self.width)), dt=self.delay, trace=self)
+        else:
+            self.output._data._setval_py(Logic(a.v + b.v, 0), dt=self.delay, trace=self)
 
-    def _verilog_op(self, *args: str) -> str:
-        return ' + '.join(args) 
+    def dump_cpp(self):
+        raise NotImplementedError(self)
+
+    def dump_sv(self, builder: sv.ModuleSV):
+        x = f"{builder.get_name(self.a)} + {builder.get_name(self.b)}"
+        y = builder.get_name(self.output) 
+        builder.Assign(self, y, x, delay=self.delay) 
 
 
 @dispatch('Sub', Any, [Any, None])
 class _Sub(_GateN):
         
     id = 'Sub'
+    _op = ('', '-')
     
-    def __head__(self, *args: Reader, id: str = ''):
-        return super().__head__(*_align(*args), id=id)
+    def forward(self): 
+        data: List[Logic] = [i._data._getval_py() for i in self.inputs]
+        mask = gmpy2.bit_mask(self.width)
+        if any(i.x for i in data):
+            self.output._data._setval_py(Logic(0, mask), dt=self.delay, trace=self)  
+        else:
+            res = data[0].v
+            for i in data[1:]:
+                res -= i.v
+            self.output._data._setval_py(
+                Logic( 
+                    res & mask,
+                    0,
+                ),
+                dt = self.delay, 
+                trace=self,
+            )
+    def dump_cpp(self):
+        raise NotImplementedError(self)
     
-    def forward(self):
-        v = self.inputs[0]._getval_py()
-        for i in self.inputs[1:]:
-            v -= i._getval_py() 
-        self.output._setval_py(v, dt=self.delay)
 
-    def _verilog_op(self, *args: str) -> str:
-        return ' - '.join(args)  
-    
-    
 @dispatch('Mul', Any, [Any, None])
 class _Mul(_GateN):
         
     id = 'Mul'
+    _op = ('', '*')
     
-    def __head__(self, *args: Reader, id: str = ''):
-        return super().__head__(*_align(*args), id=id)
-    
-    def forward(self):
-        v = self.inputs[0]._getval_py()
-        for i in self.inputs[1:]:
-            v *= i._getval_py() 
-        self.output._setval_py(v, dt=self.delay)
-
-    def _verilog_op(self, *args: str) -> str:
-        return ' * '.join(args) 
+    def forward(self): 
+        data: List[Logic] = [i._data._getval_py() for i in self.inputs]
+        mask = gmpy2.bit_mask(self.width)
+        if any(i.x for i in data):
+            self.output._data._setval_py(Logic(0, mask), dt=self.delay, trace=self)  
+        else:
+            res = data[0].v
+            for i in data[1:]:
+                res *= i.v
+            self.output._data._setval_py(
+                Logic( 
+                    res & mask,
+                    0,
+                ),
+                dt = self.delay, trace=self
+            )
+    def dump_cpp(self):
+        raise NotImplementedError(self)
     
     
 @dispatch('MulFull', Any, [Any, None])
-class _MulFull(_GateN):
+class _MulFull(Gate):
         
     id = 'Mul'
     
-    def __head__(self, x: Reader, y: Reader, id: str = ''):
-        return super().__head__(x, y, width = len(x) + len(y), id=id)
+    def __head__(self, a: Reader, b: Reader, id: str = '', name: str='temp_addfull'):
+        assert isinstance(a._data, LogicData) and isinstance(b._data, LogicData)
+        assert a._type._storage == 'packed' and b._type._storage == 'packed'
+        self.id: str = id or self.id
+        self.width = len(a) + len(b)
+        self.a = self.read(a)
+        self.b = self.read(b)
+
+        ret: Reader = UInt[self.width](0, name=name) 
+        self.output: Writer = self.write(ret)
+        return ret
     
     def forward(self):
-        v = self.inputs[0]._getval_py() * self.inputs[1]._getval_py()
-        self.output._setval_py(v, dt=self.delay)
+        a: Logic = self.a._data._getval_py()
+        b: Logic = self.b._data._getval_py()
+        if a.x or b.x:
+            self.output._data._setval_py(Logic(0, gmpy2.bit_mask(self.width)), dt=self.delay, trace=self)
+        else:
+            self.output._data._setval_py(Logic(a.v * b.v, 0), dt=self.delay, trace=self)
 
-    def _verilog_op(self, *args: str) -> str:
-        return ' * '.join(args) 
+    def dump_cpp(self):
+        raise NotImplementedError(self)
+
+    def dump_sv(self, builder: sv.ModuleSV):
+        x = f"{builder.get_name(self.a)} * {builder.get_name(self.b)}"
+        y = builder.get_name(self.output) 
+        builder.Assign(self, y, x, delay=self.delay) 
     
+class _Gate2(Gate):
+    """ binary 
+    """
+    _op: str = ''   
     
-# TODO divide by zero, return random value and emit a warning
+    def __head__(self, a: Reader, b: Reader, id: str='', name: str='temp_2') -> Reader:
+        assert isinstance(a._data, LogicData) and isinstance(b._data, LogicData) 
+        assert a._type._storage == 'packed' and b._type._storage == 'packed'
+        self.id: str = id or self.id
+        self.width = max(len(a), len(b))
+        self.a = self.read(a)
+        self.b = self.read(b)
+
+        ret: Reader = UInt[self.width](0, name=name) 
+        self.output: Writer = self.write(ret)
+        return ret
+
+    def dump_cpp(self):
+        raise NotImplementedError(self)
+
+    def dump_sv(self, builder: sv.ModuleSV):
+        x = f"{builder.get_name(self.a)} {self._op} {builder.get_name(self.b)}"
+        y = builder.get_name(self.output) 
+        builder.Assign(self, y, x, delay=self.delay) 
+     
+        
+    
 @dispatch('Floordiv', Any, Any) 
-class _Floordiv(_GateN):
+class _Floordiv(_Gate2):
     
     id = 'Floordiv'
-    
-    def __head__(self, a: Reader, b: Union[int, Reader], id: str = ''):
-        return super().__head__(a, b, id=id)
-    
+    _op = '//'
+
     def forward(self):
-        a = self.inputs[0]._getval_py()
-        b = self.inputs[1]._getval_py()
-        if b == 0:
-            temp = (1 << len(self.inputs[0])) - 1
-            v = gmpy2.mpz(random.randint(0, temp))
-            # self.sess.log.warning('SimulationWarning: divide by zero', start=5, end=10)
+        a: Logic = self.a._data._getval_py()
+        b: Logic = self.b._data._getval_py()
+        if a.x or b.x or b.v == 0:
+            self.output._data._setval_py(Logic(0, gmpy2.bit_mask(self.width)), dt=self.delay, trace=self)
         else:
-            v = a // b
-        self.output._setval_py(v, dt=self.delay) 
-        
-    def _verilog_op(self, a, b) -> str:
-        return f'{a} // {b}' 
-    
+            self.output._data._setval_py(Logic(a.v // b.v, 0), dt=self.delay, trace=self)
+
     
 @dispatch('Mod', Any, Any) 
-class _Mod(_GateN):
+class _Mod(_Gate2):
     
     id = 'Mod'
-    
-    def __head__(self, a: Reader, b: Union[int, Reader], id: str = ''):
-        """ ret bit length = len(a)
-        """
-        return super().__head__(a, b, id=id)
+    _op = '%'
     
     def forward(self):
-        a = self.inputs[0]._getval_py()
-        b = self.inputs[1]._getval_py()
-        if b == 0:
-            temp = (1 << len(self.inputs[0])) - 1
-            v = gmpy2.mpz(random.randint(0, temp))
-            # self.sess.log.warning('SimulationWarning: divide by zero', start=1, end=10)
+        a: Logic = self.a._data._getval_py()
+        b: Logic = self.b._data._getval_py()
+        if a.x or b.x or b.v == 0:
+            self.output._data._setval_py(Logic(0, gmpy2.bit_mask(self.width)), dt=self.delay, trace=self)
         else:
-            v = a % b
-        self.output._setval_py(v, dt=self.delay) 
-        
-    def _verilog_op(self, a, b) -> str:
-        return f'{a} % {b}' 
-    
-# TODO Div 
-def _align(*args: Reader) -> list:  
-    """ return aligned signals
-    XXX wrong, don't directly use cast 
-    """
-    args = [Signal(i) for i in args]
-    assert all(i._type._storage == 'packed' for i in args), 'signal type has variable length'
-    widths = [len(i) for i in args] 
-    max_w = max(widths)  
-    return [UInt[max_w](s) if w != max_w else s for s, w in zip(args, widths)]
-    
-    
+            self.output._data._setval_py(Logic(a.v % b.v, 0), dt=self.delay)
+
 
 @vectorize
-class Mux(_GateN):
+class Mux(Gate):
         
     id = 'Mux'
+
+    def __head__(self, sel, a, b, id: str='', name: str='temp_mux') -> Reader:
+        sel: Reader = Signal(sel)
+        a: Reader = Signal(a)
+        b: Reader = Signal(b)
+        assert isinstance(a._data, LogicData) and isinstance(b._data, LogicData) 
+        assert a._type._storage == 'packed' and b._type._storage == 'packed'
+        self.id: str = id or self.id
+        self.width = max(len(a), len(b))
+        self.a = self.read(a)
+        self.b = self.read(b) 
+        self.sel = self.read(sel)
+
+        ret: Reader = UInt[self.width](0, name=name) 
+        self.output: Writer = self.write(ret)
+        return ret
     
-    def __head__(self, sel, a, b, id: str = ''):
-        """ sel ? a: b """ 
-        a, b = _align(a, b)
-        return super().__head__(a, b, Signal(sel), id=id)
-    
-    def forward(self): 
-        a, b, sel = self.inputs 
-        if sel._getval_py():
-            v = a._getval_py()
+    def forward(self):
+        sel: Logic = self.sel._data._getval_py()
+        a: Logic = self.a._data._getval_py()
+        b: Logic = self.b._data._getval_py() 
+
+        if sel.x: 
+            self.output._data._setval_py(
+                Logic(a.v|b.v,a.x|b.x|(a.v^b.v)), 
+                dt=self.delay, 
+                trace=self
+            )
+        elif sel.v:
+            self.output._data._setval_py(a, dt=self.delay, trace=self)
         else:
-            v = b._getval_py() 
+            self.output._data._setval_py(b, dt=self.delay, trace=self)
 
-        self.output._setval_py(v, self.delay)
+    def dump_cpp(self):
+        raise NotImplementedError(self)
 
-    def _verilog_op(self, *args: str) -> str:
-        a, b, sel = args
-        return f'{sel} ? {a}:{b}'  
-    
-    
-
+    def dump_sv(self, builder: sv.ModuleSV):
+        x = f"{builder.get_name(self.sel)} ? {builder.get_name(self.a)} : {builder.get_name(self.b)}"
+        y = builder.get_name(self.output) 
+        builder.Assign(self, y, x, delay=self.delay) 
 

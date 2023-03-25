@@ -168,7 +168,7 @@ def _str2logic(a: str, radix: int = 2) -> Tuple[int, int]:
 
 
 
-def logic2str(v: gmpy2.mpz, x: gmpy2.mpz, width: int = None) -> str:
+def logic2str(v: gmpy2.mpz, x: gmpy2.mpz, width: int = None, prefix: bool=True) -> str:
     """ 
     TODO infinate x 
     """
@@ -183,7 +183,9 @@ def logic2str(v: gmpy2.mpz, x: gmpy2.mpz, width: int = None) -> str:
                 if v[i]:
                     ret.append('1')
                 else:
-                    ret.append('0') 
+                    ret.append('0')   
+        if prefix:
+            ret.append(f"{width}'b")
         return ''.join(reversed(ret))
 
     width = max(width_infer(v, signed=v<0), width_infer(x, signed=x<0)) 
@@ -197,9 +199,11 @@ def logic2str(v: gmpy2.mpz, x: gmpy2.mpz, width: int = None) -> str:
             else:
                 ret.append('0') 
     if x < 0:
-        ret.append('x.')
+        ret.append('x...')
     elif v < 0:
-        ret.append('1.')
+        ret.append('1...') 
+    if prefix:
+        ret.append(f"{width}'b")
     return ''.join(reversed(ret))
 
 

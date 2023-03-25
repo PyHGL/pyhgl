@@ -25,11 +25,8 @@ from pyhgl.array import *
 from pyhgl.logic.hgl_basic import *
 import pyhgl.logic.utils as utils 
 from pyhgl.logic.hgl_assign import __hgl_when__, __hgl_elsewhen__, __hgl_partial_assign__
-from pyhgl.logic.gate.common import _align
 
 
-
-# TODO support unfixed signal width
 
 
 @dispatch('Eq', Any, Any) 
@@ -40,172 +37,177 @@ class _Eq(Gate):
     def __head__(self, left: Reader, right: Union[int,str,list,dict,Reader,BitPat], id='') -> Reader:
         """ 
         """
+        assert isinstance(left._data, LogicData)
         self.id = id or self.id 
         ret = UInt[1](0)
         self.output = self.write(ret)
 
         if isinstance(left, Reader) and isinstance(right, Reader):
-            left, right = _align(left, right)
             self.left = self.read(left)
             self.right = self.read(right) 
             return ret
-        else:
+        else:  # BitPat or Logic
             self.left = self.read(left)
             self.right = self.left._type._eval(right)
             return ret
     
     def forward(self): 
-        left, right = self.left, self.right 
+        left = self.left._data._getval_py()
+        right: Union[Logic, BitPat] = self.right 
         if isinstance(right, Reader):
-            right = right._getval_py()
-        
-        v = gmpy2.mpz(right == left._getval_py())
-        self.output._setval_py(v, dt=self.delay)
+            right = right._data._getval_py()
+        self.output._data._setval_py(right._eq(left), dt=self.delay, trace=self)
 
 
-    def emitVerilog(self, v) -> str:
-        """ 
-        ex.
-            assign y = a & b & 3'd5;
-            assign #1 y = a & b;
+    def dump_cpp(self):
+        raise NotImplementedError(self)
+
+    def dump_sv(self, builder: sv.ModuleSV):  
+        """ bitpat: x ==? 6'b1??1??
         """
-        x1 = self.get_name(self.left)
-        y = self.get_name(self.output)
-        
-        if self._sess.verilog.emit_delay:
-            delay = '#' + str(self.timing["delay"]) 
+        left = builder.get_name(self.left)
+        right = builder.get_name(self.right)
+        if isinstance(right, BitPat):
+            op = '==?'
         else:
-            delay = ''
+            op = '=='
+        x = f"{left} {op} {right}"
+        y = builder.get_name(self.output) 
+        builder.Assign(self, y, x, delay=self.delay) 
         
-        if isinstance(self.right, Reader):
-            x2 = self.get_name(self.right)
-            return f'assign {delay} {y} = {x1} == {x2};' 
-        elif isinstance(self.right, BitPat):
-            return f'assign {delay} {y} = {x1} ==? {self.right._verilog()};' 
-        else:
-            return f'assign {delay} {y} = {x1} == {self.right};'
-        
-    def emitGraph(self, g):
-        inputs = [self.left]
-        if isinstance(self.right, Reader):
-            inputs.append(self.right)
-        self._emit_graphviz(g, inputs, [self.output], self.id)
         
         
 @dispatch('Ne', Any, Any) 
-def _Ne(a, b, id=''):
-    return Not(_Eq(a,b,id=id)) 
+class _Ne(_Eq):
+    
+    id = 'Ne'
+    
+    def forward(self): 
+        left = self.left._data._getval_py()
+        right: Union[Logic, BitPat] = self.right 
+        if isinstance(right, Reader):
+            right = right._data._getval_py() 
+        eq = right._eq(left) 
+        ne = Logic(not eq.v, eq.x)
+        self.output._data._setval_py(ne, dt=self.delay, trace=self)
+
+    def dump_cpp(self):
+        raise NotImplementedError(self)
+
+    def dump_sv(self, builder: sv.ModuleSV):  
+        left = builder.get_name(self.left)
+        right = builder.get_name(self.right)
+        if isinstance(right, BitPat):
+            op = '!=?'
+        else:
+            op = '!='
+        x = f"{left} {op} {right}"
+        y = builder.get_name(self.output) 
+        builder.Assign(self, y, x, delay=self.delay) 
 
 
 @dispatch('Lt', Any, Any) 
 class _Lt(Gate):
     
     id = 'Lt'
+    _op = '<'
     
     def __head__(self, left: Reader, right: Union[int,str,list,dict,Reader], id='') -> Reader:
-        self.id = id or self.id
-        
-        self.left = self.read(left)
-        
-        if isinstance(right, Reader):
-            self.right = self.read(right)
-        elif isinstance(right, BitPat):
-            raise ValueError('BitPat not valid comparation target')
-        else:
-            self.right = self.left._type._eval(right)
-            
+        assert isinstance(left._data, LogicData)
+        self.id = id or self.id 
         ret = UInt[1](0)
         self.output = self.write(ret)
-        return ret
+
+        if isinstance(left, Reader) and isinstance(right, Reader):
+            self.left = self.read(left)
+            self.right = self.read(right) 
+            return ret
+        else:  
+            self.left = self.read(left)
+            self.right = self.left._type._eval(right)
+            assert not isinstance(self.right, BitPat)
+            return ret
     
     def forward(self): 
-        left, right = self.left, self.right 
-        
+        left: Logic = self.left._data._getval_py()
+        right: Logic = self.right 
         if isinstance(right, Reader):
-            right = right._getval_py()
-            
-        v = gmpy2.mpz(left._getval_py() < right)
-        self.output._setval_py(v, dt=self.delay)
+            right = right._data._getval_py() 
+        
+        if left.x or right.x:
+            self.output._data._setval_py(Logic(0,1), dt=self.delay, trace=self)
+        else:
+            self.output._data._setval_py(Logic(left.v < right.v, 0), dt=self.delay, trace=self)
 
+    def dump_cpp(self):
+        raise NotImplementedError(self)
 
-    def emitVerilog(self, v) -> str:
-        """ 
-        ex.
-            assign y = a & b & 3'd5;
-            assign #1 y = a & b;
+    def dump_sv(self, builder: sv.ModuleSV):  
+        """ bitpat: x ==? 6'b1??1??
         """
-        x1 = self.get_name(self.left)
-        y = self.get_name(self.output)
-        
-        if self._sess.verilog.emit_delay:
-            delay = '#' + str(self.timing["delay"]) 
-        else:
-            delay = ''
-        
-        if isinstance(self.right, Reader):
-            x2 = self.get_name(self.right)
-            return f'assign {delay} {y} = {x1} < {x2};' 
-        else:
-            return f'assign {delay} {y} = {x1} < {self.right};'
-        
-    def emitGraph(self, g):
-        inputs = [self.left]
-        if isinstance(self.right, Reader):
-            inputs.append(self.right)
-        self._emit_graphviz(g, inputs, [self.output], self.id) 
-        
+        left = builder.get_name(self.left)
+        right = builder.get_name(self.right)
+        x = f"{left} {self._op} {right}"
+        y = builder.get_name(self.output) 
+        builder.Assign(self, y, x, delay=self.delay) 
+
         
 @dispatch('Gt', Any, Any) 
 class _Gt(_Lt):
     
-    id = 'Gt'
+    id = 'Gt' 
+    _op = '>'
     
     def forward(self): 
-        left, right = self.left, self.right 
-        
+        left: Logic = self.left._data._getval_py()
+        right: Logic = self.right 
         if isinstance(right, Reader):
-            right = right._getval_py()
-            
-        v = gmpy2.mpz(left._getval_py() > right)
-        self.output._setval_py(v, dt=self.delay)
-
-
-    def emitVerilog(self, v) -> str:
-        """ 
-        ex.
-            assign y = a & b & 3'd5;
-            assign #1 y = a & b;
-        """
-        x1 = self.get_name(self.left)
-        y = self.get_name(self.output)
+            right = right._data._getval_py() 
         
-        if self._sess.verilog.emit_delay:
-            delay = '#' + str(self.timing["delay"]) 
+        if left.x or right.x:
+            self.output._data._setval_py(Logic(0,1), dt=self.delay, trace=self)
         else:
-            delay = ''
-        
-        if isinstance(self.right, Reader):
-            x2 = self.get_name(self.right)
-            return f'assign {delay} {y} = {x1} > {x2};' 
-        else:
-            return f'assign {delay} {y} = {x1} > {self.right};'
+            self.output._data._setval_py(Logic(left.v > right.v, 0), dt=self.delay, trace=self)
         
 
-        
 @dispatch('Le', Any, Any) 
-def _Le(a, b, id=''):
-    return Not(_Gt(a,b,id=id)) 
-
-
+class _Le(_Lt):
+    
+    id = 'Le'
+    _op = '<='
+    
+    def forward(self): 
+        left: Logic = self.left._data._getval_py()
+        right: Logic = self.right 
+        if isinstance(right, Reader):
+            right = right._data._getval_py() 
         
+        if left.x or right.x:
+            self.output._data._setval_py(Logic(0,1), dt=self.delay, trace=self)
+        else:
+            self.output._data._setval_py(Logic(left.v <= right.v, 0), dt=self.delay, trace=self)
+
+
 @dispatch('Ge', Any, Any) 
-def _Ge(a, b, id=''):
-    return Not(_Lt(a,b,id=id))  
+class _Ge(_Lt):
+    
+    id = 'Ge'
+    _op = '>='
+    
+    def forward(self): 
+        left: Logic = self.left._data._getval_py()
+        right: Logic = self.right 
+        if isinstance(right, Reader):
+            right = right._data._getval_py() 
+        
+        if left.x or right.x:
+            self.output._data._setval_py(Logic(0,1), dt=self.delay, trace=self)
+        else:
+            self.output._data._setval_py(Logic(left.v >= right.v, 0), dt=self.delay, trace=self)
 
 
 
-
-
+# TODO 
 
 def MuxSel(sel: Reader, default: Any, table: dict) -> Any:
     """ ex. 

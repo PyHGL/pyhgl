@@ -19,14 +19,16 @@ def format_hgl_stack(n_ignored: int = 2, max_n: int = 100) -> str:
             line = lines[0] 
         if _pyhgl_exec.search(line):
             break 
-        i += 1
+        i += 1 
+        if i >= n_ignored+max_n:
+            break
 
-    useful_frames = stack[n_ignored:min(i, n_ignored+max_n)]
+    useful_frames = stack[n_ignored:i]
     ret = []
-    for i in useful_frames:
-        if i.code_context:
-            code = i.code_context[0] 
+    for frame in useful_frames:
+        if frame.code_context:
+            code = frame.code_context[0] 
         else:
             code = ' \n'
-        ret.append(f'  {i.filename}:{i.lineno}\n    {code.lstrip()}')
-    return ''.join(reversed(ret))
+        ret.append(f'  {frame.filename}:{frame.lineno}\n    {code.lstrip()}')
+    return ''.join(ret)

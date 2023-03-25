@@ -51,10 +51,6 @@ class AST(HGL):
         return f'{name}{{\n{body}}}' 
 
 
-class Target(AST):
-    pass 
-
-
 class Expr(AST):
     """ multiple inputs/outputs
 
@@ -76,7 +72,7 @@ class Expr(AST):
         ...
     
 
-class TData(Target):
+class TData(AST):
 
     def __init__(
         self, 
@@ -85,14 +81,12 @@ class TData(Target):
         storage: Literal['local', 'global', 'const', 'global_always', 'local_static'] = 'global',
         name: str = 'temp',
     ) -> None:
-        self.cppext: Tuple = None   # (global_data, idx, setv)
+        self._cpp_data: Tuple = None   # (global_data, idx, setv)
 
         self.v: int = int(v & gmpy2.bit_mask(width))  # initial value, 64 bits
         self.width = width 
         self.storage = storage
         self.name = name  
-
-        self._xcopy: TData = None
 
         self.source: Expr = None    # ex. x <== a & b & c
         self.writer: Node = None
@@ -103,6 +97,20 @@ class TData(Target):
 
     def __str__(self):
         return f'{self.storage} uint{self.width}_t {self.name}{{{self.v}}}'
+
+
+def getval(l: List[TData]) -> gmpy2.xmpz:
+    ret = gmpy2.xmpz(0)
+    for i, data in enumerate(l): 
+        pdata, idx_data, _ = data._cpp_data
+        ret[i*64, i*64+63] = pdata[idx_data << 1]
+    return ret
+
+def setval(target: TData, mask: int, value: int, delay: int) -> None:
+    """ event: (target, mask, value)
+    """ 
+    _, idx, cpp_setv = target._cpp_data 
+    cpp_setv(idx, mask, value, delay)
 
 
 def GlobalArray(v: gmpy2.mpz, bit_length: int, name: str) -> List[TData]:
@@ -124,6 +132,30 @@ def GlobalArray(v: gmpy2.mpz, bit_length: int, name: str) -> List[TData]:
         storage='global', 
         name=f'{name}{start//64}'
     ))
+    return ret 
+
+def GlobalMem(v: gmpy2.mpz, shape: List[int], name: str, part: Literal['v', 'x']) -> List[List]:
+    ret = []
+    if len(shape) > 1:
+        shape_next = shape[1:] 
+        w = 1 
+        for i in shape_next:
+            w *= i
+        for i in range(shape[0]):
+            ret.append(GlobalMem(
+                v=v[i*w, i*w+w],
+                shape=shape_next,
+                name=name,
+                part=part
+            )) 
+    else:
+        temp = GlobalArray(v=v, bit_length=shape[-1], name=name) 
+        cpp: Cpp = HGL._sess.sim_cpp  
+        global_data = cpp.golbal_v if part == 'v' else cpp.global_x
+        for data in temp:
+            data.storage = 'global_always'
+            global_data[data] = None     # add to global, in order 
+            ret.append(data)
     return ret
 
 def ToData(v):
@@ -402,9 +434,23 @@ class Node(AST):
             target = LocalVar(0)
         self.write(target) 
         OpOr(target, *args, delay=delay, mask=mask)
+        return target 
+    
+    def AndR(self, *args: TData, target: TData = None, delay: int = 1) -> TData:
+        for i in args:
+            self.read(i)
+        if target is None:
+            target = LocalVar(0)
+        self.write(target)
+        # TODO OpAndR
         return target
+    
+    def Or2(self, a: List[TData], b: List[TData], target: List[TData] = None, delay: int = 1) -> List[TData]:
+        return []
 
-
+    def Bool(self, *args: TData, target: TData = None, delay: int = 1) -> TData:
+        # TODO 
+        return target
 
     def RShift(self, a: TData, b: TData) -> TData:
         return TData(0, local=True)
@@ -415,24 +461,7 @@ class Node(AST):
 
 
 
-class NodeV(Node): 
-    pass 
 
-class NodeX(Node):
-    pass
-
-def getval(l: List[TData]) -> gmpy2.xmpz:
-    ret = gmpy2.xmpz(0)
-    for i, data in enumerate(l): 
-        pdata, idx_data, _ = data.cppext
-        ret[i*64, i*64+63] = pdata[idx_data << 1]
-    return ret
-
-def setval(target: TData, mask: int, value: int, delay: int) -> None:
-    """ event: (target, mask, value)
-    """ 
-    _, idx, _setv = target.cppext 
-    _setv(idx, mask, value, delay)
 
 
 class Cpp(HGL):
@@ -500,8 +529,8 @@ class Cpp(HGL):
 
         assert len(self.global_x) == len(self.golbal_v) 
 
-        # emit function. ex. void xor(){}
-        # emit node. ex. Node xor_node {0, &xor}
+        # dump function. ex. void xor(){}
+        # dump node. ex. Node xor_node {0, &xor}
         for n in self.nodes:
             n.dump(self)
         
@@ -510,7 +539,7 @@ class Cpp(HGL):
         #     fun_name = self.get_name(n)
         #     nodes_def.append(f'Node {fun_name}_node {{{0}, &{fun_name}}};') 
 
-        # emit fanouts. ex. Node * xor_fanout [] = {nullptr};
+        # dump fanouts. ex. Node * xor_fanout [] = {nullptr};
         fanouts_def = []
         fanouts_init = []
         for data in chain(self.global_x, self.golbal_v):
@@ -528,7 +557,7 @@ class Cpp(HGL):
         fanouts_init = '\n'.join(fanouts_init)
         fanouts_init = f"void init_data(){{{fanouts_init}}}"
 
-        # emit struct
+        # dump struct
         struct_body = [] 
         for data in chain(self.global_x, self.golbal_v):
             data_name = self.get_name(data)
@@ -568,7 +597,7 @@ class Cpp(HGL):
         _pdata = self.dll.get_global_data()
         _psetv = self.dll.setv
         for idx, data in enumerate(self.global_var):
-            data.cppext = (_pdata, idx, _psetv)
+            data._cpp_data = (_pdata, idx, _psetv)
 
     def dll_load(self, path: str):
         dll = ctypes.CDLL(path)

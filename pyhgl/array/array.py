@@ -802,6 +802,8 @@ def vectorize_first(f):
 TODO 
 Cat([1,2,3], axis=...)  return 1 signal 
 Cat([1,2,3])             return [1,2,3]
+Add([1,2,3])   return [1,2,3]
+Add([1,2,3], axis=None) return 6
 """
 
 def vectorize_axis(f):

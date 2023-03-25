@@ -39,13 +39,13 @@ import pyhgl.logic.utils as utils
 
 class Simulator(HGL):
     
-    __slots__ = 'sess', 'time_wheel', 'priority_queue', 't', '__dict__'
+    __slots__ = 'sess', 'time_wheel', 'priority_queue', 't', 'changed_gates', 'triggered_events','__dict__'
     
     def __init__(self, sess: _session.Session, length: int = 8):
         """
         events are stored in a time_wheel, overflowed events are stored in a priority queue
         
-        - signal event:  (SignalData, mask, value)
+        - signal event:  (SignalData, value)
             - signal events are executed first 
             - one signal cannot update twice in one step
             - delay >= 1
@@ -62,79 +62,72 @@ class Simulator(HGL):
             - when exec, signal time is (simulator time + 1)
         """
         self.sess = sess
-        # length >= 2, signal_events, gate_events, coroutine_events
+        # length >= 2, signal_events, coroutine_events
         self.time_wheel: List[
             Tuple[
                 List[tuple],                 # signal_events
-                Dict[hgl_basic.Gate, None],  # gate_events, remove duplicate gates
                 List[Generator]              # coroutine_events
             ]
         ] = [self.new_events() for _ in range(1 << length)]
         # Dict[int, Event]
-        self.priority_queue = SortedDict()
+        self.priority_queue = SortedDict() 
+        # remove duplicated gates
+        self.changed_gates: Dict[hgl_basic.Gate, None] = {} 
+        # user defined event triggered by signal
+        self.triggered_events: Dict[hgl_basic.SignalData, List[Generator]] = {}
         # current time, increase 1 after step()
         self.t: int = 0
-
+        # cpp changed data, get triggered coroutine_events
         self.sensitive_data: Dict[int, hgl_basic.SignalData] = {}
-        
+
     def new_events(self):
-        # signal_events, gate_events, coroutine_events
-        return ([],{},[])
+        return ([],[])
         
     def insert_signal_event(
         self, 
         dt: int, 
-        event: Tuple[hgl_basic.SignalData, gmpy2.mpz, hgl_basic.LogicData]
+        target: hgl_basic.SignalData,
+        value: hgl_basic.Logic,
+        trace: Union[str, hgl_basic.Gate, None],
     ): 
         """
         - dt: > 0 if insert by gate, >= 0 if insert by coroutine event
-        - event: (SignalData, mask, value)
+        - event: (SignalData, value, trace)
         """ 
-        if len(event) != 3:
-            raise Exception(f'invalid event: {event}')
-        if self.sess.verbose_sim:
-            target, mask, value = event 
-            assert isinstance(target, hgl_basic.SignalData), f'wrong target: {target}'
-            assert isinstance(mask, gmpy2.mpz), f'wrong mask: {mask}'
-            assert isinstance(value, hgl_basic.LogicData), f'wrong immd: {value}'
+        if self.sess.verbose_sim: 
+            if isinstance(trace, hgl_basic.Gate):
+                trace = trace.trace
+            assert isinstance(target, hgl_basic.SignalData), f'wrong target: {target}\n{trace}'
+            assert isinstance(value, hgl_basic.Logic), f'wrong immd: {type(value)} - {value}\n{trace}'
         try:
-            self.time_wheel[dt][0].append(event) 
+            self.time_wheel[dt][0].append((target, value, trace)) 
         except:
             t = self.t + dt
             if t not in self.priority_queue:
                 self.priority_queue[t] = self.new_events()
-            self.priority_queue[t][0].append(event)
-        
-    def insert_gate_event(self, dt: int, g: hgl_basic.Gate):
-        try:
-            self.time_wheel[dt][1][g] = None
-        except:
-            t = self.t + dt
-            if t not in self.priority_queue:
-                self.priority_queue[t] = self.new_events()   
-            self.priority_queue[t][1][g] = None 
+            self.priority_queue[t][0].append((target, value, trace))
             
     def insert_coroutine_event(self, dt: int, event: Generator):
         """ generator
         """
         try:
-            self.time_wheel[dt][2].append(event)
+            self.time_wheel[dt][1].append(event)
         except:
             t = self.t + dt
             if t not in self.priority_queue:
                 self.priority_queue[t] = self.new_events()   
-            self.priority_queue[t][2].append(event)  
+            self.priority_queue[t][1].append(event)  
 
     def init(self):
         for g in self.sess.verilog.gates:
-            self.insert_gate_event(0, g) 
+            self.changed_gates[g] = None
 
     def init_cpp(self):
-        # get a sensitive map from TData to SignalData
+        # get a sensitive map from TData to SignalData: cpp index: data
         for signal in self.sess.waveform._signals:
             data = signal._data
             for i in chain(data._v, data._x):
-                self.sensitive_data[i.cppext[1]] = data
+                self.sensitive_data[i._cpp_data[1]] = data
 
                
     def step(self, n: int = 1):
@@ -148,11 +141,12 @@ class Simulator(HGL):
         
         for next_t in range(self.t + 1, self.t + n + 1):                    # 100ms
             
-            signal_events, gate_events, coroutine_events = time_wheel[0]    # 200ms 
+            signal_events, coroutine_events = time_wheel[0]    # 200ms 
+            gate_events = self.changed_gates
             
             if signal_events or gate_events or coroutine_events:            # 200ms  
                 # insert triggered coroutine events to next step
-                coroutine_events_next = time_wheel[1][2]                    # 80ms
+                coroutine_events_next = time_wheel[1][1]                    # 80ms
                 #------------------------------------------
                 if self.sess.verbose_sim:
                     _signal = ','.join(self._show_signal_event(i) for i in signal_events)
@@ -168,7 +162,7 @@ class Simulator(HGL):
                         elif isinstance(ret, str):
                             self.insert_coroutine_event(self.sess.timing._get_timestep(ret), g)
                         elif isinstance(ret, hgl_basic.Reader): 
-                            ret._events.append(g)
+                            self.triggered_events[ret._data].append(g)
                         else:
                             self.sess.log.warning(f'{ret} is not valid trigger, stop task {g}')
                     except StopIteration:
@@ -181,24 +175,19 @@ class Simulator(HGL):
                 for e in signal_events:
                     
                     target: hgl_basic.SignalData 
-                    mask: gmpy2.mpz 
                     value:  hgl_basic.LogicData 
                     
-                    target, mask, value = e
-                    # cannot update signal twice 
-                    if target._t == next_t:
-                        self.sess.log.warning(f'update {target._name} twice at t={next_t}')
-                    target._t = next_t  
-                    # if value changed 
-                    if target._update_py(mask, value): 
+                    target, value, _ = e
+                    # cannot update signal twice, multiple driver
+                    # if target._t == next_t:
+                    #     self.sess.log.warning(f'update {target._name} twice at t={next_t}')
+                    # target._t = next_t  
+                    if target._update_py(value):    # value changed 
                         for reader in target.reader: 
                             # changed gates 
                             gate_events.update(reader._driven)
-                            # track values
-                            if reader._timestamps:
-                                reader._update()
                             # triggered events
-                            if _e:=reader._events:
+                            if _e:=self.triggered_events.get(target):
                                 coroutine_events_next.extend(_e)
                                 _e.clear()
                 signal_events.clear() 
@@ -239,13 +228,11 @@ class Simulator(HGL):
         while self.t < _t:
             ...
             
-    def _show_signal_event( self, e: Tuple[hgl_basic.SignalData, gmpy2.mpz, hgl_basic.LogicData ]) -> str:
-        target, mask, value = e
+    def _show_signal_event( self, e: Tuple[hgl_basic.SignalData, hgl_basic.LogicData, Any ]) -> str:
+        target, value, _ = e
         name = target._name 
-        return f"{name}:{target} mask'{bin(mask)} <- {value}"
+        return f"{name}:{target} <- {value}"
             
-    def __str__(self):
-        return 'simulator'
 
     
     
@@ -261,10 +248,11 @@ class VCD(HGL):
     def __init__(self, sess: _session.Session):
         
         self.sess = sess
-        
         real_timescale = sess.timing.timescale or 1e-9
+
         self._timescale = f'{round(real_timescale/1e-9)} ns'
-        self._signals: Dict[hgl_basic.Reader, Tuple] = {}
+        self._trackers: Dict[hgl_basic._Track, Tuple[str]] = {} 
+        self._tracked_data: Dict[hgl_basic.SignalData, None] = {}
     
     def _track(self, *args: hgl_basic.Reader):
         new_signals = []
@@ -280,8 +268,9 @@ class VCD(HGL):
                 new_signals.append(i) 
         
         for v in new_signals:
-            if isinstance(v, hgl_basic.Reader) and v not in self._signals:
-                v._track()
+            if isinstance(v, hgl_basic.Reader) and v._data not in self._tracked_data: 
+                self._tracked_data[v._data] = None
+                tracker = hgl_basic._Track(v)
                 # signal name
                 name = v._name 
                 # signal scope
@@ -290,23 +279,22 @@ class VCD(HGL):
                     scope = '.'.join(m._unique_name for m in _modules)  
                 else:
                     scope = self.sess.module._position[0]._unique_name
-                self._signals[v] = (scope, name) 
+                self._trackers[tracker] = (scope, name) 
                 
                 
-    def _emit(self, filename: str):
+    def _dump(self, filename: str):
         f = open(filename, 'w', encoding='utf8') 
         writer = VCDWriter(f, self._timescale, date='today')
-        vars: Dict[hgl_basic.Reader, Any] = {} 
-        for signal, (scope, name) in self._signals.items():
-            vars[signal] = self._register_var(writer, scope, name, signal)
+        vars: Dict[hgl_basic._Track, Any] = {} 
+        for tracker, (scope, name) in self._trackers.items():
+            vars[tracker] = self._register_var(writer, scope, name, tracker)
             
         values = []
-        for signal, var in vars.items():
-            width = len(signal._type)
-            for t, v in zip(signal._timestamps, signal._values):
-                if not isinstance(v, str):  # LogicData 
-                    assert isinstance(v, hgl_basic.LogicData)
-                    v = utils.logic2str(v.v, v.x, width)
+        for tracker, var in vars.items():
+            width = len(tracker.input)
+            for t, v in zip(tracker._timestamps, tracker._values):
+                if not isinstance(v, str):  # Logic 
+                    v = utils.logic2str(v.v, v.x, width, prefix=False)
                 values.append((t, v, var))
         values.sort(key=lambda _:_[0])
         for t, v, var in values:
@@ -314,17 +302,17 @@ class VCD(HGL):
         writer.close()
         f.close()
         
-    def _register_var(self, writer: VCDWriter, scope: str, name: str, signal: hgl_basic.Reader):
-        init = signal._values[0]
+    def _register_var(self, writer: VCDWriter, scope: str, name: str, tracker: hgl_basic._Track):
+        init = tracker._values[0]
         if isinstance(init, str):
             var_type = 'string'
             size = None 
         else:
             var_type = 'wire'
-            size = len(signal._type)
-            init = utils.logic2str(init.v, init.x, size)
+            size = len(tracker.input)
+            init = utils.logic2str(init.v, init.x, size, prefix=False)
         try:
             return writer.register_var(scope, name, var_type, size=size, init=init) 
         except KeyError:
-            name = f'{name}@{id(signal)}'
+            name = f'{name}@{id(tracker)}'
             return writer.register_var(scope, name, var_type, size=size, init=init)

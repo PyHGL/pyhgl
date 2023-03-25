@@ -97,8 +97,8 @@ with Session(
     sess.track(Cat(test.regs[:,'Q']))
     clock_gen(test), data_gen(test), task_print(test)
     sess.run(1000) 
-    # print(sess.emitVerilog()) 
-    sess.emitVCD()
+    # print(sess.dumpVerilog()) 
+    sess.dumpVCD()
     # en = UInt()
     # data = UInt()
     # latch = DLatch(en, data)
@@ -175,7 +175,7 @@ with Session(
     # show()  
 
 
-    # sess.emitGraph().view()
+    # sess.dumpGraph().view()
 
 
 
