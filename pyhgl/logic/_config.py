@@ -28,7 +28,9 @@ import re
 
 from pyhgl.array import * 
 import pyhgl.logic._session as _session
+import pyhgl.logic.hgl_core as hgl_core
 import pyhgl.logic.utils as utils
+
 
 
 """
@@ -44,10 +46,10 @@ construct a tree-like config as global config.
     )
     
     width = 10 
-    @conf.always['adder.*'] Adder1:
+    @conf.always('adder.*') Adder1:
         width = conf.up.width * 2 
-    @conf['adder.*'].clean Adder2:
-        width = 3
+    @conf('adder.*').clean Adder2:
+        width = width * 3
 """
 
         
@@ -69,9 +71,11 @@ class _Conf(HGL):
     def clear(self):
         return _Conf(always=self._always, clear=True, filter=self._filter)
     
-    def __call__(self, obj: Union[Callable, str]):
+    def __call__(self, obj: Union[Callable, str]): 
+        # set filter
         if isinstance(obj, str):
-            return _Conf(always=self._always, clear=self._clear, filter=obj)
+            return _Conf(always=self._always, clear=self._clear, filter=obj) 
+        # record config
         else:
             assert callable(obj)
             filter = self._filter or obj.__name__ + '.*'
@@ -81,16 +85,14 @@ class _Conf(HGL):
                 always = self._always,
                 inherit = not self._clear,
             ) 
-
         
     @property
-    def up(self) -> Type[ModuleConf]: 
+    def up(self): 
         """ return father module
-        """
-        position = self._sess.module._position 
-        if len(position) > 1:
-            return position[-2] 
-        else:
+        """ 
+        try: 
+            return self._sess.module._position[-2]
+        except:
             return None
         
     @property 
@@ -120,7 +122,8 @@ class _Conf(HGL):
         return self._sess.module.dispatcher 
 
     @dispatcher.setter
-    def dispatcher(self, v):
+    def dispatcher(self, v): 
+        assert isinstance(v, Dispatcher)
         self._sess.module.dispatcher = v 
 
     @property 
@@ -214,20 +217,20 @@ class ModuleConf:
 
 class TimingConf(HGL):
     """        
-        {
-            'timescale': '1ns',
-            'Wire': {
-                'delay': 1,
-                'power': 0
-            },
-            'Gate': {
-                'delay': 1,
-                'power':0
-            },
-            'Clock': {
-                'period': 100
-            }
+    {
+        'timescale': '1ns',
+        'Wire': {
+            'delay': 1,
+            'power': 0
+        },
+        'Gate': {
+            'delay': 1,
+            'power':0
+        },
+        'Clock': {
+            'period': 100
         }
+    }
     """
     def __init__(self):
         self.timescale: float = None    # 1e-9s

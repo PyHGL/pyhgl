@@ -28,7 +28,7 @@ import subprocess
 import time 
 
 from pyhgl.array import *
-import pyhgl.logic.hgl_basic as hgl_basic
+import pyhgl.logic.hgl_core as hgl_core
 import pyhgl.logic.module_hgl as module_hgl
 import pyhgl.logic._session as _session
 import pyhgl.logic.utils as utils
@@ -61,23 +61,23 @@ class ModuleSV(HGL):
         # io signals
         # inputs belongs to father module 
         # outputs are inner or suboutputs 
-        self.inputs:  Dict[hgl_basic.Reader, None] = {}
-        self.outputs: Dict[hgl_basic.Reader, None] = {}        
-        self.inouts:  Dict[hgl_basic.Reader, None] = {}
+        self.inputs:  Dict[hgl_core.Reader, None] = {}
+        self.outputs: Dict[hgl_core.Reader, None] = {}        
+        self.inouts:  Dict[hgl_core.Reader, None] = {}
 
         # io datas
-        self.inputs_data:  Dict[hgl_basic.SignalData, None] = {}  
-        self.outputs_data: Dict[hgl_basic.SignalData, None] = {}         
-        self.inouts_data:  Dict[hgl_basic.SignalData, None] = {} 
+        self.inputs_data:  Dict[hgl_core.SignalData, None] = {}  
+        self.outputs_data: Dict[hgl_core.SignalData, None] = {}         
+        self.inouts_data:  Dict[hgl_core.SignalData, None] = {} 
 
         # instance names, ex. uint_0, uint_1, ...
         self.names: Dict[Any, str] = {}
         # {signal : type}, ex. {a:'logic[7:0] {}'}
-        self.signals: Dict[hgl_basic.SignalData, str] = {} 
+        self.signals: Dict[hgl_core.SignalData, str] = {} 
         # verilog code of gate defination. ex. assign x = a & b;
-        self.gates: Dict[Union[hgl_basic.Gate, hgl_basic.SignalData], str] = {} 
+        self.gates: Dict[Union[hgl_core.Gate, hgl_core.SignalData], str] = {} 
         # verilog code of unsynthesizable bolcks. ex. initial begin ... end 
-        self.extra_blocks: Dict[Union[hgl_basic.Gate, hgl_basic.SignalData], str] = {} 
+        self.extra_blocks: Dict[Union[hgl_core.Gate, hgl_core.SignalData], str] = {} 
         
     def clear(self):
         self.module_name = ''
@@ -104,26 +104,26 @@ class ModuleSV(HGL):
             self.get_name(o)
             up_module.get_name(o)
         for x in self.inouts:
-            assert isinstance(x._data.writer._driver, hgl_basic.Analog) 
+            assert isinstance(x._data.writer._driver, hgl_core.Analog) 
             self.get_name(x)
 
 
     def get_name( self, obj: Union[
-            hgl_basic.Reader, 
-            hgl_basic.Writer, 
-            hgl_basic.SignalData, 
+            hgl_core.Reader, 
+            hgl_core.Writer, 
+            hgl_core.SignalData, 
             module_hgl.Module
         ]):
         """ return name of verilog instance inside this module 
         """
-        if isinstance(obj, (hgl_basic.Writer, hgl_basic.Reader)):    # only consider signaldata
+        if isinstance(obj, (hgl_core.Writer, hgl_core.Reader)):    # only consider signaldata
             obj = obj._data 
 
         # has name 
         if ret:=self.names.get(obj):       
             return ret 
         # new name
-        if isinstance(obj, hgl_basic.SignalData): 
+        if isinstance(obj, hgl_core.SignalData): 
             if obj._module is None:     # constant
                 ret = self._sv_immd(obj)
             else:
@@ -135,12 +135,12 @@ class ModuleSV(HGL):
             assert obj in self.module._submodules      # only submodule is allowed 
             ret = self._new_name(obj, obj._name)        # assign a new name
             return ret 
-        elif isinstance(obj, (hgl_basic.Logic, hgl_basic.BitPat, int, gmpy2.mpz)):
+        elif isinstance(obj, (hgl_core.Logic, hgl_core.BitPat, int, gmpy2.mpz)):
             return str(obj)
         else:
             raise TypeError(f'{type(obj)}({obj})')
 
-    def _sv_immd(self, data: hgl_basic.SignalData) -> str:
+    def _sv_immd(self, data: hgl_core.SignalData) -> str:
         width = len(data)
         return utils.logic2str(data.v, data.x, width=width)
 
@@ -239,7 +239,7 @@ class ModuleSV(HGL):
     # TODO top module only allow initial block and blackbox 
     def Assign(
         self, 
-        gate: hgl_basic.Gate,
+        gate: hgl_core.Gate,
         left: Union[str, Any], 
         right:  Union[str, Any], 
         delay: int = 1,
@@ -254,10 +254,10 @@ class ModuleSV(HGL):
             body = f'assign {left} = {right};'
         self.gates[gate] = body
 
-    def Block(self, gate: hgl_basic.Gate, body: str):
+    def Block(self, gate: hgl_core.Gate, body: str):
         self.gates[gate] = body 
 
-    def Task(self, gate: hgl_basic.Gate, body: str): 
+    def Task(self, gate: hgl_core.Gate, body: str): 
         self.extra_blocks[gate] = body
     
 
@@ -279,7 +279,7 @@ class Verilog(HGL):
         # record all modules, the first is the global module
         self.modules: List[module_hgl.Module] = []  
         # map from gate to module
-        self.gates: Dict[hgl_basic.Gate, module_hgl.Module] = {}  
+        self.gates: Dict[hgl_core.Gate, module_hgl.Module] = {}  
         # {body:name},  ex. {"(a,b,c,d) input a, b; output c,d; ..." : "my_module"}
         self.module_bodys: Dict[str, str] = {}
         
@@ -341,8 +341,8 @@ class Verilog(HGL):
 
     def _solve_dependency(
         self, 
-        gate: Union[hgl_basic.Gate, module_hgl.Module], 
-        right: Union[hgl_basic.Reader,hgl_basic.Writer, hgl_basic.SignalData],
+        gate: Union[hgl_core.Gate, module_hgl.Module], 
+        right: Union[hgl_core.Reader,hgl_core.Writer, hgl_core.SignalData],
     ):
         """ resolve implict input/outputs
         
@@ -353,14 +353,14 @@ class Verilog(HGL):
         case3: Global.a.b.c1 Global.a.b.c2
         """
 
-        if isinstance(right, (hgl_basic.Reader,hgl_basic.Writer)):
+        if isinstance(right, (hgl_core.Reader,hgl_core.Writer)):
             right = right._data
         # skip signals without position. regard as constant
         if right._module is None:
             return 
         right_pos = right._module._position 
 
-        if isinstance(gate, hgl_basic.Gate):
+        if isinstance(gate, hgl_core.Gate):
             left_pos = self.gates[gate]._position 
         else:
             left_pos = gate._position 
@@ -373,7 +373,7 @@ class Verilog(HGL):
                 break
 
         # analog, pull out to global
-        if right.writer is not None and isinstance(right.writer, hgl_basic.Analog):
+        if right.writer is not None and isinstance(right.writer, hgl_core.Analog):
             for m in left_pos[idx:]:
                 m._module.inouts_data[right] = None
             for m in right_pos[idx:]:

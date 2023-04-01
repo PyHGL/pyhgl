@@ -750,8 +750,6 @@ class MemData(SignalData):
         dt: int = 1, 
         trace: Union[None, Gate, str] = None,
     ):
-        value = values[0]
-        keys = low_keys[0] 
         valid_keys: List[int] = []
         # TODO x in key?
         
@@ -871,8 +869,9 @@ class Reader(HGL):
             return Slice(self, key=high_key)
     
     def __partial_assign__(
-        self, 
-        conds: List[Reader],
+        self,  
+        acitve_signals: List[Reader],
+        cond_stacks: List[hgl_assign.CaseGate],
         value: Union[int, Reader, list, dict, str, Any], 
         high_key: Union[SignalKey, int, Reader, tuple, Any], 
     ) -> None:
@@ -892,7 +891,7 @@ class Reader(HGL):
         # insert a wire behind the signal, make it assignable 
         if self._data.writer is None or not isinstance(self._data.writer._driver, Assignable):
             Wire(self)  
-        self._data.writer._driver.__partial_assign__(self, conds, value, high_key)  
+        self._data.writer._driver.__partial_assign__(self,acitve_signals,cond_stacks,value,high_key)  
 
     def __getattr__(self, name: str) -> Any:
         """ 
@@ -1839,7 +1838,7 @@ class Gate(HGL):
         self.oports = {}
         ret = self.__head__(*args, **kwargs)
         # get timing config
-        timing: dict = self._sess._get_timing(self.id) or self.timing 
+        timing: dict = self._sess.timing.get(self.id) or self.timing 
         if 'delay' in timing:
             self.delay = timing['delay']         
         # ---------------------------------
@@ -1892,207 +1891,111 @@ class Gate(HGL):
 #----------------------------------
 # Assignable: Wire & Reg
 #----------------------------------
+        
 
 class _Assignment(HGL):
-    
-    
-    __slots__ = 'target', 'key', 'value', 'value_key'
     
     def __init__(
         self, 
         key: Optional[tuple], 
         value: Union[Reader, Any],
-        value_key: Optional[tuple],
     ):
-        """ target[key] <== value[value_key]
+        """ target[key] <== value 
         """
         self.key = key
-        self.value = value 
-        self.value_key = value_key 
-        
-        if value_key is not None:
-            assert isinstance(value, Reader), f'xxx[{key}] <== {value}[{value_key}]'
-    
-    def eval(self) -> Tuple[Optional[Any],Any]: 
-        """ return immd_key and immd of value[value_key] 
-
-        low_key -> immd_key
-        """  
-        if self.key is not None:
-            key = [i._getval_py() if isinstance(i, Reader) else i for i in self.key]
-        else:
-            key = None
-
-        value, value_key = self.value, self.value_key 
-        if value_key is not None: 
-            value_key = [i._getval_py() if isinstance(i, Reader) else i for i in value_key] 
-            return key, value._getval_py(value_key)
-        else:
-            if isinstance(value, Reader):
-                value = value._getval_py()
-            return key, value      
+        self.value = value      
 
     def __str__(self):
-        return f'(key={self.key}, value={self.value})'
-        
+        return f'(key={self.key}, value={self.value})' 
+    
+class _Switch(HGL):
+    def __init__(self, sel: Any):
+        self.sel = sel 
+        self.case_items: List[Tuple[Union[tuple, None, Reader],CondTreeNode]] = []
+    
+    def __iter__(self):
+        return iter(self.case_items) 
+    
+    def __len__(self):
+        return len(self.case_items)
+
+    def append(self, condition, condtree):
+        self.case_items.append((condition, condtree))
 
 class CondTreeNode:
     """ store conditions as a tree 
     
-    - frames: list of condition_frame | _Assignment
-        - condition_frame: list of (condition, CondTreeNode)
-        - condition: None | tuple(signal, immd, ...)
-            - immd: gmpy2.mpz, BitPat 
-    - _Assignment: (target, target_key, value, value_key)
-        - target_key: low_level key, maybe signal
-        - value: immd | signal   
-        - value_key: target[target_key] <== value[value_key] 
-        
+    - frames: list of _Switch | _Assignment
+        - _Switch: list of (switch_case_item, CondTreeNode)
+        - _Assignment: (target, target_key)        
     level of tree is level of condition frame
-    
     """ 
     
     __slots__ = 'gate', 'is_analog', 'is_reg', 'curr_frame', 'frames'
     
-    def __init__(
-        self, 
-        gate: Assignable, 
-        is_analog = False,
-        is_reg = False
-    ):
-        
-        self.gate = gate            # target gate that condition tree belongs to
-        self.is_analog = is_analog  # if True, store all assignments 
-        self.is_reg = is_reg        # if True, do not trigger on inputs  
-        
+    def __init__(self): 
         # whether use existing frame or append a new frame
-        self.curr_frame = None 
-
-        self.frames: List[Union[_Assignment, List[Tuple[Optional[tuple], CondTreeNode]]]] = [] 
+        self.curr_frame: Optional[hgl_assign.CaseGate] = None 
+        self.frames: List[Union[_Assignment, _Switch]] = [] 
     
     def insert(
         self, 
-        conds, 
-        assignment: _Assignment,
+        conds: List[hgl_assign.CaseGate], 
+        low_key: Tuple,
+        value: Any,
     ) -> None:
         """ 
-        assignment: (key, value, value_key)
-        is_analog: True for wor|wand|tri
-        is_reg: True for reg
+        check condition frame from layer 1 to n and insert assignment
         """
-        assert isinstance(assignment, _Assignment)
         # direct assign in current frame 
         if not conds: 
-            if isinstance(assignment.value, Reader):
-                if not self.is_reg:
-                    self.gate.read(assignment.value) 
-            # key = (start, width)
-            if assignment.key is not None: 
-                for i in assignment.key:
-                    if isinstance(i, Reader):
-                        if not self.is_reg:
-                            self.gate.read(i) 
-            # key = None, full assignment
-            else:
-                if not self.is_analog:
-                    self.frames.clear() 
-            if assignment.value_key is not None:
-                for i in assignment.value_key:
-                    if isinstance(i, Reader):
-                        if not self.is_reg:
-                            self.gate.read(i)                    
-            self.frames.append(assignment)
+            if low_key is None:     # full assignment without cond
+                self.frames.clear()              
+            self.frames.append(_Assignment(low_key, value))
             self.curr_frame = None
-            
         else:
             curr_frame = conds[0]
-            # append a new frame 
+            # start a new frame 
             if self.curr_frame is not curr_frame:
-                self.frames.append([]) 
+                self.frames.append(_Switch(curr_frame.sel_signal)) 
                 self.curr_frame = curr_frame 
             # list of condition
-            curr_branches = curr_frame.branches 
+            curr_case_items = curr_frame.branches 
             # list of (condition, CondTreeNode)
-            last_frame = self.frames[-1]
+            last_frame: _Switch = self.frames[-1]
             # update frame to catch previous conditions 
-            if len(curr_branches) > len(last_frame):
-                for i in range(len(last_frame), len(curr_branches)):
-                    cond: Optional[Tuple[Reader, Any]] = curr_branches[i]
-                    last_frame.append(
-                        (cond, CondTreeNode(self.gate, self.is_analog, self.is_reg))
-                    ) 
-                    # record cond signal
-                    if cond is not None:
-                        if not self.is_reg:
-                            self.gate.read(cond[0])
-                        
+            if len(curr_case_items) > len(last_frame):
+                for i in range(len(last_frame), len(curr_case_items)):
+                    last_frame.append(curr_case_items[i][0], CondTreeNode())
             # recursive
-            _, next_tree_node = last_frame[-1]
-            next_tree_node.insert(conds[1:], assignment)  
+            _, next_tree_node = last_frame.case_items[-1]
+            next_tree_node.insert(conds[1:], low_key, value)  
 
     def merge(self, other: CondTreeNode):
         self.frames = other.frames + self.frames 
         self.read(other)
-            
-    def read(self, node: CondTreeNode):
-        for frame in node.frames:
-            if isinstance(frame, _Assignment):
-                if isinstance(frame.value, Reader):
-                    self.gate.read(frame.value)
-        # TODO unread
-    
-    def eval(self, ret: List[_Assignment]) -> bool:
-        """ return reversed order
-        evaluate conds at simulation time and return list of assignments
-        
-        return True if early break
-        """  
-        # check from tail to head
-        for frame in reversed(self.frames):
-            if isinstance(frame, _Assignment):
-                ret.append(frame)
-                # key = None, full assignment, ignore rest and return
-                if frame.key is None and not self.is_analog:
-                    return True
-            # conditions in one frame are mutually exclusive
-            else:
-                for cond, node in frame: 
-                    # break if one branch is true
-                    if self._eval_cond(cond): 
-                        if node.eval(ret):
-                            return True 
-                        else:
-                            break  
-        return False
-        
-    def _eval_cond(self, cond: Optional[Tuple[Reader, Any]]) -> bool:
-        if cond is None:
-            return True 
-        else:
-            signal_data = cond[0]._getval_py()
-            return any(i == signal_data for i in cond[1:])
         
     def __str__(self) -> str: 
-        def cond_str(cond):
+        def cond_str(cond, sel):
             if cond is None:
                 return '_:'
             else:
-                return f"{cond[0]._name} == {'|'.join(str(x) for x in cond[1:])}:"
+                return f"{sel} == {'|'.join(str(x) for x in cond[1:])}:"
         body = []
         body.append('┌──────────────────────────────────────────────────')
         for i, branches in enumerate(self.frames): 
             if isinstance(branches, _Assignment):
-                body.append(f'│☆ {self.gate}[{branches.key}] <- {branches.value}')
+                body.append(f'│☆ [{branches.key}] <- {branches.value}')
             else:
                 for cond, node in branches:
-                    body.append('│'+cond_str(cond))
+                    body.append('│'+cond_str(cond, branches.sel))
                     body.append('│  '+'│  '.join(str(node).splitlines(keepends=True)))
                 if i < len(self.frames) - 1:
                     body.append('├╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌')
         body.append('└──────────────────────────────────────────────────')
         return '\n'.join(body) 
     
-    def dumpVerilog(self, op: str = '=') -> str:
+    def _dump_sv(self, target: Reader, builder: sv.ModuleSV, op: str = '=') -> str:
         """
         ex. 
         out = 0
@@ -2105,70 +2008,33 @@ class CondTreeNode:
         """
         
         ret = []
-        for i in self.frames:
-            if isinstance(i, _Assignment):
-                ret.append(self._verilog_assign(i, self.gate.output, op))
-            else:
-                for idx, t in enumerate(i):
-                    cond, node = t  
-                    ret.append(self._verilog_cond(idx, cond) + ' begin')
-                    ret.extend('  ' + x for x in node.dumpVerilog(op).splitlines())
-                    ret.append('end') 
+        for i in self.frames:   # no cond
+            if isinstance(i, _Assignment): 
+                left = target._data._dump_sv_slice(i.key, builder=builder) 
+                right = builder.get_name(i.value)
+                ret.append(f'{left} {op} {right};')  # x[idx +: 2] = y;
+            else:       # case frame
+                ret.append(f'case({builder.get_name(i.sel)})') 
+                for item, node in i:  
+                    _body = node._dump_sv(target, builder, op) 
+                    _body = '  ' + '  '.join(_body.splitlines(keepends=True))
+                    if item is None:  
+                        _item = 'default'
+                    elif isinstance(item, tuple): 
+                        _item = ','.join(builder.get_name(j) for j in item) 
+                    else: 
+                        _item = builder.get_name(item)
+                    ret.append(f'{_item}: begin')
+                    ret.append(_body)
+                    ret.append('end')
+                ret.append('endcase')
         return '\n'.join(ret)
         
         
-    def _verilog_cond(self, idx: int, cond: Optional[Tuple[Reader, Any]]) -> str:
-        """ ex. else if (x==1)
-        """
-        if cond is None:
-            return 'else'
-        
-        signal =cond[0]
-        x = self.gate.get_name(signal) 
-        ret = []
-        for i in cond[1:]:
-            if isinstance(i, BitPat): 
-                ret.append(f'{x} ==? {signal._type._verilog_immd(i)}') 
-            else:   # mpz
-                ret.append(f'{x}=={signal._type._verilog_immd(i)}')
-
-        ret = ' && '.join(ret)
-        if idx == 0:
-            return f'if({ret})'
-        else:
-            return f'else if({ret})'
-            
-        
-    def _verilog_assign(
-        self, 
-        assignment: _Assignment,
-        out: Writer,
-        op: str='='
-    ):
-        """ ex. x[waddr +: 8] = y[raddr +: 8];
-        """
-        key, value, value_key = assignment.key, assignment.value, assignment.value_key
-        if isinstance(value, Reader):
-            value = self.gate.get_name(value) + value._type._verilog_key(value_key, self.gate)
-        else:
-            assert value_key is None
-            value = out._type._verilog_immd(value)
-        
-        target = self.gate.get_name(out) + out._type._verilog_key(key, self.gate)
-        
-        return f'{target} {op} {value};'
         
 
-
-def _part_select_wire(signal: Reader, keys: Any) -> Reader:
-    if type(keys) is SignalKey:
-        return _Wire(signal)
-    else:
-        low_key ,T = signal._type._slice(keys)
-        return _Wire(signal, next=True, input_key=low_key, output_type = T)
-
-
-@dispatch('Slice', UIntType) 
+# TODO memtype
+@dispatch('Slice', Any) 
 class _Slice(Gate):
     
     id = 'Slice'
@@ -2240,33 +2106,36 @@ class Assignable(Gate):
     """
     
     output: Writer 
-    branches: List[Optional[Tuple[Reader, Any, Any]]]  # (cond, key, value)
+    branches: List[Optional[Tuple[Reader, Any, Any]]]  # (cond, key, value) 
+    condtree: CondTreeNode
 
     def __partial_assign__(
         self, 
-        signal: Reader,
-        conds: List[Reader],  # [None, signal, signal, ...]
+        target: Reader,                     # target signal 
+        acitve_signals: List[Reader],       # [None, signal, signal, ...]
+        cond_stacks: List[hgl_assign.CaseGate],        
         value: Union[Reader, int, Any], 
         high_key: Optional[Tuple[Union[Reader, int],int]], 
     ) -> None: 
-        assert signal._data.writer._driver is self
+        assert target._data.writer._driver is self
         # get simplified_key 
-        low_key ,T = signal._type._slice(high_key) 
+        low_key ,T = target._type._slice(high_key) 
         # get valid immd
         if not isinstance(value, Reader):
             value = T._eval(value) 
-        if conds[-1] is None and low_key is None and not isinstance(self, Analog): 
+        if acitve_signals[-1] is None and low_key is None and not isinstance(self, Analog): 
             self.branches.clear() 
         if not isinstance(self, _Reg):    # sensitive
-            if isinstance(conds[-1], Reader):
-                self.read(conds[-1])  
+            if isinstance(acitve_signals[-1], Reader):
+                self.read(acitve_signals[-1])  
             if low_key is not None:
                 for i in low_key:
                     if isinstance(i, Reader):
                         self.read(i)
             if isinstance(value, Reader):
                 self.read(value)
-        self.branches.append((conds[-1], low_key, value)) 
+        self.branches.append((acitve_signals[-1], low_key, value))  
+        self.condtree.insert(cond_stacks, low_key, value)
 
     def _sv_assignment(self, assignment: Tuple, builder: sv.ModuleSV, op='=') -> str:
         """ conditioanl dynamic partial assignment  
@@ -2315,20 +2184,23 @@ class _Wire(Assignable):
             Union[Reader, None], 
             Union[None,Tuple],
             Union[Reader, Logic]
-        ]] = []  
+        ]] = []   
+        self.condtree = CondTreeNode()
         self.output: Writer = None
         
         # insert a wire
         if not next:
             if x._data.writer is None:
                 self.output = self.write(x)  # width = len(x)
-                self.branches.append((None, None, x._data._getval_py()))
+                self.branches.append((None, None, x._data._getval_py())) 
+                self.condtree.insert([], None, x._data._getval_py())
                 return x 
             elif not isinstance(x._data.writer._driver, Assignable):
                 # driver:Gate -> new_x:SignalData -> self:Gate -> x:SignalData
                 new_x = x._data.writer._type()
                 x._data.writer._exchange(new_x._data)
-                self.branches.append((None, None, self.read(new_x)))
+                self.branches.append((None, None, self.read(new_x))) 
+                self.condtree.insert([], None, new_x)
                 self.output = self.write(Writer(x._data, new_x._type, driver=self))
                 return x 
             else:
@@ -2336,7 +2208,8 @@ class _Wire(Assignable):
         else:
             ret = x._type()
             self.output = self.write(ret) 
-            self.branches.append((None, None, self.read(x)))
+            self.branches.append((None, None, self.read(x))) 
+            self.condtree.insert([], None, x)
             return ret
             
             
@@ -2405,10 +2278,14 @@ class _Wire(Assignable):
             end
         end
         """ 
-        body = [self._sv_assignment(i, builder=builder) for i in self.branches] 
-        body.insert(0, 'always_comb begin')
-        body.append('end')
-        builder.gates[self] = '\n'.join(body)
+        # body = [self._sv_assignment(i, builder=builder) for i in self.branches] 
+        # body.insert(0, 'always_comb begin')
+        # body.append('end')
+        # builder.gates[self] = '\n'.join(body)
+        body = self.condtree._dump_sv(self.output, builder=builder, op='=') 
+        body = '  ' + '  '.join(body.splitlines(keepends=True))
+        ret = '\n'.join(['always_comb begin', body , 'end']) 
+        builder.Block(self, ret)
         
     def __str__(self):
         return f'Wire(name={self.output._data._name})'
@@ -2443,6 +2320,7 @@ class _Reg(Assignable):
             Union[None,Tuple],
             Union[Reader, Logic]
         ]] = []  
+        self.condtree = CondTreeNode()
         
         self.posedge_clk: List[Reader, bool] = []   # store previous value
         self.negedge_clk: List[Reader, bool] = [] 
@@ -2477,13 +2355,15 @@ class _Reg(Assignable):
             if x._data.writer is not None:
                 raise ValueError('Reg(signal) requires constant signal')
             self.output = self.write(x) 
-            self.branches.append((None, None, x))
+            self.branches.append((None, None, x)) 
+            self.condtree.insert([], None, x)
             return x  
         # reg next
         else:
             ret = x._type()
             self.output = self.write(ret) 
-            self.branches.append((None, None, x))
+            self.branches.append((None, None, x)) 
+            self.condtree.insert([], None, x)
             return ret 
 
     def forward(self):
@@ -2548,6 +2428,38 @@ class _Reg(Assignable):
             end 
         end 
         """
+        # triggers = [] 
+        # has_reset = False
+        # if (rst:=self.pos_rst) is not None: 
+        #     triggers.append(f'posedge {builder.get_name(rst)}')  
+        #     reset = builder.get_name(rst)
+        #     has_reset = True 
+        # elif (rst:=self.neg_rst) is not None:
+        #     triggers.append(f'negedge {builder.get_name(rst)}') 
+        #     reset = f'!{builder.get_name(rst)}'
+        #     has_reset = True  
+            
+        # if self.posedge_clk:
+        #     triggers.append(f'posedge {builder.get_name(self.posedge_clk[0])}')
+        # else:
+        #     triggers.append(f'negedge {builder.get_name(self.negedge_clk[0])}')
+        # triggers = ' or '.join(triggers)
+        
+        # out = builder.get_name(self.output)
+        # body = '\n'.join(self._sv_assignment(i, builder=builder,op='<=') for i in self.branches)   
+        # if has_reset:
+        #     body = f'if ({reset}) {out} <= {builder.get_name(self.reset_value)}; else begin\n{body}\nend'
+        # body = '  ' + '  '.join(body.splitlines(keepends=True))
+        # res = '\n'.join([
+        #     # FIXME modelsim error
+        #     # f'initial begin {out} = {self.reset_value}; end',
+        #     f'always_ff @({triggers}) begin',
+        #     body, 
+        #     'end'
+        # ])
+        # builder.Block(self, res)
+
+
         triggers = [] 
         has_reset = False
         if (rst:=self.pos_rst) is not None: 
@@ -2566,51 +2478,19 @@ class _Reg(Assignable):
         triggers = ' or '.join(triggers)
         
         out = builder.get_name(self.output)
-        body = '\n'.join(self._sv_assignment(i, builder=builder,op='<=') for i in self.branches)   
+        body = self.condtree._dump_sv(self.output, builder=builder, op='<=')
+        body = '    ' + '    '.join(body.splitlines(keepends=True))
         if has_reset:
-            body = f'if ({reset}) {out} <= {builder.get_name(self.reset_value)}; else begin\n{body}\nend'
-        body = '  ' + '  '.join(body.splitlines(keepends=True))
-        res = '\n'.join([
+            body = f'  if ({reset}) {out} <= {builder.get_name(self.reset_value)}; else begin\n{body}\n  end'
+
+        ret = '\n'.join([
             # FIXME modelsim error
             # f'initial begin {out} = {self.reset_value}; end',
             f'always_ff @({triggers}) begin',
             body, 
             'end'
-        ])
-        builder.Block(self, res)
-
-
-    # def dumpVerilog(self, v: sv.Verilog) -> str: 
-    #     triggers = [] 
-    #     has_reset = False
-    #     if (rst:=self.pos_rst) is not None: 
-    #         triggers.append(f'posedge {self.get_name(rst)}')  
-    #         reset = self.get_name(rst)
-    #         has_reset = True 
-    #     elif (rst:=self.neg_rst) is not None:
-    #         triggers.append(f'negedge {self.get_name(rst)}') 
-    #         reset = f'!{self.get_name(rst)}'
-    #         has_reset = True  
-            
-    #     if self.posedge_clk:
-    #         triggers.append(f'posedge {self.get_name(self.posedge_clk[0])}')
-    #     else:
-    #         triggers.append(f'negedge {self.get_name(self.negedge_clk[0])}')
-    #     triggers = ' or '.join(triggers)
-        
-    #     out = self.get_name(self.output)
-    #     body = self.condtree.dumpVerilog('<=')
-    #     body = '    ' + '    '.join(body.splitlines(keepends=True))
-    #     if has_reset:
-    #         body = f'  if ({reset}) {out} <= {utils.const_int(self.reset_value)}; else begin\n{body}\n  end'
-
-    #     return '\n'.join([
-    #         # FIXME modelsim error
-    #         # f'initial begin {out} = {self.reset_value}; end',
-    #         f'always_ff @({triggers}) begin',
-    #         body, 
-    #         'end'
-    #     ])
+        ]) 
+        builder.Block(self, ret)
             
 
     def __str__(self):
@@ -2664,7 +2544,7 @@ class _Latch(Assignable):
             self.output._setval_py(value, self.delay, None)      
 
                 
-    def dumpVerilog(self, v: sv.Verilog) -> str:
+    def dump_sv(self, v: sv.Verilog) -> str:
         body = self.condtree.dumpVerilog('=') 
         body = '  ' + '  '.join(body.splitlines(keepends=True))
         return '\n'.join(['always_latch begin', body , 'end'])
@@ -2700,10 +2580,6 @@ class Mem(Assignable):
 
         self.output = self.write(x)
         return x 
-
-
-    def __part_select__(self, signal: Reader, keys: Any) -> Reader:  
-        return _part_select_wire(signal, keys)
 
 
     def __partial_assign__(
@@ -2908,7 +2784,7 @@ class Clock(Gate):
         self.clk = self.read(ret)
         self.clk_w = self.write(ret)
         # get timing
-        timing = self._sess._get_timing(self.id) or self.timing 
+        timing = self._sess.timing.get(self.id) or self.timing 
         self.low: int = timing['low'] 
         self.high: int = timing['high']
         self.phase: int = timing['phase']
@@ -2965,41 +2841,12 @@ class ClockDomain(HGL):
         self._sess.module.reset = self._clk_restore.pop()
         self._sess.module.clock = self._rst_restore.pop()
     
-# TODO use a generator
-class _Track(Gate):
-    def __head__(self, x: Reader):
-        self.input = self.read(x) 
-        # store history values for verification and waveform
-        self._timestamps: list[int] = []
-        self._values: list[Logic] = []
-        return self
-    
-    def forward(self) -> None:   
-        # called by python simulator after value updated at t, so current value is the next t
-        self._timestamps.append(self._sess.sim_py.t + 1)  
-        self._values.append(self.input._data._getval_py()) 
-
-    def history(self, t: int) -> Logic:
-        """ get value at time t
-        """
-        idx = bisect.bisect(self._timestamps, t) - 1
-        if idx < 0: 
-            idx = 0 
-        return self._values[idx]
-    
-    def dump_cpp(self):
-        # TODO 
-        raise NotImplementedError(self)
-
-
-# TODO make root signal non-constant
-
     
 class BlackBox(Gate):
 
-    id = 'DummyGate'
+    id = 'BlackBox'
 
-    def __head__(self, inputs = [], outputs = []): 
+    def __head__(self, inputs = [], outputs = [], id=''): 
         self.inputs: List[Reader] = []
         self.outputs: List[Writer] = []
         for i in inputs:
@@ -3116,6 +2963,36 @@ def getv(signal: Reader, key = None) -> Logic:
         low_key, _ = signal._type._slice(key)
         return signal._data._getval_py(low_key)
 
+
+class posedge(HGL):
+    
+    def __init__(self, s: Reader):
+        
+        if not isinstance(s, Reader) or len(s) != 1:
+            raise ValueError(f'input should be 1 bit signal')
+        self.signal = s 
+        
+    def __iter__(self):
+        if self.signal._data._getval_py() == 0:
+            yield self.signal 
+        else: 
+            while self.signal._data._getval_py() != 0:
+                yield self.signal
+            yield self.signal
+    
+    
+class negedge(posedge):
+        
+    def __iter__(self):
+        while self.signal._data._getval_py() == 0:
+            yield self.signal 
+        yield self.signal
+        
+        
+class dualedge(posedge):
+
+    def __iter__(self):
+        yield self.signal
 
 
 import pyhgl.logic.hgl_assign as hgl_assign

@@ -31,7 +31,7 @@ import shutil
 import gmpy2
 from itertools import chain
 from pyhgl.array import HGL
-import pyhgl.logic.hgl_basic as hgl_basic
+import pyhgl.logic.hgl_core as hgl_core
 import pyhgl.logic.module_hgl as module_hgl
 import pyhgl.logic._session as _session
 import pyhgl.logic.utils as utils 

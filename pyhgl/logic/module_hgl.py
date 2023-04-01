@@ -28,7 +28,7 @@ from pyhgl.array import *
 import pyhgl.logic._session as _session
 import pyhgl.logic.module_sv as module_sv
 import pyhgl.logic._config as hglconfig
-import pyhgl.logic.hgl_basic as hgl_basic
+import pyhgl.logic.hgl_core as hgl_core
 
 
  
@@ -98,14 +98,14 @@ class Module(Container, metaclass=MetaModule):
         # default module level parameters
         # dispatcher
         self.dispatcher: Dispatcher = None 
-        self.clock: Tuple[hgl_basic.Reader, int] = None 
-        self.reset: Tuple[hgl_basic.Reader, int] = None 
+        self.clock: Tuple[hgl_core.Reader, int] = None 
+        self.reset: Tuple[hgl_core.Reader, int] = None 
         # io 
         self.io: Array = None 
 
         # temp stack
         self._prev: List[Module] = []
-        self._temp_inputs: List[hgl_basic.Reader] = []
+        self._temp_inputs: List[hgl_core.Reader] = []
 
     def __conf__(self): 
         up = self._sess.module
@@ -172,7 +172,7 @@ class Module(Container, metaclass=MetaModule):
             elif k[0] != '_': 
                 if k not in self.__dict__:
                     self.__dict__[k] = v 
-                if isinstance(v, hgl_basic.Reader):
+                if isinstance(v, hgl_core.Reader):
                     # update prefered name
                     v._data._name = k
                 elif isinstance(v, Module) and v in self._submodules:
@@ -184,7 +184,7 @@ class Module(Container, metaclass=MetaModule):
         if io is not None:
             self.io = io 
             def make_io(x):
-                assert isinstance(x, hgl_basic.Reader)
+                assert isinstance(x, hgl_core.Reader)
                 if x._direction == 'input':
                     self._sess.module._module.inputs[x] = None
                 elif x._direction in ['inner','output']:
@@ -267,8 +267,8 @@ class Module(Container, metaclass=MetaModule):
  
 
 
-def _rename_array(obj: Union[Array, hgl_basic.Reader], name: str):
-    if isinstance(obj, hgl_basic.Reader):
+def _rename_array(obj: Union[Array, hgl_core.Reader], name: str):
+    if isinstance(obj, hgl_core.Reader):
         obj._data._name = name
     elif isinstance(obj, Array):
         for k, v in obj._items():

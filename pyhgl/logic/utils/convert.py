@@ -404,10 +404,6 @@ def str2bitpat(a: str) -> List[str]:
     return a.lstrip('0')
         
 
-def const_int(a: Union[int, gmpy2.mpz, gmpy2.xmpz]) -> int:
-    return f"{width_infer(a)}'d{a}"
-
-
 def split64(v: gmpy2.xmpz, w: int) -> List[int]:
     """ split big int to int64s
     """

@@ -25,7 +25,7 @@ from typing import Any, Dict, List, Set, Union, Tuple
 
 
 from pyhgl.array import *
-import pyhgl.logic.hgl_basic as hgl_basic
+import pyhgl.logic.hgl_core as hgl_core
 import pyhgl.logic.module_hgl as module_hgl
 import pyhgl.logic._session as _session
 import pyhgl.logic.utils as utils
@@ -43,4 +43,4 @@ class Node(HGL):
     def __init__(self) -> None:
         self.iports: List[Value] = []
         self.oports: List[Value] = []
-        self.gates: List[hgl_basic.Gate] = []
+        self.gates: List[hgl_core.Gate] = []

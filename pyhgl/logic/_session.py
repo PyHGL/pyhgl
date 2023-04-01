@@ -34,7 +34,7 @@ import pyhgl.tester.utils as tester_utils
 
 from pyhgl.array import * 
 import pyhgl.logic._config as config
-import pyhgl.logic.hgl_basic as hgl_basic
+import pyhgl.logic.hgl_core as hgl_core
 import pyhgl.logic.module_sv as module_sv  
 import pyhgl.logic.simulator_py as simulator_py
 import pyhgl.logic.module_hgl as module_hgl
@@ -64,7 +64,6 @@ class Session(HGL):
         self.verbose_sim        = verbose_sim  
         self.verbose_trace      = verbose_trace
         self.enable_assert = False 
-        self.enable_warning = False
         self.backend = backend 
         self.build_dir = tester_utils.relative_path(build_dir, 2)
 
@@ -109,9 +108,9 @@ class Session(HGL):
             # default clock and reset
             # clock: (clk, 0|1)  reset: (rst, 0|1)  
             if self.module.clock is None:
-                self.module.clock = (hgl_basic.Clock(), 1)  
+                self.module.clock = (hgl_core.Clock(), 1)  
             if self.module.reset is None:
-                self.module.reset = (hgl_basic.Wire(hgl_basic.UInt(0, name='reset')), 1)  
+                self.module.reset = (hgl_core.Wire(hgl_core.UInt(0, name='reset')), 1)  
 
             self.module._subconfigs.update(subconfigs)        
             self.module._conf = type("Conf_Global", (config.ModuleConf,), new_paras)
@@ -127,22 +126,18 @@ class Session(HGL):
             self.module._submodules[m] = None           # module tree
             return self.module._position + [m]          # position
         
-    def _add_gate(self, gate: hgl_basic.Gate, module: module_hgl.Module = None):
+    def _add_gate(self, gate: hgl_core.Gate, module: module_hgl.Module = None):
         """ verilog, mapping from (part of) gates to module
         """
-        assert isinstance(gate, hgl_basic.Gate)
+        assert isinstance(gate, hgl_core.Gate)
         if module is None:
             module = self.module
         self.verilog.gates[gate] = module  
         
-    def _remove_gate(self, gate: hgl_basic.Gate):    
+    def _remove_gate(self, gate: hgl_core.Gate):    
         if gate in self.verilog.gates:
             self.verilog.gates.pop(gate) 
-        gate.forward = lambda : None
             
-    def _get_timing(self, id: str) -> Optional[dict]: 
-        return self.timing.get(id) 
-        
     def print(self, obj: object, intend: int = 0):
         """ print for debug
         """
@@ -189,7 +184,7 @@ class Session(HGL):
             filename = self._get_filepath(filename)
             self.verilog.dump(filename, **kwargs) 
             print(tester_utils._yellow('Verilog: ') + filename)
-            return _IcarusVerilog(filename)
+            return 
     
     
     def dumpGraph(self, filename='test.gv'): 
@@ -200,10 +195,6 @@ class Session(HGL):
             ret = self.verilog.dumpGraph(filename) 
             print(tester_utils._yellow('Graphviz: ') + filename)
             return ret 
-            
-            
-    def summary(self):
-        print(self)
 
     def _get_filepath(self, relative_path: str) -> str:
         """ path relative to build directory
@@ -232,7 +223,6 @@ class Session(HGL):
     def track(self, *args, **kwargs):
         self.waveform._track(*args, **kwargs)
         
-        
     def run(self, dt: Union[int, str]) -> None:
         self.enter()
         if isinstance(dt, str):
@@ -249,10 +239,11 @@ class Session(HGL):
         self.exit() 
         
     def task(self, *args):
-        with self:
-            for g in args:
-                assert inspect.isgenerator(g)
-                self.sim_py.insert_coroutine_event(0, g) 
+        self.enter()
+        for g in args:
+            assert inspect.isgenerator(g)
+            self.sim_py.insert_coroutine_event(0, g) 
+        self.exit()
 
     def test_iverilog(self):
         with self:
@@ -286,26 +277,3 @@ class _Logging:
             ret.append(str(i))
         return '\n'.join(ret)
 
-
-class _IcarusVerilog:
-    def __init__(self, filename) -> None:
-        self.filename = filename 
-
-    def sim(self):
-        filename = self.filename
-        assert os.path.isfile(filename)
-        if filename[-3:] == '.sv':
-            target = filename[:-3]  
-        elif filename[-2:] == '.v':
-            target = filename[:-2] 
-        else:
-            raise Exception('invalid filename')
-        
-        t = time.time()
-        os.system(f'iverilog -g2012 -o {target}.vvp {filename}')
-        print(f'{tester_utils._yellow("iverilog_compile:")} {filename} -> {target}.vvp, cost {time.time()-t} s')
-        t = time.time()
-        os.system(f'vvp {target}.vvp')
-        print(f'{tester_utils._yellow("iverilog_sim:")} {time.time()-t} s') 
-
-        # subprocess.run(['vvp', f'{target}.vvp'], cwd=build_dir)

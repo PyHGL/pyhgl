@@ -579,4 +579,4 @@ ffff0000
         sess.dumpVerilog('build/core.sv', delay=False, top = False) 
 
         sess.dumpGraph('build/core.gv')
-        sess.summary()
+        print(sess)

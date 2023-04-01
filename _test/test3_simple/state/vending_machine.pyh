@@ -1,0 +1,80 @@
+from pyhgl.logic import *
+from pyhgl.tester import tester, utils
+
+import random
+import time 
+
+
+
+@module VendingMachine: 
+    io = Bundle(
+        nickel =    UInt(0) @ Input,
+        dime =      UInt(0) @ Input,
+        valid =     UInt(0) @ Output,    
+    )
+
+ 
+    switch s:=Reg(Enum()):
+        once 'sIdle':
+            when io.nickel: 
+                s <== 's5'
+            when io.dime:
+                s <== 's10' 
+        once 's5':
+            when io.nickel:
+                s <== 's10'
+            when io.dime: 
+                s <== 's15'
+        once 's10':
+            when io.nickel: 
+                s <== 's15'
+            when io.dime: 
+                s <== 'sOk' 
+        once 's15': 
+            when io.nickel: 
+                s <== 'sOk'
+            when io.dime: 
+                s <== 'sOk'
+        once 'sOk':
+            s <== 'sIdle'
+            io.valid <== 1
+
+
+#--------------------------------- test ----------------------------------------
+
+
+
+@tester test_vending_machine:
+    sess = Session()
+    sess.enter() 
+
+
+    dut = VendingMachine()
+    sess.track(dut.io.nickel, dut.io.dime, dut.s, dut.io.valid)
+
+
+    setv(dut.io.nickel, 1) 
+    setv(dut.io.dime, 1)
+    sess.run(1000)
+    sess.dumpVCD('VendingMachine.vcd') 
+
+    @blackbox testbench(builder):
+        dut_name = builder.get_name(dut)
+        nickel = builder.get_name(dut.io.nickel)
+        dime = builder.get_name(dut.io.dime) 
+        reset = builder.get_name(dut.reset[0])
+
+        builder.append('initial begin')
+        builder.append(f'$dumpfile("VendingMachine_iverilog.vcd");')
+        builder.append(f'$dumpvars(0, {dut_name});')
+        builder.append(f'{reset} = 1; #100; {reset}=0;')
+        builder.append(f'{nickel} = 1; {dime} = 1; #1000;')
+        builder.append('$finish;')
+        builder.append('end')
+
+    sess.dumpVerilog('VendingMachine.sv', delay=True, top = True)
+    sess.dumpGraph('VendingMachine.gv')
+    sess.test_iverilog()
+    print(sess)
+    sess.exit()
+

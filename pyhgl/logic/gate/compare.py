@@ -22,7 +22,7 @@
 from __future__ import annotations
 
 from pyhgl.array import *
-from pyhgl.logic.hgl_basic import *
+from pyhgl.logic.hgl_core import *
 import pyhgl.logic.utils as utils 
 from pyhgl.logic.hgl_assign import __hgl_when__, __hgl_elsewhen__, __hgl_partial_assign__
 

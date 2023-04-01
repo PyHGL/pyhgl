@@ -4,11 +4,12 @@ from pyhgl.tester import tester, utils
 import random
 import time 
 
-
-@conf.timing Timing:
-    timescale = '1ns'
-    clk1 = {'low':20, 'high':20, 'phase':0}
-    clk2 = {'low':40, 'high':40, 'phase':10}
+@conf Global:
+    conf.timing = Bundle(
+        timescale = '1ns',
+        clk1 = {'low':20, 'high':20, 'phase':0},
+        clk2 = {'low':40, 'high':40, 'phase':10},
+    )
 
 
 def binary2gray(x):
@@ -75,7 +76,7 @@ def write_fifo(dut):
     clk = negedge(dut.io.w_clk) 
     yield from clk
     for _ in range(N): 
-        if random.randint(0,1) and not getv(dut.io.full):
+        if random.randint(0,1) and getv(dut.io.full) == 1:
             v = random.randint(0,MASK)
             write_data.append(v)
             setv(dut.io.w_en, 1) 
@@ -88,7 +89,7 @@ def read_fifo(dut):
     clk = negedge(dut.io.r_clk)
     yield from clk 
     for _ in range(N):
-        if random.randint(0,1) and not getv(dut.io.empty):
+        if random.randint(0,1) and getv(dut.io.empty) == 1:
             setv(dut.io.r_en, 1)
             yield from clk 
             read_data.append(getv(dut.io.r_data))
@@ -98,7 +99,7 @@ def read_fifo(dut):
 
 
 @tester test_fifo:
-    sess = Session(timing=Timing())
+    sess = Session(Global())
     sess.enter()
 
     dut = Async_FIFO(DWIDTH, AWIDTH)  
@@ -117,27 +118,27 @@ def read_fifo(dut):
         tester.EQ += i, o
 
 
-    @inline_verilog Verilog(self):
-        dut_name = self.get_name(dut)
-        w_rst = self.get_name(dut.io.w_rst_n)
-        r_rst = self.get_name(dut.io.r_rst_n)
-        w_en = self.get_name(dut.io.w_en)
-        r_en = self.get_name(dut.io.r_en)
-        w_data =self.get_name(dut.io.w_data)
+    @blackbox testbench(builder):
+        dut_name    = builder.get_name(dut)
+        w_rst       = builder.get_name(dut.io.w_rst_n)
+        r_rst       = builder.get_name(dut.io.r_rst_n)
+        w_en        = builder.get_name(dut.io.w_en)
+        r_en        = builder.get_name(dut.io.r_en)
+        w_data      = builder.get_name(dut.io.w_data)
 
-        path = utils.relative_path("FIFO_iverilog.vcd")
-        self.append('initial begin')
-        self.append(f'$dumpfile("{path}");')
-        self.append(f'$dumpvars(0, {dut_name});')
-        self.append(f'{w_rst}=1;{r_rst}=1;{w_en}=1;{r_en}=1;')
+        builder.append('initial begin')
+        builder.append(f'$dumpfile("FIFO_iverilog.vcd");')
+        builder.append(f'$dumpvars(0, {dut_name});')
+        builder.append(f'{w_rst}=1;{r_rst}=1;{w_en}=1;{r_en}=1;')
         for v in write_data:
-            self.append(f'{w_data} = {v}; #100;')
-        self.append('$finish;')
-        self.append('end')
+            builder.append(f'{w_data} = {v}; #100;')
+        builder.append('$finish;')
+        builder.append('end')
 
-    sess.dumpVerilog('FIFO.sv', delay=True, top = True).sim()
+    sess.dumpVerilog('FIFO.sv', delay=True, top = True) 
 
     sess.dumpVCD('FIFO.vcd') 
     sess.dumpGraph('FIFO.gv')
     print(sess)
+    sess.test_iverilog()
     sess.exit()

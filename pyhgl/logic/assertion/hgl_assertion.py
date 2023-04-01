@@ -27,13 +27,13 @@ import bisect
 
 from pyhgl.array import *
 from pyhgl.array.functions import HGLPattern
-import pyhgl.logic.hgl_basic as hgl_basic
+import pyhgl.logic.hgl_core as hgl_core
 import pyhgl.logic._session as _session 
 
 
 assert_dispatcher = Dispatcher()
 
-class StrData(hgl_basic.SignalData):
+class StrData(hgl_core.SignalData):
     
     __slots__ = 'v'
     
@@ -58,7 +58,7 @@ class StrData(hgl_basic.SignalData):
             return True  
         
 @singleton  
-class StrType(hgl_basic.SignalType):
+class StrType(hgl_core.SignalType):
     
     __slots__ = ()
     
@@ -74,10 +74,10 @@ class StrType(hgl_basic.SignalType):
     def _eval(self, v: str) -> str:
         return str(v) 
     
-    def __call__(self, v: Union[int, str] = '', *, name: str='temp_str') -> hgl_basic.Reader:
-        return hgl_basic.Reader(data=StrData(self._eval(v)), type=self, name=name)
+    def __call__(self, v: Union[int, str] = '', *, name: str='temp_str') -> hgl_core.Reader:
+        return hgl_core.Reader(data=StrData(self._eval(v)), type=self, name=name)
 
-    def show(self: hgl_basic.Reader) -> str:
+    def show(self: hgl_core.Reader) -> str:
         return '\n'.join(f't={t:>10}  {v}' for t, v in zip(self._timestamps, self._values))
 
 
@@ -122,7 +122,7 @@ def _to_pattern(x) -> Pattern:
     """
     if isinstance(x, Pattern):
         return x 
-    elif isinstance(x, hgl_basic.Reader):
+    elif isinstance(x, hgl_core.Reader):
         return _Atom(x) 
     elif isinstance(x, (int, tuple, list, set)):
         clk, edge = HGL._sess.module.clock
@@ -201,8 +201,8 @@ def f(t, cache):
 class _Atom(Pattern):
     """ _Atom(Signal|Callable)
     """
-    def __init__(self, s: Union[hgl_basic.Reader, Callable[[dict],bool]]):
-        if isinstance(s, hgl_basic.Reader):
+    def __init__(self, s: Union[hgl_core.Reader, Callable[[dict],bool]]):
+        if isinstance(s, hgl_core.Reader):
             s._track() 
         else:
             if not inspect.isfunction(s):
@@ -210,7 +210,7 @@ class _Atom(Pattern):
         self.s = s 
     
     def f(self, t:int, cache: Dict[str, list]):
-        if isinstance(self.s, hgl_basic.Reader):
+        if isinstance(self.s, hgl_core.Reader):
             if self.s._history(t) > 0:
                 yield (1, t, cache) 
         else:
@@ -222,7 +222,7 @@ class _Atom(Pattern):
 class _Cache(Pattern):
     
     def __init__(self, x: Dict[str, Any]):
-        self._items: Dict[str, Union[hgl_basic.Reader, Callable]] = {}
+        self._items: Dict[str, Union[hgl_core.Reader, Callable]] = {}
         for k, v in x.items():
             if not isinstance(k, str):
                 raise TypeError('name is not str')
@@ -235,7 +235,7 @@ class _Cache(Pattern):
             if inspect.isfunction(v):
                 cache[k].append(v())
             else:
-                cache[k].append(hgl_basic.getv(v))
+                cache[k].append(hgl_core.getv(v))
         yield (1, t, cache)
         
         
@@ -377,8 +377,8 @@ class delay(Pattern):
 class until(Pattern):
     """ go to the time when signal is desired value
     """
-    def __init__(self, s: hgl_basic.Reader, v: Any):
-        assert isinstance(s, hgl_basic.Reader)
+    def __init__(self, s: hgl_core.Reader, v: Any):
+        assert isinstance(s, hgl_core.Reader)
         s._track()
         self.s = s 
         self.v = v 
@@ -412,9 +412,9 @@ class until(Pattern):
 
 class posedge(Pattern):
     
-    def __init__(self, s: hgl_basic.Reader):
+    def __init__(self, s: hgl_core.Reader):
         
-        if not isinstance(s, hgl_basic.Reader) or len(s) != 1:
+        if not isinstance(s, hgl_core.Reader) or len(s) != 1:
             raise ValueError(f'input should be 1 bit signal')
         
         s._track()
@@ -428,7 +428,7 @@ class posedge(Pattern):
         yield (1, s._timestamps[next_idx], cache)
             
             
-    def _get_next_idx(self, s: hgl_basic.Reader, t: int) -> int:
+    def _get_next_idx(self, s: hgl_core.Reader, t: int) -> int:
         idx = bisect.bisect(s._timestamps, t) - 1 
         if idx < 0:
             idx = 0 
@@ -447,7 +447,7 @@ class posedge(Pattern):
     
 class negedge(posedge):
     
-    def _get_next_idx(self, s: hgl_basic.Reader, t: int) -> int:
+    def _get_next_idx(self, s: hgl_core.Reader, t: int) -> int:
         idx = bisect.bisect(s._timestamps, t) - 1 
         if idx < 0:
             idx = 0 
@@ -466,7 +466,7 @@ class negedge(posedge):
         
 class dualedge(posedge):
     
-    def _get_next_idx(self, s: hgl_basic.Reader, t: int) -> int:
+    def _get_next_idx(self, s: hgl_core.Reader, t: int) -> int:
         idx = bisect.bisect(s._timestamps, t) - 1 
         if idx < 0:
             idx = 0 
@@ -494,7 +494,7 @@ class Assert(HGL):
         else:
             self.trigger = negedge(clk)
             
-        self.disable: Tuple[hgl_basic.Reader, int] = self.sess.module.reset
+        self.disable: Tuple[hgl_core.Reader, int] = self.sess.module.reset
             
         self.pattern = _to_pattern(pattern)
                 
@@ -552,8 +552,8 @@ class AssertCtrl(HGL):
     
     def __init__(
         self, 
-        trigger: Tuple[hgl_basic.Reader, int] = ..., 
-        disable: Tuple[hgl_basic.Reader, int] = ...
+        trigger: Tuple[hgl_core.Reader, int] = ..., 
+        disable: Tuple[hgl_core.Reader, int] = ...
     ): 
         """
         trigger: default is clock 
@@ -565,9 +565,9 @@ class AssertCtrl(HGL):
             disable = self._sess.module.reset 
             
         clk, edge = trigger 
-        assert isinstance(clk, hgl_basic.Reader) and isinstance(edge, (int, bool))
+        assert isinstance(clk, hgl_core.Reader) and isinstance(edge, (int, bool))
         self.trigger = trigger
-        assert disable is None or isinstance(disable[0], hgl_basic.Reader)
+        assert disable is None or isinstance(disable[0], hgl_core.Reader)
         self.disable = disable
         
         self._clk_restore = []

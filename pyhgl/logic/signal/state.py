@@ -21,7 +21,7 @@
 
 from __future__ import annotations
 from typing import  Optional, Dict, Any, List, Tuple, Generator, Callable, Literal
-from pyhgl.logic.hgl_basic import *
+from pyhgl.logic.hgl_core import *
 
 
 class EnumType(SignalType):
@@ -56,11 +56,13 @@ class EnumType(SignalType):
     ):
         encoding = encoding.lower()
         assert encoding in ['binary', 'onehot', 'gray'] 
-        self._encoding = encoding
+        self._encoding = encoding 
+
+        self._storage = 'packed variable'
         
         self._frozen = False
         # current width, variable
-        self._width = 0 
+        self._width = 1
         # max order in encoding space
         self._order = 0
         # one-to-one mapping
@@ -84,13 +86,15 @@ class EnumType(SignalType):
     
     def frozen(self: Reader):
         if isinstance(self, EnumType):
-            self._frozen = True 
+            self._frozen = True  
+            self._storage = 'packed'
         else:
             assert isinstance(self._type, EnumType)
-            self._type._frozen = True
+            self._type._frozen = True 
+            self._type._storage = 'packed'
     
     
-    def _eval(self, x: Union[int, str, gmpy2.mpz], *, predefined: int = None) -> gmpy2.mpz: 
+    def _eval(self, x: Union[int, str, Logic], *, predefined: int = None) -> Logic: 
         """
         since width may change, _eval a same integer may return different value
         """
@@ -109,31 +113,26 @@ class EnumType(SignalType):
                 self._values.pop(_v)  
             assert predefined not in self._values, f'confilct: {predefined}'
             ret = self._new_state(x, predefined)
-            return gmpy2.mpz(ret)  
-            
-        if self._frozen:
-            if isinstance(x, str):
+            return Logic(ret, 0)  
+             
+        if isinstance(x, str):
+            if self._frozen: 
                 assert x in self._names, f'state {x} not found' 
-                return gmpy2.mpz(self._names[x]) 
-            # int
-            else: 
-                x = gmpy2.mpz(x) 
-                assert 0 <= x <= gmpy2.bit_mask(self._width)
-                return x
-        else:
-            if isinstance(x, str):
+                return Logic(self._names[x], 0)  
+            else:
                 if (ret:=self._names.get(x)) is not None:
-                    return gmpy2.mpz(ret) 
+                    return Logic(ret, 0) 
                 else:
                     ret = self._new_state(x)
-                    return gmpy2.mpz(ret)   
-            # int
-            else:
-                x = gmpy2.mpz(x) 
-                assert 0 <= x <= gmpy2.bit_mask(self._width)
-                return x
+                    return Logic(ret, 0)    
+        elif isinstance(x, Logic):
+            assert self._width >= utils.width_infer(x.v) and self._width >= utils.width_infer(x.x)
+            return x  
+        else:
+            x = int(x) 
+            assert self._width >= utils.width_infer(x)
+            return Logic(x, 0)
             
-
     def _new_state(self, state: str, value: Optional[int] = None) -> int:
         if self._encoding == 'binary':
             if value is None:
@@ -163,26 +162,14 @@ class EnumType(SignalType):
     
     
     def __call__(self, v: Union[str, int] = None, *, name='state_enum') -> Reader: 
-        if self._values:
-            v = next(iter(self._values))
-        else:
-            v = 0
-        v = self._eval(v) 
-        return Reader(data=LogicData(v), type=self, name=name)
-    
-    
-    def _getval_py(self, data: LogicData, key) -> gmpy2.mpz:
-        """ key must be None
-        """
-        return data.v[0:self._width]
-        
-    def _setval_py(self, data: LogicData, key, v: gmpy2.mpz) -> bool:
-        """ key must be None
-        """
-        target = data.v 
-        odd = target.copy()
-        target[0:self._width] = v  
-        return target != odd
+        if v is None:
+            if self._values:
+                v = next(iter(self._values))
+            else:
+                v = 0
+        v = self._eval(v)  
+        assert isinstance(v, Logic)
+        return Reader(data=LogicData(v.v, v.x), type=self, name=name)
         
     def __str__(self, data: LogicData = None):  
         if self._names:
@@ -199,31 +186,22 @@ class EnumType(SignalType):
             else:
                 return f'Enum[{temp}]'
     
-    def _slice(self, keys):
+    def _slice(self, high_key):
         """ 
         signal: 
             None: called by partial assignment 
             other: called by signal.__getitem__ 
-        """ 
-        raise Exception()
+        """  
+        if high_key is None:
+            return None, self 
+        else:
+            raise Exception(f'EnumType does not support slicing {high_key}')
 
     def __getitem__(self, key) -> gmpy2.mpz:
         assert isinstance(key, str)
         return self._eval(key)  
-
-    def __part_select__(self, signal: Reader, keys: str) -> gmpy2.mpz:
-        return self.__getitem__(keys)
         
-        
-
     
-
-def EnumReg(*args, **kwargs):
-    """
-    ex. EnumReg('idle','s1','s2', encoding='onehot', frozen=True)
-    """
-    return Reg(EnumType(states=args, **kwargs)())
-
 
 @singleton 
 class Enum:
@@ -272,4 +250,20 @@ class EnumOnehot:
     def __call__(self) -> Any:
         return EnumType([], encoding='onehot')()
             
+@singleton 
+class EnumGray:
+    def __init__(self):
+        pass 
+    
+    def __getitem__(self, keys):
+        if keys is ...:
+            return EnumType(encoding='gray')
+        else:
+            assert isinstance(keys, tuple) 
+            if keys[-1] is ...: 
+                return EnumType(states=keys[:-1], encoding='gray') 
+            else:
+                return EnumType(states=keys, frozen=True, encoding='gray') 
             
+    def __call__(self) -> Any:
+        return EnumType([], encoding='gray')()

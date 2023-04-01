@@ -92,5 +92,5 @@ def compressN(column: list, sums: list, couts: list):
     sess.dumpVerilog('Multiplier.sv', delay=True, top = True).sim()
 
     sess.dumpGraph('Multiplier.gv')
-    sess.summary()
+    print(sess)
     sess.exit()

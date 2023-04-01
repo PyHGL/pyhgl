@@ -82,7 +82,7 @@ import random
         print(f'sim mem : {process.memory_info().rss / 1024 / 1024} MB')
 
         # sess.dumpVCD()
-        # sess.summary()
+        # print(sess)
         # print(sess.dumpVerilog())
         # sess.dumpGraph().view()
 

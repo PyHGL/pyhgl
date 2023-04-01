@@ -21,89 +21,98 @@
 
 from __future__ import annotations
 from typing import  Optional, Dict, Any, List, Tuple, Generator, Callable, Literal
-from pyhgl.logic.hgl_basic import *
+from pyhgl.logic.hgl_core import *
 
 
-_sint_cache = {}
+class SIntType(LogicType):
 
-@singleton
-class SInt(LogicType):
-    
-    def __getitem__(self, key: int):
-        """
-        ex. SInt[1], SInt[8]
-        """ 
-        if self._width > 0:
-            raise TypeError(f'{self}[{key}]')
-        else:
-            assert key > 0
-            if key in _sint_cache:
-                return _sint_cache[key]
-            else:
-                ret = self.__class__(key)
-                _sint_cache[key] = ret 
-                return ret
-    
-    def _eval(self, v: Union[int, str, float]) -> Union[gmpy2.mpz, BitPat]:
-        """ raise exception if overflow
-        """
-        if self._width == 0:
-            raise Exception(f'{self} is not a valid type')
+    _cache = {}
+
+    def __init__(self, width: int = 0): 
+        assert width > 0
+        super().__init__(width)
+
+    def _eval(self, v: Union[int, str, Logic, BitPat]) -> Union[Logic, BitPat]:
+        if isinstance(v, str) and '?' in v:
+            v = BitPat(v)  
+        if isinstance(v, BitPat):
+            assert len(v) <= self._width, f'{v} overflow for SInt[{self._width}]'
+            return v 
+
         if isinstance(v, str): 
-            _v, _w =  utils.str2int(v) 
+            _v, _x, _w =  utils.str2logic(v) 
+        elif isinstance(v, Logic):
+            _v = v.v 
+            _x = v.x 
+            _w = max(utils.width_infer(v.v, signed=True), utils.width_infer(v.x))
         else:
-            _v = v
             _w = utils.width_infer(_v, signed=True) 
-         
-        if self._width < _w:
-            raise Exception(f'value {v} overflow for {self}')
-        if _v < 0:
-            _v = _v & gmpy2.bit_mask(self._width)
-        if isinstance(_v, gmpy2.mpz):
-            return _v 
-        else:
-            return gmpy2.mpz(_v)
+            _v = v & gmpy2.bit_mask(_w)
+            _x = 0
+        # overflow not allowed
+        if self._width < _w or _v < 0 or _x < 0:
+            raise Exception(f'value {v} overflow for {self}') 
+        return Logic(_v, _x)
 
     def __call__(
         self, 
-        v: Union[int, str, float, Reader, Iterable]=0, 
-        w: int = None,
+        v: Union[int, str, Reader, Logic]=0, 
         *, 
-        name: str = 'uint'
+        name: str = ''
     ) -> Reader: 
-        """
-        v:
-            - int, str, float 
-            - signal 
-            - Iterable container of above
-        """ 
-        if w is not None:
-            assert self._width == 0 and w > 0
-            return SInt[w](v, name=name)
-        
-        # array
-        v = ToArray(v)
-        if isinstance(v, Array):
-            return Map(self, v, name=name)
-        # is type cast
+        name = name or 'sint'
+        # is type casting
         if isinstance(v, Reader):    
-            data = v._data  
-            if not isinstance(data, LogicData):
-                raise ValueError(f'signal {v} is not logic signal')
-            # has pre defined width
-            if self._width:
-                return Reader(data=data, type=self, name=name) 
-            else:
-                w = len(v)
-                assert w > 0
-                return Reader(data=data, type=SInt[w], name=name)
+            data = v._data   
+            assert isinstance(data, LogicData), f'signal {v} is not logic signal' 
+            assert v._type._storage == 'packed', f'signal {v} has variable bit length'
+            assert len(v) == len(self), 'bit length mismatch'
+            return Reader(data=data, type=self, name=name) 
         else:
-            if self._width:
-                _v = self._eval(v) 
-                return Reader(data=LogicData(_v), type=self, name=name) 
+            data = self._eval(v)  
+            assert isinstance(data, Logic)
+            return Reader(data=LogicData(data.v, data.x), type=self, name=name) 
+    
+
+@singleton
+class SInt(HGLFunction):
+    
+    def __getitem__(self, key: int):
+        """
+        ex. SInt[2], SInt[8]
+        """  
+        assert key > 0 and isinstance(key, int)
+        cache = UIntType._cache
+        if key in cache:
+            return cache[key]
+        else:
+            cache[key] = UIntType(key)
+            return cache[key]
+
+    def __call__(
+        self, 
+        v: Union[int, str, float, Reader, Iterable, Logic]=0, 
+        w: int = None,
+        name: str = ''
+    ) -> Reader: 
+
+        # array
+        v = ToArray(v) 
+        w = ToArray(w)
+        if isinstance(v, Array) or isinstance(w, Array):
+            return Map(self, v, w, name=name)
+
+        # with width, pass
+        if w is not None:
+            return SInt[w](v, name=name)
+        # without width
+        if isinstance(v, Reader):    
+            _w = len(v)
+        else:
+            if isinstance(v, str):
+                _, _, _w = utils.str2logic(v) 
+            elif isinstance(v, Logic):
+                _w = max(utils.width_infer(v.v, signed=True), utils.width_infer(v.x))
             else:
-                if isinstance(v, str):
-                    _, _w = utils.str2int(v) 
-                else:
-                    _w = utils.width_infer(v, signed=True)
-                return SInt[_w](v, name=name)
+                _w = utils.width_infer(v, signed=True)
+        return SInt[_w](v, name=name)

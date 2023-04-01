@@ -72,6 +72,6 @@ import time
     sess.dumpVerilog('VendingMachine.sv', delay=True, top = True).sim()
 
     sess.dumpGraph('VendingMachine.gv')
-    sess.summary()
+    print(sess)
     sess.exit()
 

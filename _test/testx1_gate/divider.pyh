@@ -131,5 +131,5 @@ import itertools
     sess.dumpVerilog('Divider.sv', delay=True, top = True).sim()
 
     sess.dumpGraph('Divider.gv')
-    sess.summary()
+    print(sess)
     sess.exit()

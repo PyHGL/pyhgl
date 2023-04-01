@@ -83,7 +83,7 @@ with Session(
 
     print(UInt(0, w=4)) 
 
-    sess.summary() 
+    print(sess) 
 
     print(s)  
     print(UInt('111') @ Input ) 

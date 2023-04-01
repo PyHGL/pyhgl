@@ -69,7 +69,7 @@ with Session() as sess:
     sess.dumpVCD('Adder.vcd')
     sess.dumpVerilog('Adder.sv')
     sess.dumpGraph('Adder.gv')
-    sess.summary()
+    print(sess)
 ``` 
 
 ## Vending Machine 

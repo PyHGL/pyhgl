@@ -86,7 +86,7 @@ with Session(
     sess.dumpGraph().view()
 
     sess.dumpVCD()
-    sess.summary()
+    print(sess)
 
     UInt[2]('111')
 

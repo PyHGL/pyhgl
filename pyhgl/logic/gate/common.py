@@ -27,7 +27,7 @@ import random
 from itertools import chain
 
 from pyhgl.array import *
-from pyhgl.logic.hgl_basic import *
+from pyhgl.logic.hgl_core import *
 import pyhgl.logic.utils as utils
 import pyhgl.logic.module_cpp as cpp
 import pyhgl.logic.module_sv as sv
@@ -384,6 +384,14 @@ class _Reduce(_GateN):
         self.output = self.write(ret)
         return ret 
 
+    def dump_sv(self, builder: sv.ModuleSV):
+        x = builder.get_name(self.input)  
+        y = builder.get_name(self.output) 
+        op1, op2 = self._op
+        x = f' {op2} '.join(x) 
+        x = f'{op1}({x})'
+        builder.Assign(self, y, x, delay=self.delay)
+        
 
 @dispatch('AndR', Any) 
 class _AndR(_Reduce):
@@ -413,6 +421,7 @@ class _AndR(_Reduce):
         node.dump_value() 
         node.AndR(*input_v, target=output_v, delay=self.delay)
         node.dump_unknown()  
+
 
 
 @dispatch('OrR', Any) 

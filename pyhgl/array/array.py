@@ -166,7 +166,7 @@ class Container(HGL):
                     _set_all(target, i, v)  
 
 
-    def __partial_assign__(self, conds, value, keys):
+    def __partial_assign__(self, a, b, value, keys):
         """ similar as __setitem__, but for hardware connection 
 
         if keys[0] is SignalKey, insert a ...; if no key rest, insert a SignalKey
@@ -195,11 +195,11 @@ class Container(HGL):
         def _set_all(x, v): 
             if key is ...: 
                 if isinstance(x, Container):
-                    x.__partial_assign__(conds, v, rest_keys_container) 
+                    x.__partial_assign__(a, b, v, rest_keys_container) 
                 else:
-                    x.__partial_assign__(conds, v, rest_keys_valid)
+                    x.__partial_assign__(a, b, v, rest_keys_valid)
             else:
-                x.__partial_assign__(conds, v, rest_keys_valid)
+                x.__partial_assign__(a, b, v, rest_keys_valid)
 
 
         # single assign
