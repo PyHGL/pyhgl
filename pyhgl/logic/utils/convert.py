@@ -409,14 +409,24 @@ def split64(v: gmpy2.xmpz, w: int) -> List[int]:
     """
     ret = []
     for idx in range((w + 63) // 64 ):
-        ret.append(v[idx*64, idx*64+63])
+        ret.append(v[idx*64:(idx+1)*64])
     return ret 
 
 def merge64(l: List[int]) -> gmpy2.xmpz:
     ret = gmpy2.xmpz(0)
     for idx, v in enumerate(l):
-        ret[idx*64, idx*64+63] = int(v)
+        ret[idx*64:(idx+1)*64] = int(v)
+    return ret 
+
+def split_uint(v: int, w_in: int, w_out: int) -> List[int]:
+    """ 
+    """
+    ret = [] 
+    v = gmpy2.mpz(v)
+    for idx in range( (w_in+w_out-1) // w_out ):
+        ret.append(v[idx*w_out:(idx+1)*w_out]) 
     return ret
+    
 
 
 _number = re.compile(r'\s*([0-9a-zA-Z]+).*')

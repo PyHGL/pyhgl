@@ -174,7 +174,7 @@ def test_stmt():
 
 print(ast_dump(
 """
-a + b + 1 * 3
+(a, b) <== 1
 """
 ))
 

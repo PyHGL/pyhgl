@@ -119,7 +119,13 @@ class Logic(HGL):
         return hash((self.v, self.x))
     
     def __str__(self):
-        return utils.logic2str(self.v, self.x)
+        _width = max(
+            utils.width_infer(self.v, signed=self.v<0), 
+            utils.width_infer(self.x, signed=self.x<0)
+        ) 
+        width = min(64, _width) 
+        ret = utils.logic2str(self.v, self.x, width=width, prefix=False)
+        return f"{_width}'b{ret}"
 
     def __getitem__(self, key) -> Logic:
         """ bit select, v[0], v[1], ...
@@ -138,7 +144,18 @@ class Logic(HGL):
         if x1 == x2:
             return (v1 & ~x1) == (v2 & ~x2)
         else:
-            return False
+            return False 
+        
+    def __ne__(self, x: Union[str, int, Logic]) -> bool:
+        """ return bool
+        """
+        other = Logic(x)
+        v1, v2 = self.v, other.v 
+        x1, x2 = self.x, other.x 
+        if x1 == x2:
+            return (v1 & ~x1) != (v2 & ~x2)
+        else:
+            return True 
 
     #--------------------------------
     # arithmetic operation
@@ -397,7 +414,7 @@ class SignalData(HGL):
         # if len(self._sess.module._position) == 1: # top level 
         #     self._module: module_hgl.Module = self._sess.module 
         # else:
-        self._module: module_hgl.Module = None
+        self._module: Optional[module_hgl.Module] = None
 
 
     def _update_py(self, new: Logic) -> bool:
@@ -1228,8 +1245,8 @@ class LogicType(SignalType):
         return MemType(shape, self)
 
     # bit operations 
-    def split(self: Reader) -> Array:
-        return Split(self)
+    def split(self: Reader, n: int = 1) -> Array:
+        return Split(self, n)
     
     def zext(self: Reader, w: int):
         return Zext(self, w) 
@@ -1345,9 +1362,12 @@ class UInt(HGLFunction):
         return UInt[_w](v, name=name)
 
 
-def Split(signal: Reader) -> Array:
-    assert signal._type._storage == 'packed'
-    return Array(signal[i] for i in range(len(signal)))
+def Split(signal: Reader, n: int = 1) -> Array:
+    assert signal._type._storage == 'packed' 
+    ret = []
+    for idx in range( (len(signal)+n-1)//n ): 
+        ret.append(signal[idx*n:(idx+1)*n]) 
+    return Array(ret)
 
 
 def Zext(signal: Reader, w: int) -> Reader:
@@ -2042,9 +2062,16 @@ class _Slice(Gate):
     def __head__(self, signal: Reader, key: Any = None, id='') -> Reader:
         assert isinstance(signal._data, LogicData) and signal._type._storage == 'packed'
         self.id = id or self.id
-        self.input = self.read(signal)
+        self.input = self.read(signal) 
+        if self.input._data._module is None:
+            self.input._data._module = self._sess.module
+
         low_key, T = signal._type._slice(key)
-        self.low_key = low_key 
+        self.low_key = low_key  
+        if low_key is not None:
+            for i in low_key: 
+                if isinstance(i, Reader):
+                    self.read(i)   # sensitive
         ret = T()
         self.output = self.write(ret)
         return ret 
@@ -2787,15 +2814,20 @@ class Clock(Gate):
         timing = self._sess.timing.get(self.id) or self.timing 
         self.low: int = timing['low'] 
         self.high: int = timing['high']
-        self.phase: int = timing['phase']
+        self.phase: int = timing['phase'] 
+        self._phase_flag: bool = True
         return ret
 
-    def forward(self):
-        odd: Logic = self.clk._data._getval_py() 
-        if odd.v:  # 1 -> 0
-            self.clk_w._data._setval_py(Logic(0,0), dt=self.high, trace=self) 
-        else:    # 0 -> 1
-            self.clk_w._data._setval_py(Logic(1,0), dt=self.low, trace=self)
+    def forward(self): 
+        if self._phase_flag:
+            self.clk_w._data._setval_py(Logic(1,0), dt=self.low+self.phase, trace=self) 
+            self._phase_flag = False
+        else:
+            odd: Logic = self.clk._data._getval_py() 
+            if odd.v:  # 1 -> 0
+                self.clk_w._data._setval_py(Logic(0,0), dt=self.high, trace=self) 
+            else:    # 0 -> 1
+                self.clk_w._data._setval_py(Logic(1,0), dt=self.low, trace=self)
 
     def dump_cpp(self):
         # TODO 

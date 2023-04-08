@@ -59,8 +59,8 @@ def test_array():
     x = Array(np.ones((2,3,4)))
 
     tester.EQ += mysum(1,2,3, hint='hint'), 6 
-    tester.EQ += mysum([1,2],3,[4,5], hint='hint')._flat, [8, 10] 
+    tester.EQ += list(mysum([1,2],3,[4,5], hint='hint')._flat), [8, 10] 
     tester.EQ += mysum(x, hint='hint'), 24.0
-    tester.EQ += mysum(x, axis=-1,hint='hint')._flat, [4.0, 4.0, 4.0, 4.0, 4.0, 4.0]
-    tester.EQ += mysum(x, axis=(1,0),hint='hint')._flat, [6.0, 6.0, 6.0, 6.0]
+    tester.EQ += list(mysum(x, axis=-1,hint='hint')._flat), [4.0, 4.0, 4.0, 4.0, 4.0, 4.0]
+    tester.EQ += list(mysum(x, axis=(1,0),hint='hint')._flat), [6.0, 6.0, 6.0, 6.0]
 

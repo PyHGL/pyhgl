@@ -522,7 +522,7 @@ class Array(Container):
     def _flat(self) -> list:
         """ dfs flat
         """
-        ret = [] 
+        ret = Array()
         if self._dict:
             items = self._dict.values()
         else:
@@ -530,9 +530,9 @@ class Array(Container):
 
         for i in items:
             if isinstance(i, Array):
-                ret.extend(i._flat)
+                ret._extend(i._flat)
             else:
-                ret.append(i)
+                ret._append(i)
         return ret
 
     def _to_dict(self) -> Union[list, dict]:

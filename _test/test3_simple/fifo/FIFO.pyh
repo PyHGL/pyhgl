@@ -57,16 +57,17 @@ def binary2gray(x):
         RAM[w_ptr[:-1]] <== io.w_data
     when io.r_en && !io.empty:
         r_ptr <== r_ptr + 1 
-        io.r_data <== RAM[r_ptr[:-1]]
+        io.r_data <== RAM[r_ptr[:-1]] 
+    r_ptr_1 = r_ptr[:-1] 
+    r_data_test = RAM[r_ptr_1]
 
 
 
 #--------------------------------- test ----------------------------------------
 
-DWIDTH = 32 
-AWIDTH = 8 
-MASK = (1 << DWIDTH) - 1 
-N = 500
+DWIDTH = 8 
+AWIDTH = 4 
+N = 200
 
 random.seed(42)
 write_data = []
@@ -75,12 +76,11 @@ read_data = []
 def write_fifo(dut):
     clk = negedge(dut.io.w_clk) 
     yield from clk
-    for _ in range(N): 
-        if random.randint(0,1) and getv(dut.io.full) == 1:
-            v = random.randint(0,MASK)
-            write_data.append(v)
+    for _ in range(N):  
+        if random.randint(0,1) and getv(dut.io.full) == 0:
             setv(dut.io.w_en, 1) 
-            setv(dut.io.w_data, v) 
+            v = setr(dut.io.w_data) 
+            write_data.append(v)
         else:
             setv(dut.io.w_en, 0)
         yield from clk 
@@ -88,8 +88,8 @@ def write_fifo(dut):
 def read_fifo(dut):
     clk = negedge(dut.io.r_clk)
     yield from clk 
-    for _ in range(N):
-        if random.randint(0,1) and getv(dut.io.empty) == 1:
+    for _ in range(N): 
+        if random.randint(0,1) and getv(dut.io.empty) == 0:
             setv(dut.io.r_en, 1)
             yield from clk 
             read_data.append(getv(dut.io.r_data))
@@ -129,9 +129,11 @@ def read_fifo(dut):
         builder.append('initial begin')
         builder.append(f'$dumpfile("FIFO_iverilog.vcd");')
         builder.append(f'$dumpvars(0, {dut_name});')
+        builder.append(f'{w_rst}=0;{r_rst}=0;#100;')
         builder.append(f'{w_rst}=1;{r_rst}=1;{w_en}=1;{r_en}=1;')
         for v in write_data:
-            builder.append(f'{w_data} = {v}; #100;')
+            builder.append(f'{w_data} = {v}; #100;') 
+        builder.append('#200;')
         builder.append('$finish;')
         builder.append('end')
 

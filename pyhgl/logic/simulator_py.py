@@ -294,20 +294,33 @@ class VCD(HGL):
         self._trackers: Dict[Tracker, Tuple[str]] = {}  # {Tracker:('Module_0.Adder_1', 'io_x_1')}
         self._tracked_data: Dict[hgl_core.SignalData, None] = {}
     
-    def _track(self, *args: hgl_core.Reader):
-        new_signals = []
+    def _track(self, *args: hgl_core.Reader): 
+        array_expanded1 = []
         for i in args:
-            i = ToArray(i)
-            if isinstance(i, Array):
-                new_signals.extend(i._flat) 
-            elif isinstance(i, module_hgl.Module):
+            obj = ToArray(i) 
+            if isinstance(obj, Array):
+                array_expanded1.extend(obj._flat)
+            else:
+                array_expanded1.append(obj)
+        module_expanded = []
+        for i in array_expanded1:
+            if isinstance(i, module_hgl.Module):
                 for _, v in i.__dict__.items():
-                    if isinstance(v, hgl_core.Reader):
-                        new_signals.append(v)
+                    module_expanded.append(v)
+                if isinstance(i.clock, tuple):
+                    module_expanded.append(i.clock[0])
+                if isinstance(i.reset, tuple):
+                    module_expanded.append(i.reset[0])  
+            else:
+                module_expanded.append(i)
+        array_expanded2 = []
+        for i in module_expanded:
+            if isinstance(i, Array):
+                array_expanded2.extend(i._flat)
             elif isinstance(i, hgl_core.Reader):
-                new_signals.append(i) 
+                array_expanded2.append(i)
         
-        for s in new_signals:
+        for s in array_expanded2: 
             if isinstance(s, hgl_core.Reader) and s._data not in self._tracked_data: 
                 self._tracked_data[s._data] = None 
                 tracker = Tracker(s)

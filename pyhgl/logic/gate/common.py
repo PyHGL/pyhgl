@@ -388,8 +388,7 @@ class _Reduce(_GateN):
         x = builder.get_name(self.input)  
         y = builder.get_name(self.output) 
         op1, op2 = self._op
-        x = f' {op2} '.join(x) 
-        x = f'{op1}({x})'
+        x = f'{op1}{x}'
         builder.Assign(self, y, x, delay=self.delay)
         
 

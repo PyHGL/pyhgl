@@ -88,18 +88,18 @@ class _Conf(HGL):
         
     @property
     def up(self): 
-        """ return father module
+        """ return father module's config
         """ 
         try: 
-            return self._sess.module._position[-2]
+            return self._sess.module._position[-2]._conf
         except:
             return None
         
     @property 
     def p(self):
-        """ return current module 
+        """ return current module's config
         """
-        return self._sess.module 
+        return self._sess.module._conf
 
     @property 
     def clock(self):

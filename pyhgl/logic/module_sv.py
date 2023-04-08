@@ -135,8 +135,10 @@ class ModuleSV(HGL):
             assert obj in self.module._submodules      # only submodule is allowed 
             ret = self._new_name(obj, obj._name)        # assign a new name
             return ret 
-        elif isinstance(obj, (hgl_core.Logic, hgl_core.BitPat, int, gmpy2.mpz)):
-            return str(obj)
+        elif isinstance(obj, (hgl_core.Logic, hgl_core.BitPat, int, gmpy2.mpz)): 
+            _temp = hgl_core.Logic(obj)
+            ret = utils.logic2str(_temp.v, _temp.x)
+            return ret
         else:
             raise TypeError(f'{type(obj)}({obj})')
 

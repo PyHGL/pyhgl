@@ -72,7 +72,7 @@ class MetaModule(type):
 class Module(Container, metaclass=MetaModule):
     
 
-    __slots__ = '_sess', 'dispatcher', 'clock', 'reset', 'io', '__dict__'
+    __slots__ = '_sess', 'dispatcher', 'clock', 'reset', '__dict__'
     
     def __head__(self):  
         self._sess: _session.Session = HGL._sess 
@@ -100,8 +100,6 @@ class Module(Container, metaclass=MetaModule):
         self.dispatcher: Dispatcher = None 
         self.clock: Tuple[hgl_core.Reader, int] = None 
         self.reset: Tuple[hgl_core.Reader, int] = None 
-        # io 
-        self.io: Array = None 
 
         # temp stack
         self._prev: List[Module] = []
@@ -165,37 +163,17 @@ class Module(Container, metaclass=MetaModule):
             i._data._module = None
 
         # record 
-        io = None
         for k, v in f_locals.items():
-            if k == 'io':
-                io = v 
-            elif k[0] != '_': 
-                if k not in self.__dict__:
-                    self.__dict__[k] = v 
-                if isinstance(v, hgl_core.Reader):
+            if k[0] != '_': 
+                self.__dict__[k] = v 
+                if isinstance(v, hgl_core.Reader) and (v._data._module is self or v._data._module is None):
                     # update prefered name
                     v._data._name = k
                 elif isinstance(v, Module) and v in self._submodules:
                     # update prefered name
                     v._name = k 
                 elif isinstance(v, Array):
-                    _rename_array(v, k)
-
-        if io is not None:
-            self.io = io 
-            def make_io(x):
-                assert isinstance(x, hgl_core.Reader)
-                if x._direction == 'input':
-                    self._sess.module._module.inputs[x] = None
-                elif x._direction in ['inner','output']:
-                    x._direction = 'output' 
-                    self._sess.module._module.outputs[x] = None 
-                    if x._data.writer is None and x._data._module is None:
-                        x._data._module = self
-                elif x._direction == 'inout':
-                    self._sess.module._module.inouts[x] = None
-            Map(make_io, self.io) 
-            _rename_array(self.io, 'io')
+                    _rename_array(v, k, _module = self)
 
         # ---------------------------------
         if self._sess.verbose_conf:
@@ -267,13 +245,115 @@ class Module(Container, metaclass=MetaModule):
  
 
 
-def _rename_array(obj: Union[Array, hgl_core.Reader], name: str):
-    if isinstance(obj, hgl_core.Reader):
+def _rename_array(obj: Union[Array, hgl_core.Reader], name: str, *, _module):
+    if isinstance(obj, hgl_core.Reader) and (obj._data._module is _module or obj._data._module is None):
         obj._data._name = name
-    elif isinstance(obj, Array):
-        for k, v in obj._items():
-            new_name =  f"{name}_{k}"
-            _rename_array(v, new_name)
+    elif isinstance(obj, Array): 
+        if len(obj._keys()):        # named array
+            for k, v in obj._items():
+                new_name =  f"{name}_{k}"
+                _rename_array(v, new_name, _module=_module)
+        else:       # nd-array
+            for idx, v in enumerate(obj):
+                new_name = f'{name}_{idx}'
+                _rename_array(v, new_name, _module=_module)
     else:
         return 
     
+
+class _Ports(HGLFunction):
+    
+    def __init__(self, direction: str) -> None:
+        self.direction = direction 
+    
+    def __call__(self, s: Union[Array, hgl_core.Reader]) -> Any: 
+        s = Signal(s)
+        module: Module = self._sess.module 
+        assert len(module._position) > 1, 'IO should be called inside a module'
+
+        def make_io(x):
+            assert isinstance(x, hgl_core.Reader) 
+            x._direction = self.direction
+            if x._direction == 'input':
+                assert x._data.writer is None  
+                x._data._module = module._position[-2] 
+                module._temp_inputs.append(x) 
+                module._module.inputs[x] = None
+            elif x._direction == 'output':
+                x._direction = 'output'  
+                module._module.outputs[x] = None 
+            elif x._direction == 'inout':
+                module._module.inouts[x] = None
+        Map(make_io, s) 
+        return s
+    
+    def __matmul__(self, x):
+        return self.__call__(x)
+    
+    def __rmatmul__(self, x):
+        return self.__call__(x)
+    
+Input = _Ports('input')
+Output = _Ports('output')
+InOut = _Ports('inout')
+Inner = _Ports('inner')
+        
+
+
+@singleton 
+class CopyIO(HGLFunction):
+    """
+    copy signals with direction. does not copy default value
+    """
+    _sess: _session.Session
+    
+    def __call__(self, x: Union[hgl_core.Reader, Array]) -> Any:   
+        x = Signal(x)
+        def f(s: hgl_core.Reader):
+            ret = s._type()
+            if s._direction == 'input': 
+                ret = Input(ret)
+            elif s._direction == 'output':
+                ret = Output(ret)
+            elif s._direction == 'inout':
+                ret = InOut(ret)
+            else:
+                raise Exception(f'{x} no direction')
+            return ret
+        return Map(f, x)
+    
+    
+    
+@singleton 
+class FlipIO(HGLFunction):
+    """
+    copy signals with flipped direction.  does not copy default value
+    """
+    
+    _sess: _session.Session
+    
+    def __call__(self, x: Union[hgl_core.Reader, Array]) -> Any:  
+        x = Signal(x)
+        def f(s: hgl_core.Reader):
+            ret = s._type()
+            if s._direction == 'input': 
+                ret = Output(ret)
+            elif s._direction == 'output':
+                ret = Input(ret)
+            elif s._direction == 'inout':
+                ret = InOut(ret)
+            else:
+                raise Exception(f'{x} no direction')
+            return ret
+        return Map(f, x)
+    
+
+@dispatch('Matmul', Any, [HGLFunction, type(lambda _:_), type])
+def _call(x, f):
+    """ Signal|Array @ Callable
+    """
+    return f(x) 
+
+
+
+# TODO ConnectIO(*args)  auto io connect

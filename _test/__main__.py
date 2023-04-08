@@ -6,7 +6,8 @@ from pyhgl.tester import tester
 from . import test0_grammar
 from . import test1_config
 from . import test2_basic
-from . import test3_simple
+from . import test3_simple 
+from . import test6_AES
 # from . import test2_assign
 # from . import test3_async
 # from . import test4_riscv 
