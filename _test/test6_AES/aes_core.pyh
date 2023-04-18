@@ -1,3 +1,5 @@
+# reference: https://github.com/secworks/aes 
+
 from pyhgl.logic import *
 from pyhgl.tester import *  
 import pyhgl.logic.utils as utils
@@ -93,10 +95,10 @@ def addroundkey(data, rkey): return data ^ rkey
             block_reg <== addroundkey(conf.p.block, conf.p.round_key) 
         once 'SBOX_UPDATE':
             switch sword_ctr_reg:
-                once 0: (io.sboxw,block_reg[12:16]) <== (block_reg[12:16],conf.p.sbox.new_sboxw)
-                once 1: (io.sboxw,block_reg[8:12])  <== (block_reg[8:12],conf.p.sbox.new_sboxw )
-                once 2: (io.sboxw,block_reg[4:8])   <== (block_reg[4:8],conf.p.sbox.new_sboxw )
-                once 3: (io.sboxw,block_reg[0:4])   <== (block_reg[0:4],conf.p.sbox.new_sboxw )
+                once 0: io.sboxw,block_reg[12:16] <== block_reg[12:16],conf.p.sbox.new_sboxw
+                once 1: io.sboxw,block_reg[8:12]  <== block_reg[8:12],conf.p.sbox.new_sboxw 
+                once 2: io.sboxw,block_reg[4:8]   <== block_reg[4:8],conf.p.sbox.new_sboxw 
+                once 3: io.sboxw,block_reg[0:4]   <== block_reg[0:4],conf.p.sbox.new_sboxw 
         once 'MAIN_UPDATE':
             block_reg <== addroundkey(mixcolumns(shiftrows(block_reg)), conf.p.round_key) 
         once 'FINAL_UPDATE':
@@ -151,10 +153,10 @@ def addroundkey(data, rkey): return data ^ rkey
             block_reg <== inv_shiftrows(addroundkey(conf.p.block, conf.p.round_key)) 
         once 'SBOX_UPDATE':
             switch sword_ctr_reg:
-                once 0: (inv_sbox.sboxw,block_reg[12:16]) <== (block_reg[12:16],inv_sbox.new_sboxw)
-                once 1: (inv_sbox.sboxw,block_reg[8:12])  <== (block_reg[8:12],inv_sbox.new_sboxw)
-                once 2: (inv_sbox.sboxw,block_reg[4:8])   <== (block_reg[4:8],inv_sbox.new_sboxw)
-                once 3: (inv_sbox.sboxw,block_reg[0:4])   <== (block_reg[0:4],inv_sbox.new_sboxw )
+                once 0: inv_sbox.sboxw,block_reg[12:16] <== block_reg[12:16],inv_sbox.new_sboxw
+                once 1: inv_sbox.sboxw,block_reg[8:12]  <== block_reg[8:12],inv_sbox.new_sboxw
+                once 2: inv_sbox.sboxw,block_reg[4:8]   <== block_reg[4:8],inv_sbox.new_sboxw
+                once 3: inv_sbox.sboxw,block_reg[0:4]   <== block_reg[0:4],inv_sbox.new_sboxw 
         once 'MAIN_UPDATE':
             block_reg <== inv_shiftrows(inv_mixcolumns(addroundkey(block_reg, conf.p.round_key))) 
         once 'FINAL_UPDATE':
@@ -228,17 +230,35 @@ def addroundkey(data, rkey): return data ^ rkey
     io.result       <== Mux(io.encdec, Cat(*enc_block.io.new_block), Cat(*dec_block.io.new_block))
     muxed_ready     =   Mux(io.encdec, enc_block.io.ready, dec_block.io.ready)
 
+    state_t = Enum['idle','init','next'] 
+    print(state_t)
+    switch state_test:=Reg(state_t('idle')):
+        once 'idle':
+            state_test <== 'init'
+        once 'init':
+            state_test <== 'next'
+        once 'next':
+            state_test <== 'idle'
+        once ...:
+            state_test <== 'idle' 
+
+    state_normal = Reg(UInt('00'))
+    switch state_normal:
+        once 0:
+            state_normal <== 1 
+        once 1:
+            state_normal <== 2 
+        once 2: 
+            state_normal <== 0
+
     switch state:=Reg(Enum()):
         once 'CTRL_IDLE': 
             when io.init:
                 init_state <== 1 
-                ready_reg <== 0 
-                result_valid_reg <==  0  
+                ready_reg,result_valid_reg  <== 0 
                 state <== 'CTRL_INIT' 
             elsewhen io.next:
-                init_state <== 0 
-                ready_reg <== 0 
-                result_valid_reg <== 0 
+                init_state, ready_reg, result_valid_reg  <== 0 
                 state <== 'CTRL_NEXT'
         once 'CTRL_INIT': 
             init_state <== 1 
@@ -248,8 +268,7 @@ def addroundkey(data, rkey): return data ^ rkey
         once 'CTRL_NEXT': 
             init_state <== 0 
             when muxed_ready:
-                ready_reg <== 1 
-                result_valid_reg <== 1 
+                ready_reg, result_valid_reg <== 1 
                 state <== 'CTRL_IDLE'
 
 
@@ -266,9 +285,7 @@ def addroundkey(data, rkey): return data ^ rkey
     # output
     io.round_key <== (key_mem_column[io.round] for key_mem_column in key_mem)
 
-    key_mem_new   = WireNext(conf.p.key[16:])   
-    prev_key0_reg = RegNext(conf.p.key[16:]) 
-    prev_key1_reg = RegNext(conf.p.key[16:])  
+    key_mem_new   = WireNext(conf.p.key[16:])    
     round_ctr_reg = Reg(UInt('4:b0'))           # round counter, nth round
     rcon_reg = Reg(UInt('8:b0'))                # round constant 
     ready_reg = Reg(io.ready)
@@ -287,8 +304,8 @@ def addroundkey(data, rkey): return data ^ rkey
         rcon_reg <== gm2(rcon_reg)
     
     k0, k1, k2, k3 = [UInt(['8:b0'] * 4)  for _ in range(4)] 
-    w3, w2, w1, w0 = prev_key0_reg._reshape(4,4)
-    w7, w6, w5, w4 = prev_key1_reg._reshape(4,4)  
+    w3, w2, w1, w0 = RegNext(conf.p.key[16:])._reshape(4,4)
+    w7, w6, w5, w4 = RegNext(conf.p.key[16:])._reshape(4,4)  
     io.sboxw <== w7  
     tw = conf.p.sbox.new_sboxw
     trw = Array([ tw[3], tw[0], tw[1], tw[2] ^ rcon_reg]) 
@@ -297,24 +314,23 @@ def addroundkey(data, rkey): return data ^ rkey
         rcon_next <== 1
         when conf.p.keylen == 0:                # AES128
             when round_ctr_reg != 0:
-                [k0, k1, k2, k3] <== [w4^trw, w5^w4^trw, w6^w5^w4^trw, w7^w6^w5^w4^trw]
-                key_mem_new <== [*k3, *k2, *k1, *k0]
-                prev_key1_reg <== [*k3, *k2, *k1, *k0] 
+                k0, k1, k2, k3 <== w4^trw, w5^w4^trw, w6^w5^w4^trw, w7^w6^w5^w4^trw
+                key_mem_new <== *k3, *k2, *k1, *k0
+                w7, w6, w5, w4 <== k3, k2, k1, k0 
         otherwise:                              # AES256
             when round_ctr_reg == 0:
                 rcon_next <== 0
             elsewhen round_ctr_reg == 1:
                 key_mem_new <== conf.p.key[:16] 
-                prev_key1_reg <== conf.p.key[:16] 
+                w7, w6, w5, w4 <== conf.p.key[:16]._reshape(4,4) 
             otherwise:
                 when round_ctr_reg[0] == 0:
-                    [k0, k1, k2, k3] <== [w0^trw, w1^w0^trw, w2^w1^w0^trw, w3^w2^w1^w0^trw]
+                    k0, k1, k2, k3 <== w0^trw, w1^w0^trw, w2^w1^w0^trw, w3^w2^w1^w0^trw
                     rcon_next <== 0
                 otherwise:
-                    [k0, k1, k2, k3] <== [w0^tw, w1^w0^tw, w2^w1^w0^tw, w3^w2^w1^w0^tw]
-                key_mem_new <== [*k3, *k2, *k1, *k0] 
-                prev_key1_reg <== [*k3, *k2, *k1, *k0] 
-                prev_key0_reg <== prev_key1_reg 
+                    k0, k1, k2, k3 <== w0^tw, w1^w0^tw, w2^w1^w0^tw, w3^w2^w1^w0^tw
+                key_mem_new <== *k3, *k2, *k1, *k0 
+                w7, w6, w5, w4, w3, w2, w1, w0 <== k3, k2, k1, k0, w7, w6, w5, w4 
 
     switch state:=Reg(Enum()):
         once 'IDLE': 
@@ -366,36 +382,31 @@ def addroundkey(data, rkey): return data ^ rkey
     new_sboxw = Array(sbox[i] for i in sboxw)
 
 
-def test_enc_dec(dut, mode, key, text, expected):
+@task test_enc_dec(self, dut, mode, key, text, expected):
     assert mode in ['128enc','128dec','256enc','256dec']
     mode_encode = (mode[-3:] == 'enc')
     mode_256 = (mode[:3] == '256') 
-
-    clk_p = posedge(dut.clock[0])
-    clk_n = negedge(dut.clock[0])
-    yield from clk_n 
     setv(dut.io.encdec, mode_encode)
     setv(dut.io.keylen, mode_256)
     setv(dut.io.key, key)
     setv(dut.io.block, text)
     setv(dut.io.init, 1)
-    yield from clk_n 
-    setv(dut.io.init, 0)
-    yield from clk_n 
+    yield self.clock_n(2)
+    setv(dut.io.init, 0) 
     yield dut.io.ready 
-    yield from clk_n 
     setv(dut.io.next, 1)
-    yield from clk_n 
+    yield self.clock_n(2)
     setv(dut.io.next, 0)
-    yield dut.io.ready 
+    yield dut.io.ready
     result = getv(dut.io.result) 
-    tester.EQ += result, expected
+    self.EQ += result, expected
     print(f"mode:{mode}, key:{hex(key)}, text:{hex(text)}, expected:{hex(expected)}, result:{hex(result.v)}")
 
 
-@tester test_AES:
+@tester test_AES(self):
     sess = Session()
-    sess.enter()
+    sess.enter() 
+    conf.reset = (conf.reset[0], 0)
 
     dut = aes_core()  
 
@@ -422,47 +433,43 @@ def test_enc_dec(dut, mode, key, text, expected):
     _256_enc_expected3 = 0x23304b7a39f9f3ff067d8d8f9e24ecc7
     _256_enc_expected4 = 0x8ea2b7ca516745bfeafc49904b496089
 
-    def tests():
-        yield from test_enc_dec(dut, '128enc', aes128_key1, plaintext0, _128_enc_expected0)
-        yield from test_enc_dec(dut, '128enc', aes128_key1, plaintext1, _128_enc_expected1)
-        yield from test_enc_dec(dut, '128enc', aes128_key1, plaintext2, _128_enc_expected2)
-        yield from test_enc_dec(dut, '128enc', aes128_key1, plaintext3, _128_enc_expected3)
-        yield from test_enc_dec(dut, '128enc', aes128_key2, plaintext4, _128_enc_expected4)
-        yield from test_enc_dec(dut, '128dec', aes128_key1, _128_enc_expected0, plaintext0)
-        yield from test_enc_dec(dut, '128dec', aes128_key1, _128_enc_expected1, plaintext1)
-        yield from test_enc_dec(dut, '128dec', aes128_key1, _128_enc_expected2, plaintext2)
-        yield from test_enc_dec(dut, '128dec', aes128_key1, _128_enc_expected3, plaintext3)
-        yield from test_enc_dec(dut, '128dec', aes128_key2, _128_enc_expected4, plaintext4)
+    @task tests(self):
+        yield self.reset()
+        yield test_enc_dec(dut, '128enc', aes128_key1, plaintext0, _128_enc_expected0)
+        yield test_enc_dec(dut, '128enc', aes128_key1, plaintext1, _128_enc_expected1)
+        yield test_enc_dec(dut, '128enc', aes128_key1, plaintext2, _128_enc_expected2)
+        yield test_enc_dec(dut, '128enc', aes128_key1, plaintext3, _128_enc_expected3)
+        yield test_enc_dec(dut, '128enc', aes128_key2, plaintext4, _128_enc_expected4)
+        yield test_enc_dec(dut, '128dec', aes128_key1, _128_enc_expected0, plaintext0)
+        yield test_enc_dec(dut, '128dec', aes128_key1, _128_enc_expected1, plaintext1)
+        yield test_enc_dec(dut, '128dec', aes128_key1, _128_enc_expected2, plaintext2)
+        yield test_enc_dec(dut, '128dec', aes128_key1, _128_enc_expected3, plaintext3)
+        yield test_enc_dec(dut, '128dec', aes128_key2, _128_enc_expected4, plaintext4)
 
-        yield from test_enc_dec(dut, '256enc', aes256_key1, plaintext0, _256_enc_expected0)
-        yield from test_enc_dec(dut, '256enc', aes256_key1, plaintext1, _256_enc_expected1)
-        yield from test_enc_dec(dut, '256enc', aes256_key1, plaintext2, _256_enc_expected2)
-        yield from test_enc_dec(dut, '256enc', aes256_key1, plaintext3, _256_enc_expected3)
-        yield from test_enc_dec(dut, '256enc', aes256_key2, plaintext4, _256_enc_expected4)
-        yield from test_enc_dec(dut, '256dec', aes256_key1, _256_enc_expected0, plaintext0)
-        yield from test_enc_dec(dut, '256dec', aes256_key1, _256_enc_expected1, plaintext1)
-        yield from test_enc_dec(dut, '256dec', aes256_key1, _256_enc_expected2, plaintext2)
-        yield from test_enc_dec(dut, '256dec', aes256_key1, _256_enc_expected3, plaintext3)
-        yield from test_enc_dec(dut, '256dec', aes256_key2, _256_enc_expected4, plaintext4)
+        yield test_enc_dec(dut, '256enc', aes256_key1, plaintext0, _256_enc_expected0)
+        yield test_enc_dec(dut, '256enc', aes256_key1, plaintext1, _256_enc_expected1)
+        yield test_enc_dec(dut, '256enc', aes256_key1, plaintext2, _256_enc_expected2)
+        yield test_enc_dec(dut, '256enc', aes256_key1, plaintext3, _256_enc_expected3)
+        yield test_enc_dec(dut, '256enc', aes256_key2, plaintext4, _256_enc_expected4)
+        yield test_enc_dec(dut, '256dec', aes256_key1, _256_enc_expected0, plaintext0)
+        yield test_enc_dec(dut, '256dec', aes256_key1, _256_enc_expected1, plaintext1)
+        yield test_enc_dec(dut, '256dec', aes256_key1, _256_enc_expected2, plaintext2)
+        yield test_enc_dec(dut, '256dec', aes256_key1, _256_enc_expected3, plaintext3)
+        yield test_enc_dec(dut, '256dec', aes256_key2, _256_enc_expected4, plaintext4)
 
+    sess.dumpVerilog('AES.sv', delay=True, top = False) 
 
     sess.track(dut, dut.dec_block, dut.keymem, dut.enc_block) 
-    setv(dut.reset[0], 1)
-    sess.run(100)
-    setv(dut.reset[0], 0) 
-    sess.run(100) 
-    sess.task(tests())
+    sess.add_task(tests())
     sess.run(200000)
  
     print(sess)
     sess.dumpVCD('AES.vcd')
     
-    @blackbox testbench(builder):
-        builder.append('initial begin\n$dumpfile("AES_iverilog.vcd");$dumpvars(0);') 
-        builder.append('# 1000;') 
-        builder.append('$finish;\nend')
+    # @blackbox testbench(builder):
+    #     builder.append('initial begin\n$dumpfile("AES_iverilog.vcd");$dumpvars(0);') 
+    #     builder.append('# 1000;') 
+    #     builder.append('$finish;\nend')
 
-    sess.dumpVerilog('AES.sv', delay=True, top = True) 
     sess.dumpGraph('AES.gv')
-    sess.test_iverilog()
     sess.exit()

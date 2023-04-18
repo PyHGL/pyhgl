@@ -172,19 +172,15 @@ class EnumType(SignalType):
         return Reader(data=LogicData(v.v, v.x), type=self, name=name)
         
     def __str__(self, data: LogicData = None):  
-        if self._names:
-            k, v = next(iter(self._names.items()))
-            temp = f'{k}={v},...'
-        else:
-            temp = 'None'
+        state_str = ','.join(f'{k}={v}' for k,v in self._names.items())
         if data is None:
-            return f'Enum[{temp}]'  
+            return f'Enum[{state_str}]'  
         else:
             v = int(data.v)
             if state:=self._values.get(v):
-                return f'Enum[{temp}]({state}={v})' 
+                return f'Enum[{state_str}]({state}={data})' 
             else:
-                return f'Enum[{temp}]'
+                return f'Enum[{state_str}]({data})'
     
     def _slice(self, high_key):
         """ 

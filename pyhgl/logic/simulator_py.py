@@ -20,7 +20,7 @@
 
 
 from __future__ import annotations
-from typing import Generator, List, Tuple, Set
+from typing import Generator, List, Tuple, Set, Literal
 
 import io 
 import gmpy2 
@@ -34,8 +34,10 @@ from itertools import chain
 from pyhgl.array import *
 import pyhgl.logic.hgl_core as hgl_core
 import pyhgl.logic._session as _session 
+import pyhgl.logic._config as _config
 import pyhgl.logic.module_hgl as module_hgl
-import pyhgl.logic.utils as utils
+import pyhgl.logic.utils as utils 
+import pyhgl.tester.runner as tester_runner
 
 
 class Simulator(HGL):
@@ -120,8 +122,9 @@ class Simulator(HGL):
                 self.priority_queue[t] = self.new_events()   
             self.priority_queue[t][1].append(event)   
 
-    def add_sensitive(self, data: hgl_core.SignalData):
-        self.triggered_events[data] = []
+    def add_sensitive(self, data: hgl_core.SignalData): 
+        if data not in self.triggered_events:
+            self.triggered_events[data] = []
 
     def init(self):
         for g in self.sess.verilog.gates:
@@ -162,11 +165,12 @@ class Simulator(HGL):
                 for g in coroutine_events:                                  # 400ms clock
                     try:
                         ret = next(g)
-                        if isinstance(ret, int):
+                        if ret is None:
+                            pass
+                        elif isinstance(ret, int):
                             self.insert_coroutine_event(ret, g)
-                        elif isinstance(ret, str):
-                            self.insert_coroutine_event(self.sess.timing._get_timestep(ret), g)
-                        elif isinstance(ret, hgl_core.Reader): 
+                        elif isinstance(ret, hgl_core.Reader):  
+                            self.add_sensitive(ret._data)
                             self.triggered_events[ret._data].append(g)
                         else:
                             self.sess.log.warning(f'{ret} is not valid trigger, stop task {g}')
@@ -240,9 +244,200 @@ class Simulator(HGL):
             
 
     
+# --------------------
+# simulation task tree
+# --------------------
+
+def task(f: Callable):
+    return _Task(f)
+
+class _Task(HGL):
+    """ simulation task function, based on corouting 
+
+    @task test_adder(self, dut):
+        for _ in range(100):    
+            x = setr(dut.io.x)
+            y = setr(dut.io.y)
+            yield 100 
+            self.Assert(getv(dut.io.out) == x + y)
+        yield self.join(task1(dut), task2(dut), task3(dut)) 
+        yield self.join_any(task1(dut), task2(dut), task3(dut))
+        yield task1(dut), task2(dut)
+        yield self.edge(clk, 1)
+        yield dut.io.ready 
+        yield self.until(reset, 0)
+        yield self.clock()  # default clock 
+        yield generator     # inspect.isgenerator() 
+        self.EQ += 1,2
+    """
+    def __init__(self, f: Callable) -> None:
+        # test function
+        self.f = f 
+        self.sess: _session.Session = None 
+        # arguments of test function
+        self.args = None
+        self.kwargs = None
+        # callback function when task finished
+        self.callback: Callable = None 
+        self.father: _Task = None
+        # record assertions 
+        self.test_key = []
+        self.test_node: tester_runner._TestTreeNode = None 
+        # generator status 
+        self.it: Generator = None
+    
+    def _init(self, father: Union[_Task, _session.Session], callback: Callable = None):
+        """ record sess, test_node, callback
+        """
+        if isinstance(father, _Task):
+            self.sess = father.sess 
+            self.test_key = father.test_key + [self.f.__name__]
+            self.test_node = tester_runner._root.get_or_register(
+                [self.test_key[0], '.'.join(self.test_key[1:])]
+            ) 
+            self.father = father
+        elif isinstance(father, _session.Session):
+            self.sess = father 
+            self.test_key = [father.filename, self.f.__name__]
+            self.test_node = tester_runner._root.get_or_register(self.test_key)
+            self.father = None
+        else:
+            raise Exception()
+        self.callback = callback 
+        self.EQ = tester_runner.EQ(self.test_node)
+
+    def __call__(self, *args: Any, **kwargs: Any) -> _Task: 
+        ret = _Task(self.f)
+        ret.args = args 
+        ret.kwargs = kwargs
+        return ret
+
+    def __iter__(self):
+        self.it = self._iter()
+        return self.it
+
+    def _iter(self):
+        # new iterator
+        it = self.f(self, *self.args, **self.kwargs)
+        while 1: 
+            ret = None
+            try:
+                ret = next(it) 
+            except StopIteration:
+                break
+            except:
+                self.test_node.exception = traceback.format_exc()
+                print(traceback.format_exc())
+                break  
+
+            if ret is None:
+                break
+            elif isinstance(ret, (int, hgl_core.Reader)):  # timestep or sensitive
+                yield ret 
+            elif isinstance(ret, str): # ex. '50ns'
+                yield self.sess.timing._get_timestep(ret)  
+            elif inspect.isgenerator(ret):
+                yield from ret 
+            elif isinstance(ret, _Task): # ex. task1()
+                yield from self.join(ret)
+            else:                       # ex. [task1(), task2()]
+                yield from self.join(*ret)
+
+        if self.callback is not None:
+            self.callback() 
+        self.test_node.finish()
+
+
+    @property 
+    def t(self):
+        return self.sess.sim_py.t
+
+    def join(self, *args: _Task):
+        """ blocked until all tasks finished
+        """
+        for i in args:
+            assert isinstance(i, _Task) and i.args is not None, 'uninitialized task'
+        n_finished = 0
+        n_total = len(args)
+        def join_callback():
+            nonlocal n_finished
+            n_finished += 1  
+            if n_finished == n_total:
+                self.sess.sim_py.insert_coroutine_event(0, self.it)
+        for task in args:
+            task._init(father=self, callback=join_callback)
+            self.sess.sim_py.insert_coroutine_event(0, iter(task)) 
+        yield None
+    
+    def join_none(self, *args: _Task):
+        """ no block
+        """
+        for i in args:
+            assert isinstance(i, _Task) and i.args is not None, 'uninitialized task'
+            i._init(father=self)
+            self.sess.sim_py.insert_coroutine_event(0, iter(i))
+        yield from []
+
+    def join_any(self, *args: _Task):
+        """ blocked until one task finished
+        """
+        for i in args:
+            assert isinstance(i, _Task) and i.args is not None, 'uninitialized task'
+        n_finished = 0
+        n_total = len(args)
+        def join_callback():
+            nonlocal n_finished
+            n_finished += 1  
+            if n_finished == 1:
+                self.sess.sim_py.insert_coroutine_event(0, self.it)
+        for task in args:
+            task._init(father=self, callback=join_callback)
+            self.sess.sim_py.insert_coroutine_event(0, iter(task)) 
+        yield None
+
+    def edge(self, signal: hgl_core.Reader, value: Literal[0,1]):
+        value = 1 if value > 0 else 0
+        value_n = 1 - value 
+        while signal._data._getval_py() != value_n:
+            yield signal 
+        while signal._data._getval_py() != value:
+            yield signal 
+        
+    def clock(self, n = 1):
+        default_clk = self.sess.module._conf.clock  
+        for _ in range(n):
+            yield from self.edge(*default_clk)
+    
+    def clock_n(self, n = 1):
+        """ there is a small delay of register output after clock edge, wait half clock cycle
+        """
+        clk, edge = self.sess.module._conf.clock 
+        for _ in range(n):
+            yield from self.edge(clk, 0 if edge else 1)
+    
+    def reset(self, n = 1):
+        default_rst = self.sess.module._conf.reset 
+        if not default_rst:
+            return 
+        else:
+            rst, edge = default_rst
+            yield from self.clock_n()
+            hgl_core.setv(rst, edge) 
+            yield from self.clock_n(n)
+            hgl_core.setv(rst, not edge)
+
+    def until(self, signal: hgl_core.Reader, value: Any):
+        while signal._data._getval_py() != value:
+            yield signal
+        
+    def Assert(self, v: bool):
+        tester_runner._AssertTrue(v, self.test_node)
+    
+    def Eq(self, a, b):
+        tester_runner._AssertEq((a,b), self.test_node)
     
 
-    
+
 # ------------
 # vcd writer 
 # ------------ 
@@ -365,3 +560,5 @@ class VCD(HGL):
         except KeyError:
             name = f'{name}@{id(tracker)}'
             return writer.register_var(scope, name, var_type, size=size, init=init)
+
+

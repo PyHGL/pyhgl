@@ -8,14 +8,14 @@ import itertools
 
 def compressN(column: list, sums: list, couts: list):
     for i in range(0, len(column), 3):
-        x = column[i:i+3] 
+        x = column[i:i+3]  
         if len(x) == 1:
             sums.append(x[0])
         elif len(x) == 2:
-            sums.append(Xor(x))
-            couts.append(And(x))
+            sums.append(Xor(*x))
+            couts.append(And(*x))
         else:
-            sums.append(Xor(x))
+            sums.append(Xor(*x))
             couts.append(x[0] & x[1] | x[2] & (x[0] ^ x[1]))
 
 
@@ -25,11 +25,10 @@ def compressN(column: list, sums: list, couts: list):
         y = Input(UInt(0, w2)),
         out = Output(UInt(0, w1+w2)),      
     )
-
-
     products = [[] for _ in range(w1+w2)] 
     for (i, x_i), (j, y_j) in itertools.product(enumerate(io.x.split()), enumerate(io.y.split())):
         products[i+j].append(x_i & y_j) 
+
 
     while max(len(i) for i in products) >= 3: 
         products_new = [[] for _ in range(len(products)+1)] 
@@ -40,22 +39,22 @@ def compressN(column: list, sums: list, couts: list):
     while len(products[-1]) == 0:
         products.pop()
 
-    a = Cat(i[0] for i in products)
-    b = Cat(i[1] if len(i) == 2 else UInt(0) for i in products)
-    io.out <== UInt[w1+w2](a) + UInt[w1+w2](b)
+    a = Cat(*[i[0] for i in products])
+    b = Cat(*[i[1] if len(i) == 2 else UInt(0) for i in products])
+    io.out <== a.zext(w1+w2) + b.zext(w1+w2) 
 
 
 
 #--------------------------------- test ----------------------------------------
 
 
-@tester test_multiplier:
+@tester test_multiplier(self):
     sess = Session()
     sess.enter()
     W1, W2, N = 4, 6, 100
     Mask1, Mask2 = (1 << W1) - 1, (1 << W2) - 1
 
-    dut = WallaceMultiplier(W1, W2)
+    dut = WallaceMultiplier(W1, W2) 
     sess.track(dut.io, dut.a, dut.b)
     sess.run(10)
 
@@ -63,13 +62,11 @@ def compressN(column: list, sums: list, couts: list):
     test_x = [random.randint(0,Mask1) for _ in range(N)]
     test_y = [random.randint(0,Mask2) for _ in range(N)]
 
-    t = time.time()
     for i in range(N):
         setv(dut.io.x, test_x[i])
         setv(dut.io.y, test_y[i])
         sess.run(50)
-        tester.EQ += getv(dut.io.out), test_x[i]*test_y[i]
-    print('pyhgl simulation cost:', time.time()-t)
+        self.EQ += getv(dut.io.out), test_x[i]*test_y[i]
     sess.dumpVCD('Multiplier.vcd')
 
 
@@ -91,4 +88,5 @@ def compressN(column: list, sums: list, couts: list):
     sess.dumpVerilog('Multiplier.sv', delay=True, top = True) 
     sess.dumpGraph('Multiplier.gv') 
     sess.test_iverilog()
+
     sess.exit()

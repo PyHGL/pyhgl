@@ -42,7 +42,13 @@ def module(f):
             ... 
     or:
         @module name(self, *args, **kwargs):
-            ... 
+            ...  
+
+    TODO 
+    user defined module:
+    with m:
+        ...
+    run __tail__ when exit context
     """
     args = list(inspect.signature(f).parameters.keys())
     if args and args[0] == 'self':
@@ -72,7 +78,7 @@ class MetaModule(type):
 class Module(Container, metaclass=MetaModule):
     
 
-    __slots__ = '_sess', 'dispatcher', 'clock', 'reset', '__dict__'
+    __slots__ = '_sess', '__dict__'
     
     def __head__(self):  
         self._sess: _session.Session = HGL._sess 
@@ -95,23 +101,12 @@ class Module(Container, metaclass=MetaModule):
         # module_sv necessary for generating verilog 
         self._module = module_sv.ModuleSV(self) 
 
-        # default module level parameters
-        # dispatcher
-        self.dispatcher: Dispatcher = None 
-        self.clock: Tuple[hgl_core.Reader, int] = None 
-        self.reset: Tuple[hgl_core.Reader, int] = None 
-
         # temp stack
         self._prev: List[Module] = []
-        self._temp_inputs: List[hgl_core.Reader] = []
 
     def __conf__(self): 
         up = self._sess.module
-        up_conf = up._conf
-        # default parameters
-        self.dispatcher = up.dispatcher
-        self.clock = up.clock 
-        self.reset = up.reset
+        up_conf = up._conf 
             
         # record matched callables
         matched_configs: List[hglconfig.HGLConf] = []
@@ -126,6 +121,9 @@ class Module(Container, metaclass=MetaModule):
                 self._subconfigs[config] = None
             if not config.inherit:
                 inherit = False
+
+        bases = (up_conf,) if inherit else (hglconfig.ModuleConf,) 
+        self._conf = type(f"Conf_{self._unique_name}", bases, {}) 
                     
         # ---------------------------------
         if self._sess.verbose_conf:
@@ -148,9 +146,8 @@ class Module(Container, metaclass=MetaModule):
                 _paras = {k:v for k,v in paras.items() if k != 'dispatcher'}
                 self._sess.print(f"new_paras: {_paras}")
             # ---------------------------------
-            
-            bases = (up_conf,) if inherit else (hglconfig.ModuleConf,) 
-            self._conf = type(f"Conf_{self._unique_name}", bases, paras) 
+            for k,v in paras.items():
+                setattr(self._conf, k, v)
         
 
     def __body__(*args, **kwargs): 
@@ -159,12 +156,12 @@ class Module(Container, metaclass=MetaModule):
 
     def __tail__(self, f_locals:dict):  
         # delete input driver
-        for i in self._temp_inputs:
+        for i in self._module.inputs:
             i._data._module = None
 
         # record 
         for k, v in f_locals.items():
-            if k[0] != '_': 
+            if k[0] != '_':  
                 self.__dict__[k] = v 
                 if isinstance(v, hgl_core.Reader) and (v._data._module is self or v._data._module is None):
                     # update prefered name
@@ -277,7 +274,6 @@ class _Ports(HGLFunction):
             if x._direction == 'input':
                 assert x._data.writer is None  
                 x._data._module = module._position[-2] 
-                module._temp_inputs.append(x) 
                 module._module.inputs[x] = None
             elif x._direction == 'output':
                 x._direction = 'output'  
@@ -299,7 +295,7 @@ InOut = _Ports('inout')
 Inner = _Ports('inner')
         
 
-
+# TODO copy value
 @singleton 
 class CopyIO(HGLFunction):
     """
@@ -323,7 +319,7 @@ class CopyIO(HGLFunction):
         return Map(f, x)
     
     
-    
+# TODO Flip each time
 @singleton 
 class FlipIO(HGLFunction):
     """

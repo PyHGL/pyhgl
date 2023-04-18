@@ -125,7 +125,7 @@ def _to_pattern(x) -> Pattern:
     elif isinstance(x, hgl_core.Reader):
         return _Atom(x) 
     elif isinstance(x, (int, tuple, list, set)):
-        clk, edge = HGL._sess.module.clock
+        clk, edge = HGL._sess.module._conf.clock
         if edge == 0:
             clock = negedge(clk)
         else:
@@ -488,13 +488,13 @@ class Assert(HGL):
         """ 
         self.sess = self._sess
 
-        clk, edge = self.sess.module.clock
+        clk, edge = self.sess.module._conf.clock
         if edge:
             self.trigger = posedge(clk)
         else:
             self.trigger = negedge(clk)
             
-        self.disable: Tuple[hgl_core.Reader, int] = self.sess.module.reset
+        self.disable: Tuple[hgl_core.Reader, int] = self.sess.module._conf.reset
             
         self.pattern = _to_pattern(pattern)
                 
@@ -560,9 +560,9 @@ class AssertCtrl(HGL):
         disable: default is reset
         """
         if trigger is ...:
-            trigger = self._sess.module.clock 
+            trigger = self._sess.module._conf.clock 
         if disable is ...:
-            disable = self._sess.module.reset 
+            disable = self._sess.module._conf.reset 
             
         clk, edge = trigger 
         assert isinstance(clk, hgl_core.Reader) and isinstance(edge, (int, bool))
@@ -575,15 +575,15 @@ class AssertCtrl(HGL):
         self._dispatcher_restore = []
         
     def __enter__(self):
-        self._clk_restore.append(self._sess.module.clock)
-        self._rst_restore.append(self._sess.module.reset) 
-        self._dispatcher_restore.append(self._sess.module.dispatcher)
-        self._sess.module.clock = self.trigger 
-        self._sess.module.reset = self.disable
-        self._sess.module.dispatcher = assert_dispatcher
+        self._clk_restore.append(self._sess.module._conf.clock)
+        self._rst_restore.append(self._sess.module._conf.reset) 
+        self._dispatcher_restore.append(self._sess.module._conf.dispatcher)
+        self._sess.module._conf.clock = self.trigger 
+        self._sess.module._conf.reset = self.disable
+        self._sess.module._conf.dispatcher = assert_dispatcher
 
     def __exit__(self, exc_type, exc_value, traceback) -> None:
-        self._sess.module.reset = self._clk_restore.pop()
-        self._sess.module.clock = self._rst_restore.pop()
-        self._sess.module.dispatcher = self._dispatcher_restore.pop()
+        self._sess.module._conf.reset = self._clk_restore.pop()
+        self._sess.module._conf.clock = self._rst_restore.pop()
+        self._sess.module._conf.dispatcher = self._dispatcher_restore.pop()
 

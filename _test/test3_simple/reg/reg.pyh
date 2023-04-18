@@ -29,7 +29,6 @@ with Session() as sess:
     #     >>> (lambda s: s['x'][0] & s['a'][0] == dut.b._getval())
     # )
     sess.track(dut.clock[0], dut.reset[0], dut.x, dut.y, dut.a, dut.b)
-
     sess.run(10)
 
     for _ in range(50):

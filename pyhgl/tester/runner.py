@@ -9,86 +9,153 @@ import types
 import inspect
 import traceback 
 
-from .utils import _red, _green, _blue, _yellow, _fill_terminal
+from .utils import _red, _green, _blue, _yellow, _fill_terminal, caller_filename
 
 
-class _Property:
-    
-    def __init__(self, v):              self.__v = v 
-    def __set__(self, obj, v):          self.__v = v
-    def __get__(self, obj, cls=None):   return self.__v       
-
-
-class _Base:
-    # {filename:[testcases]}
-    _results: Dict[str, List[_TestCase]] = _Property({})
-    # testcase1.testcase2...
-    _stack: List[_TestCase] = _Property([])    
-
-class _Assertion(_Base):
-    pass 
-
-class _TestCase(_Base):
-    """ test cases are functions in test file 
-    """
-    def __init__(self, f: types.FunctionType, file: str, name: str) -> None:
-        # test function
-        self.f = f
-        self.file = file
-        self.name = name
-        # record exception trace info
+class _TestTreeNode:
+    def __init__(self, name: str = 'top', level: int = 0) -> None:
+        self.nodes: Dict[str, _TestTreeNode] = {}    # subtrees
+        self.name: str = name 
+        self.level = level  # deepth 
+        
         self.exception: str = None 
-        # a testcase contains 0 or 1 or more assertions
-        self.assertions_passed: List[_Assertion] = [] 
+         
+        # self.assertions_passed: List[_Assertion] = [] 
         self.assertions_failed: List[_Assertion] = [] 
         # not all assertions are stored
         self.count_passed = 0
         self.count_failed = 0
         # time cost 
-        self.t = 0 
-                 
-    def exec(self):
-        # enter
-        self._stack.append(self)
-        curr_time = time.time()
-        try:
-            # run test function
-            self.f()
-        except:
-            exc_type, exc_value, exc_traceback = sys.exc_info()  
-            e = ''.join(traceback.format_exception(exc_type, exc_value, exc_traceback)[2:]) 
-            self.exception = _red('\n    │').join([_red('    │interrupt:')] + e.splitlines())
-        self.t = time.time() - curr_time
-        # exit
-        self._stack.pop()
+        self.t = time.time() 
+        self.t_cost = 0 
+
+        # assertion 
+        self.EQ = EQ(self)
+
+    def get_or_register(self, keys: Tuple[str]) -> _TestTreeNode:
+        """ if key not in subtrees, generate new node
+        """
+        key = keys[0]
+        if key in self.nodes:
+            next_node = self.nodes[key]
+        else:
+            next_node = _TestTreeNode(name=key, level=self.level+1) 
+            self.nodes[key] = next_node
+
+        if len(keys) == 1:
+            return next_node
+        else:
+            return next_node.get_or_register(keys[1:]) 
         
-    def __str__(self, prefix = '') -> str:
-        n_passed = _green(f'{self.count_passed:<6}') 
-        n_failed = _red(f'{self.count_failed:<6}')
-        ret = [f'{prefix}{_blue(self.name):<60}{n_passed}passed       {n_failed}failed       in {self.t:>8.4f}s\n'] 
-                
-        for i in self.assertions_passed:
-            ret.append(f'{prefix}{i}')
-        for i in self.assertions_failed:
-            ret.append(f'{prefix}{i}') 
-
-        if self.exception:
-            ret.append(self.exception) 
-            ret.append('\n')   
+    def count_results(self):
+        count_passed = self.count_passed 
+        count_failed = self.count_failed 
+        for node in self.nodes.values():
+            _passed, _failed = node.count_results()
+            count_passed += _passed 
+            count_failed += _failed 
+        return count_passed, count_failed
         
-        return ''.join(ret)
-         
-         
-def singleton(cls):
-    return cls()
+    def finish(self):
+        self.t_cost = time.time() - self.t
+        
+    def __str__(self): 
+        if self.level == 0:
+            ret = '\n'.join(str(i) for i in self.nodes.values())  
+            n_passed, n_failed = self.count_results() 
+            total_t = time.time() - self.t 
+            return f'{ret}\n\n{_green(n_passed)} passed, {_red(n_failed)} failed, time: {total_t:.4f}s\n{_fill_terminal("━", "━")}\n'  
+        elif self.level == 1:
+            ret = '\n'.join(str(i) for i in self.nodes.values()) 
+            return f'{_fill_terminal("━", "━")}\n{_yellow(self.name)}\n{ret}'
+        else:
+            n_passed = _green(f'{self.count_passed:>8}') 
+            n_failed = _red(f'{self.count_failed:>8}') 
+            prefix = (self.level-1) * '  '
+            ret = [f'{prefix}{_blue(self.name):<60}{n_passed} passed{n_failed} failed{self.t_cost:>10.4f}s'] 
+            for i in self.assertions_failed:
+                ret.append(f'{prefix}│ {i}') 
+            if self.exception: 
+                ret.append(prefix + prefix.join(self.exception.splitlines(keepends=True))) 
+            ret.extend(str(i) for i in self.nodes.values())
+            return '\n'.join(ret)
+        
+        
+    def Assert(self, v: bool):
+        _AssertTrue(v, self) 
+
+    def Eq(self, a: Any, b:Any):
+        _AssertEq((a,b), self)
 
 
-class _Tester(_Base):
+class EQ: 
+    def __init__(self, node) -> None:
+        self.node = node
+
+    def __iadd__(self, v: Tuple[Any, Any]):
+        # skip if not inside test function
+        _AssertEq(v, self.node) 
+        return self 
+
+_root = _TestTreeNode()
+
+class _Assertion:
+    pass 
+
+class _AssertEq(_Assertion):
+    
+    def __init__(self, v: Tuple[Any, Any], node: _TestTreeNode, level: int = 2):
+        a, b = v
+        self.msg = ''
+        # should support ==, otherwise will stop testcase
+        passed = a == b  
+        if passed:
+            node.count_passed += 1 
+            return 
+        # if failed, store information
+        node.count_failed += 1
+        node.assertions_failed.append(self)
+        # assertion msg
+        n = node.count_failed + node.count_passed - 1
+        r = f"assertion {n:<6} failed   because {repr(a)} != {repr(b)}"
+        frame,filename,line_number,function_name,lines,index = inspect.stack()[level]
+        self.msg = f"{filename}:{line_number:<15}{r}"
+
+    def __str__(self) -> str:
+        return self.msg        
+
+class _AssertTrue(_Assertion):
+
+    def __init__(self, v: bool, node: _TestTreeNode, level: int = 2):
+        self.msg = ''
+        passed = bool(v)  
+        if passed:
+            node.count_passed += 1 
+            return 
+        # if failed, store information
+        node.count_failed += 1
+        node.assertions_failed.append(self)
+
+        n = node.count_failed + node.count_passed - 1
+        r = f"assertion {n:<6} failed"
+        frame,filename,line_number,function_name,lines,index = inspect.stack()[level]
+        self.msg = f"{filename}:{line_number:<15}{r}"
+
+    def __str__(self) -> str:
+        return self.msg    
+
+
+   
+
+
+
+class _Tester:
     """ decorator
     """
 
     _global_enable: bool = True
-    _global_filter: re.Pattern = None
+    _global_filter: re.Pattern = None 
+    _stack: List[str] = []
 
     def __init__(
         self, 
@@ -105,62 +172,45 @@ class _Tester(_Base):
         self._debug = debug
         self._cond = cond
 
-    def __call__(self, f: types.FunctionType) -> types.FunctionType:
+    def __call__(self, f: types.FunctionType) -> None:
         
         if (
-            not self._global_enable or 
+            not self._global_enable or # global disable
             not self._enable or 
             not self._cond or
             not inspect.isfunction(f)
         ):
-            return f
-        
-        if self._stack:
-            # nested test function
-            file = self._stack[-1].file
-            name = f'{self._stack[-1].name}.{f.__name__}'
-        else: 
-            # top level test function, 
-            file = re.sub(r'\\', '/', f.__code__.co_filename) 
-            name = f.__name__
-
-        # apply filter
-        fullname = f'{file}/{name}'
-        if self._global_filter is not None and not self._global_filter.search(fullname):
-            return f
+            return 
         
         # debug mode
         if self._debug:
             f()
-            return f
-        
+            return
         # normal mode
-        if file not in self._results:
-            self._results[file] = [] 
-        result = _TestCase(f, file = file, name=name)
-        self._results[file].append(result)
-        result.exec()
-        return f   
-
-    @singleton 
-    class EQ(_Base):
-        def __iadd__(self, v: Tuple[Any, Any]):
-            # skip if not inside test function
-            if self._stack:
-                _AssertEq(v) 
-            return self 
-
-    @singleton 
-    class NE(_Base):
-        def __iadd__(self, v: Tuple[Any, Any]):
-            # skip if not inside test function
-            if self._stack:
-                _AssertNe(v)
-            return self  
-        
-    def Assert(self, v: bool):
-        if self._stack:
-            _AssertTrue(v)
+        if self._stack: 
+            self._stack.append(f.__name__) 
+        else:
+            self._stack.append(caller_filename())
+            self._stack.append(f.__name__) 
+        # apply filter
+        if self._global_filter is not None and not self._global_filter.search('/'.join(self._stack)):
+            pass 
+        else:
+            # exec
+            node = _root.get_or_register(self._stack)  
+            try:
+                f(node)
+            except:
+                exc_type, exc_value, exc_traceback = sys.exc_info()  
+                e = ''.join(traceback.format_exception(exc_type, exc_value, exc_traceback)[2:]) 
+                node.exception = _red('│ ') + _red('\n│ ').join(e.splitlines())
+            node.finish()
+        # pop stack 
+        if len(self._stack) == 2:
+            self._stack.clear()
+        else:
+            self._stack.pop()
+        return 
 
     def copy(self) -> _Tester:
         ret = object.__new__(_Tester)
@@ -169,7 +219,7 @@ class _Tester(_Base):
 
     def when(self, cond) -> _Tester:
         """
-        @tester.when(1) ...
+        @tester.when(cond) ...
         """
         ret = self.copy()
         ret._cond = cond 
@@ -178,6 +228,7 @@ class _Tester(_Base):
     @property 
     def debug(self) -> _Tester:
         """ debug mode, exit when exception
+        @tester.debug ...
         """
         ret = self.copy()
         ret._debug = True 
@@ -191,110 +242,21 @@ class _Tester(_Base):
         ret._enable = False 
         return ret
 
-    def clear(self) -> None:
-        """ clear all results
-        """
-        self._results.clear() 
-
-
     def filter(self, s) -> None:
         """ set a global filter that matches case name
+        tester.filter('adder.*')
         """
         _Tester._global_filter = re.compile(s)
 
     def close(self):
         """ disable all test cases
+        tester.close()
         """
         _Tester._global_enable = False
         
     def summary(self):
-        """ print summary
-        """
-        print('')
-        total_passed = 0 
-        total_failed = 0 
-        total_t = 0
-        for filename, testcases in self._results.items():
-            print(_fill_terminal('━', '━'))
-            print(' ',_yellow(filename))
-            for testcase in testcases:
-                total_passed += testcase.count_passed
-                total_failed += testcase.count_failed
-                total_t += testcase.t
-                print(testcase.__str__('  '), end='') 
-        print(f'\n{_yellow("tester:")} {_green(total_passed)} passed, {_red(total_failed)} failed, total_time: {total_t:.4f}s\n')  
+        print(_root)
         
 tester: _Tester =  _Tester()
 
     
-
-
-class _AssertEq(_Assertion):
-    
-    def __init__(self, v: Tuple[Any, Any]):
-        curr = self._stack[-1]
-        a, b = v
-        self.msg = ''
-        # should support ==, otherwise will stop testcase
-        passed = a == b  
-        if passed:
-            curr.count_passed += 1 
-            return 
-        
-        # if failed, store information
-        curr.count_failed += 1
-        curr.assertions_failed.append(self)
-
-        r = f"{_red('assertion fail')} because {repr(a)} != {repr(b)}"
-        n = curr.count_failed + curr.count_passed - 1
-        frame,filename,line_number,function_name,lines,index = inspect.stack()[2]
-        self.msg = f"  {filename}:{line_number:<5} {n:<6} {r}\n"
-
-    def __str__(self) -> str:
-        return self.msg        
-        
-class _AssertNe(_Assertion):
-
-    def __init__(self, v: Tuple[Any, Any]):
-        curr = self._stack[-1]
-        a, b = v
-        self.msg = ''
-        # should support ==, otherwise will stop testcase
-        passed = a != b  
-        if passed:
-            curr.count_passed += 1 
-            return 
-        
-        # if failed, store information
-        curr.count_failed += 1
-        curr.assertions_failed.append(self)
-
-        r = f"{_red('assertion fail')} because {repr(a)} == {repr(b)}"
-        n = curr.count_failed + curr.count_passed - 1
-        frame,filename,line_number,function_name,lines,index = inspect.stack()[2]
-        self.msg = f"  {filename}:{line_number:<5} {n:<6} {r}\n"
-
-    def __str__(self) -> str:
-        return self.msg    
-
-class _AssertTrue(_Assertion):
-
-    def __init__(self, v: bool):
-        curr = self._stack[-1]
-        self.msg = ''
-        passed = bool(v)  
-        if passed:
-            curr.count_passed += 1 
-            return 
-        
-        # if failed, store information
-        curr.count_failed += 1
-        curr.assertions_failed.append(self)
-
-        r = f"{_red('assertion fail')} {passed}"
-        n = curr.count_failed + curr.count_passed - 1
-        frame,filename,line_number,function_name,lines,index = inspect.stack()[2]
-        self.msg = f"  {filename}:{line_number:<5} {n:<6} {r}\n"
-
-    def __str__(self) -> str:
-        return self.msg    

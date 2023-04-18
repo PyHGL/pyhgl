@@ -622,7 +622,7 @@ class Array(Container):
             assert n_total % n_new == 0, f'cannot reshape {self._shape} into {new_shape}' 
             new_shape[idx_uncertain] = n_total // n_new 
         
-        ret = Full(shape=tuple(new_shape), value = 0)
+        ret = Array.full(shape=tuple(new_shape), value = 0)
         it = iter(flat)  
         return Map(lambda x: next(it), ret)
     
@@ -637,6 +637,26 @@ class Array(Container):
         """ return Array with same shape, filled with v
         """ 
         return Map(lambda _: v, self) 
+    
+    def full(shape: Union[Tuple[int], Array, int], value) -> Array:
+        """ generate a n-d array
+
+        Args:
+            value : value to fill
+
+        Examples:
+            Array.full((2,3,4), 'a')
+        """ 
+        if isinstance(shape, int):
+            shape = (shape,)
+        assert all(i > 0 for i in shape), 'negative dimensions are not allowed'
+        return Map(lambda _: value, Array(np.zeros(shape), recursive=True))
+
+    def ones(shape) -> Array:
+        return Map(lambda _: 1, Array(np.zeros(shape), recursive=True))
+        
+    def zeros(shape) -> Array:
+        return Map(lambda _: 0, Array(np.zeros(shape), recursive=True))
     
 
 def ToArray(x) -> Any: 
@@ -662,17 +682,6 @@ def bundle(f: Callable) -> Array:
     return Array(f())
 
 
-def Full(shape: Union[Tuple[int], Array], value) -> Array:
-    """ generate a n-d array
-
-    Args:
-        value : value to fill
-
-    Examples:
-        Full((2,3,4), 'a')
-    """ 
-    assert all(i > 0 for i in shape), 'negative dimensions are not allowed'
-    return Map(lambda _: value, Array(np.zeros(shape), recursive=True))
 
     
 
@@ -799,11 +808,10 @@ def vectorize_first(f):
 
 
 """
-TODO 
 Cat([1,2,3], axis=...)  return 1 signal 
 Cat([1,2,3])             return [1,2,3]
-Add([1,2,3])   return [1,2,3]
-Add([1,2,3], axis=None) return 6
+Add([1,2,3], axis=(0,))  return 6
+Add([1,2,3], axis=None)  return 6
 """
 
 def vectorize_axis(f):
@@ -813,7 +821,9 @@ def vectorize_axis(f):
     return :
         function take one array_like as positional input and apply f on all axis
         if multiple positional args, map f on args
-        take 'axis' as one keyword input  
+    keyword argument 'axis':
+        `...` or `None` means all axis 
+        int, list[int] means selected axes
     """
     assert callable(f)
     
@@ -822,9 +832,7 @@ def vectorize_axis(f):
         args = [ToArray(i) for i in args]
         if len(args) > 1: 
             if 'axis' in kwargs:
-                raise ValueError(
-                    '"axis" is not valid keyword arg when there are more than 1 positional args'
-                )
+                raise TypeError('"axis" is not valid kwarg when more than one positional args')
             return Map(f, *args, **kwargs)
         elif len(args) == 1:
             value = args[0]
@@ -833,9 +841,11 @@ def vectorize_axis(f):
                 return f(value, **kwargs)
             # get axis
             if 'axis' not in kwargs:
-                axis = None 
+                return Map(f, value, **kwargs)
             else:
-                axis = kwargs.pop('axis')
+                axis = kwargs.pop('axis') 
+            if axis is ...:
+                axis = None
             # default apply on all and return single value
             if axis is None:
                 return f(*value._flat, **kwargs)
@@ -892,7 +902,7 @@ def Signal(x):
     iterable except str -> Array
     int, str, gmpy2.mpz -> UInt
     """
-    return HGL._sess.module.dispatcher.call('Signal', x)
+    return HGL._sess.module._conf.dispatcher.call('Signal', x)
 
 #--------
 # bitwise
@@ -903,7 +913,7 @@ def Signal(x):
 def Not(a, **kwargs):
     """ a: Signal or Immd
     """
-    return HGL._sess.module.dispatcher.call('Not', Signal(a), **kwargs)
+    return HGL._sess.module._conf.dispatcher.call('Not', Signal(a), **kwargs)
 
 # a | b
 @vectorize_axis
@@ -911,7 +921,7 @@ def Or(*args, **kwargs):
     """ args: Signal or Immd
     """
     args = (Signal(i) for i in args)
-    return HGL._sess.module.dispatcher.call('Or', *args, **kwargs) 
+    return HGL._sess.module._conf.dispatcher.call('Or', *args, **kwargs) 
 
 # a & b
 @vectorize_axis 
@@ -919,7 +929,7 @@ def And(*args, **kwargs):
     """ args: Signal or Immd
     """
     args = (Signal(i) for i in args)
-    return HGL._sess.module.dispatcher.call('And', *args, **kwargs) 
+    return HGL._sess.module._conf.dispatcher.call('And', *args, **kwargs) 
 
 # a ^ b 
 @vectorize_axis 
@@ -927,7 +937,7 @@ def Xor(*args, **kwargs):
     """ args: Signal or Immd
     """
     args = (Signal(i) for i in args)
-    return HGL._sess.module.dispatcher.call('Xor', *args, **kwargs) 
+    return HGL._sess.module._conf.dispatcher.call('Xor', *args, **kwargs) 
 
 
 #------- 
@@ -938,14 +948,14 @@ def Xor(*args, **kwargs):
 def Lshift(a, b, **kwargs):
     """ a: Signal, b: Signal or Immd
     """
-    return HGL._sess.module.dispatcher.call('Lshift', Signal(a), b, **kwargs) 
+    return HGL._sess.module._conf.dispatcher.call('Lshift', Signal(a), b, **kwargs) 
 
 # a >> b
 @vectorize
 def Rshift(a, b, **kwargs):
     """ a: Signal, b: Signal or Immd
     """
-    return HGL._sess.module.dispatcher.call('Rshift', Signal(a), b, **kwargs) 
+    return HGL._sess.module._conf.dispatcher.call('Rshift', Signal(a), b, **kwargs) 
 
 #--------
 # compare
@@ -955,14 +965,14 @@ def Rshift(a, b, **kwargs):
 def Eq(a, b, **kwargs):
     """ a: Signal, b: Signal or Immd or Any
     """
-    return HGL._sess.module.dispatcher.call('Eq', Signal(a), b, **kwargs) 
+    return HGL._sess.module._conf.dispatcher.call('Eq', Signal(a), b, **kwargs) 
 
 # a != b
 @vectorize_first
 def Ne(a, b, **kwargs):
     """ a: Signal, b: Signal or Immd or Any
     """
-    return HGL._sess.module.dispatcher.call('Ne', Signal(a), b, **kwargs) 
+    return HGL._sess.module._conf.dispatcher.call('Ne', Signal(a), b, **kwargs) 
 
 
 # a < b
@@ -970,28 +980,28 @@ def Ne(a, b, **kwargs):
 def Lt(a, b, **kwargs):
     """ a: Signal, b: Signal or Immd 
     """
-    return HGL._sess.module.dispatcher.call('Lt', Signal(a), b, **kwargs) 
+    return HGL._sess.module._conf.dispatcher.call('Lt', Signal(a), b, **kwargs) 
 
 # a <= b
 @vectorize_first
 def Le(a, b, **kwargs):
     """ a: Signal, b: Signal or Immd 
     """
-    return HGL._sess.module.dispatcher.call('Le', Signal(a), b, **kwargs) 
+    return HGL._sess.module._conf.dispatcher.call('Le', Signal(a), b, **kwargs) 
 
 # a > b
 @vectorize_first
 def Gt(a, b, **kwargs):
     """ a: Signal, b: Signal or Immd 
     """
-    return HGL._sess.module.dispatcher.call('Gt', Signal(a), b, **kwargs) 
+    return HGL._sess.module._conf.dispatcher.call('Gt', Signal(a), b, **kwargs) 
 
 # a >= b
 @vectorize_first
 def Ge(a, b, **kwargs):
     """ a: Signal, b: Signal or Immd 
     """
-    return HGL._sess.module.dispatcher.call('Ge', Signal(a), b, **kwargs) 
+    return HGL._sess.module._conf.dispatcher.call('Ge', Signal(a), b, **kwargs) 
 
 
 
@@ -1003,14 +1013,14 @@ def Ge(a, b, **kwargs):
 def Pos(a, **kwargs):
     """ a: Signal or Immd
     """
-    return HGL._sess.module.dispatcher.call('Pos', Signal(a), **kwargs)
+    return HGL._sess.module._conf.dispatcher.call('Pos', Signal(a), **kwargs)
 
 # -a
 @vectorize 
 def Neg(a, **kwargs):
     """ a: Signal or Immd
     """
-    return HGL._sess.module.dispatcher.call('Neg', Signal(a), **kwargs)
+    return HGL._sess.module._conf.dispatcher.call('Neg', Signal(a), **kwargs)
 
 # a + b + c
 @vectorize_axis 
@@ -1018,7 +1028,7 @@ def Add(*args, **kwargs):
     """ args: Signal or Immd
     """
     args = (Signal(i) for i in args)
-    return HGL._sess.module.dispatcher.call('Add', *args, **kwargs) 
+    return HGL._sess.module._conf.dispatcher.call('Add', *args, **kwargs) 
 
 # a - b - c
 @vectorize_axis 
@@ -1026,7 +1036,7 @@ def Sub(*args, **kwargs):
     """ args: Signal or Immd
     """
     args = (Signal(i) for i in args)
-    return HGL._sess.module.dispatcher.call('Sub', *args, **kwargs) 
+    return HGL._sess.module._conf.dispatcher.call('Sub', *args, **kwargs) 
 
 # a * b * c
 @vectorize_axis 
@@ -1034,34 +1044,34 @@ def Mul(*args, **kwargs):
     """ args: Signal or Immd
     """
     args = (Signal(i) for i in args)
-    return HGL._sess.module.dispatcher.call('Mul', *args, **kwargs) 
+    return HGL._sess.module._conf.dispatcher.call('Mul', *args, **kwargs) 
 
 # a @ b
 def Matmul(a, b, **kwargs):
     """ a: Signal or Array, b: Signal or Array or Immd
     """
-    return HGL._sess.module.dispatcher.call('Matmul', a, b, **kwargs) 
+    return HGL._sess.module._conf.dispatcher.call('Matmul', a, b, **kwargs) 
 
 # a / b
 @vectorize
 def Div(a, b, **kwargs):
     """ a: Signal, b: Signal or Immd 
     """
-    return HGL._sess.module.dispatcher.call('Div', Signal(a), Signal(b), **kwargs) 
+    return HGL._sess.module._conf.dispatcher.call('Div', Signal(a), Signal(b), **kwargs) 
 
 # a % b
 @vectorize
 def Mod(a, b, **kwargs):
     """ a: Signal, b: Signal or Immd 
     """
-    return HGL._sess.module.dispatcher.call('Mod', Signal(a), Signal(b), **kwargs) 
+    return HGL._sess.module._conf.dispatcher.call('Mod', Signal(a), Signal(b), **kwargs) 
 
 # a // b
 @vectorize
 def Floordiv(a, b, **kwargs):
     """ a: Signal, b: Signal or Immd 
     """
-    return HGL._sess.module.dispatcher.call('Floordiv', Signal(a), Signal(b), **kwargs) 
+    return HGL._sess.module._conf.dispatcher.call('Floordiv', Signal(a), Signal(b), **kwargs) 
 
 # a ** b
 @vectorize
@@ -1070,7 +1080,7 @@ def Pow(a, b, **kwargs):
     
     Cat signal a b times
     """
-    return HGL._sess.module.dispatcher.call('Pow', Signal(a), int(b), **kwargs) 
+    return HGL._sess.module._conf.dispatcher.call('Pow', Signal(a), int(b), **kwargs) 
 
 
 
@@ -1078,9 +1088,6 @@ def Pow(a, b, **kwargs):
 # TODO reduce binary op on array axis
 def Reduce(f, x: Iterable, axis=None, **kwargs): ...
     
-def Reduce2(f, x, axis=0, step=1, n=2, start=None): ...
-
-def ReduceN(f, x, axis=...): ...
 
 
 

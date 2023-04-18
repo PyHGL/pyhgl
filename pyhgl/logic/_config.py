@@ -99,32 +99,40 @@ class _Conf(HGL):
     def p(self):
         """ return current module's config
         """
-        return self._sess.module._conf
+        return self._sess.module._conf 
+    
+    @property 
+    def m(self):
+        return self._sess.module
 
     @property 
-    def clock(self):
-        return self._sess.module.clock 
+    def clock(self):  
+        if not hasattr(self._sess.module._conf, 'clock'):
+            self._sess.module._conf.clock = (hgl_core.Clock(), 1)
+        return self._sess.module._conf.clock 
 
     @clock.setter
     def clock(self, v):
-        self._sess.module.clock = v 
+        self._sess.module._conf.clock = v 
     
     @property 
     def reset(self):
-        return self._sess.module.reset 
+        if not hasattr(self._sess.module._conf, 'reset'):
+            self._sess.module._conf.reset = (hgl_core.Wire(hgl_core.UInt(0, name='reset')), 1)
+        return self._sess.module._conf.reset 
 
     @reset.setter
     def reset(self, v):
-        self._sess.module.reset = v 
+        self._sess.module._conf.reset = v 
 
     @property 
     def dispatcher(self):
-        return self._sess.module.dispatcher 
+        return self._sess.module._conf.dispatcher 
 
     @dispatcher.setter
     def dispatcher(self, v): 
         assert isinstance(v, Dispatcher)
-        self._sess.module.dispatcher = v 
+        self._sess.module._conf.dispatcher = v 
 
     @property 
     def timing(self):
@@ -208,7 +216,9 @@ class HGLConf(HGL):
 class ModuleConf: 
     """ parameters stored as class variables
     """
-
+    clock: Tuple[hgl_core.Reader, int]
+    reset: Tuple[hgl_core.Reader, int]
+    dispatcher: Dispatcher
 
 # ----------- 
 # timing 

@@ -41,7 +41,7 @@ import time
 
 
 
-@tester test_vending_machine:
+@tester test_vending_machine(self):
     sess = Session()
     sess.enter() 
 

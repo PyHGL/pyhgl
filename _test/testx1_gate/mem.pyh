@@ -34,7 +34,7 @@ from pyhgl.tester import tester, utils
     print(ram_t._idxes, ram_t._shape)
 
 
-@tester test_ram: 
+@tester test_ram(self): 
     with Session(conf=Global()) as sess:
         dut = Memory()
         sess.track(dut.io, dut.mem, dut.clock[0]) 

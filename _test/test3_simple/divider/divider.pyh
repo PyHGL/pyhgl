@@ -65,10 +65,10 @@ import itertools
 
 
 
-@tester test_divider:
+@tester test_divider(self):
 
     W, N = 8, 50
-    clock_period = 50
+    clock_period = 20
     mask = (1 << W) - 1
 
     sess = Session(Global(clock_period))
@@ -80,8 +80,7 @@ import itertools
 
     random.seed(57)
     test_x = [random.randint(0,mask) for _ in range(N)]
-    test_y = [random.randint(1, 1<<(W//2)) for _ in range(N)]
-
+    test_y = [random.randint(1, 1<<(W//2)) for _ in range(N)] 
 
     def Task():
         # yield from until(dut.io.ready, 1)  
@@ -96,8 +95,8 @@ import itertools
             setv(dut.io.valid, 0)
             yield W*100 
             if test_y[i] != 0:
-                tester.EQ += getv(dut.io.q), test_x[i] // test_y[i]
-                tester.EQ += getv(dut.io.r), test_x[i] % test_y[i]
+                self.EQ += getv(dut.io.q), test_x[i] // test_y[i]
+                self.EQ += getv(dut.io.r), test_x[i] % test_y[i]
 
 
     sess.task(Task()) 
@@ -119,10 +118,10 @@ import itertools
         builder.append('initial begin')
         builder.append(f'$dumpfile("Divider_iverilog.vcd");')
         builder.append(f'$dumpvars(0, {dut_name});') 
-        builder.append(f'{reset} = 1; #100; {reset} = 0;')
+        builder.append(f'{reset} = 1; #{clock_period*2}; {reset} = 0;')
         for x1, y1 in zip(test_x, test_y):
-            builder.append(f'{x} = {x1}; {y} = {y1}; {valid} = 1; #100;')
-            builder.append(f'{valid} = 0; # {100*W};')
+            builder.append(f'{x} = {x1}; {y} = {y1}; {valid} = 1; #{clock_period*2};')
+            builder.append(f'{valid} = 0; # {clock_period*2*W};')
         builder.append('$finish;')
         builder.append('end')
 

@@ -42,20 +42,23 @@ import time
 
 #--------------------------------- test ----------------------------------------
 
+@task task1(self, dut):
+    setv(dut.io.nickel, 1) 
+    setv(dut.io.dime, 1) 
+    yield self.until(dut.io.valid, 1) 
+    self.Assert(True)
 
-
-@tester test_vending_machine:
+@tester test_vending_machine(self):
     sess = Session()
     sess.enter() 
 
 
     dut = VendingMachine()
-    sess.track(dut.io.nickel, dut.io.dime, dut.s, dut.io.valid)
+    sess.track(dut)
+    sess.add_task(task1(dut))
+    sess.run(1000) 
 
 
-    setv(dut.io.nickel, 1) 
-    setv(dut.io.dime, 1)
-    sess.run(1000)
     sess.dumpVCD('VendingMachine.vcd') 
 
     @blackbox testbench(builder):

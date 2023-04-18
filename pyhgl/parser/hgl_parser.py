@@ -480,9 +480,9 @@ class HGLParser(Parser):
         if (
             (file := self.file())
         ):
-            return file
+            return file;
         self._reset(mark)
-        return None
+        return None;
 
     @memoize
     def file(self) -> Optional[ast . Module]:
@@ -491,11 +491,11 @@ class HGLParser(Parser):
         if (
             (a := self.statements(),)
             and
-            (_endmarker := self.expect('ENDMARKER'))
+            (self.expect('ENDMARKER'))
         ):
-            return ast . Module ( body = a or [] , type_ignores = [] )
+            return ast . Module ( body = a or [] , type_ignores = [] );
         self._reset(mark)
-        return None
+        return None;
 
     @memoize
     def interactive(self) -> Optional[ast . Interactive]:
@@ -504,9 +504,9 @@ class HGLParser(Parser):
         if (
             (a := self.statement_newline())
         ):
-            return ast . Interactive ( body = a )
+            return ast . Interactive ( body = a );
         self._reset(mark)
-        return None
+        return None;
 
     @memoize
     def eval(self) -> Optional[ast . Expression]:
@@ -515,36 +515,36 @@ class HGLParser(Parser):
         if (
             (a := self.expressions())
             and
-            (_loop0_1 := self._loop0_1(),)
+            (self._loop0_1(),)
             and
-            (_endmarker := self.expect('ENDMARKER'))
+            (self.expect('ENDMARKER'))
         ):
-            return ast . Expression ( body = a )
+            return ast . Expression ( body = a );
         self._reset(mark)
-        return None
+        return None;
 
     @memoize
     def func_type(self) -> Optional[ast . FunctionType]:
         # func_type: '(' type_expressions? ')' '->' expression NEWLINE* $
         mark = self._mark()
         if (
-            (literal := self.expect('('))
+            (self.expect('('))
             and
             (a := self.type_expressions(),)
             and
-            (literal_1 := self.expect(')'))
+            (self.expect(')'))
             and
-            (literal_2 := self.expect('->'))
+            (self.expect('->'))
             and
             (b := self.expression())
             and
-            (_loop0_2 := self._loop0_2(),)
+            (self._loop0_2(),)
             and
-            (_endmarker := self.expect('ENDMARKER'))
+            (self.expect('ENDMARKER'))
         ):
-            return ast . FunctionType ( argtypes = a , returns = b )
+            return ast . FunctionType ( argtypes = a , returns = b );
         self._reset(mark)
-        return None
+        return None;
 
     @memoize
     def fstring(self) -> Optional[ast . Expr]:
@@ -553,9 +553,9 @@ class HGLParser(Parser):
         if (
             (star_expressions := self.star_expressions())
         ):
-            return star_expressions
+            return star_expressions;
         self._reset(mark)
-        return None
+        return None;
 
     @memoize
     def statements(self) -> Optional[list]:
@@ -564,9 +564,9 @@ class HGLParser(Parser):
         if (
             (a := self._loop1_3())
         ):
-            return list ( itertools . chain . from_iterable ( a ) )
+            return list ( itertools . chain . from_iterable ( a ) );
         self._reset(mark)
-        return None
+        return None;
 
     @memoize
     def statement(self) -> Optional[list]:
@@ -575,14 +575,14 @@ class HGLParser(Parser):
         if (
             (a := self.compound_stmt())
         ):
-            return [a]
+            return [a];
         self._reset(mark)
         if (
             (a := self.simple_stmts())
         ):
-            return a
+            return a;
         self._reset(mark)
-        return None
+        return None;
 
     @memoize
     def statement_newline(self) -> Optional[list]:
@@ -593,28 +593,28 @@ class HGLParser(Parser):
         if (
             (a := self.compound_stmt())
             and
-            (_newline := self.expect('NEWLINE'))
+            (self.expect('NEWLINE'))
         ):
-            return [a]
+            return [a];
         self._reset(mark)
         if (
             (simple_stmts := self.simple_stmts())
         ):
-            return simple_stmts
+            return simple_stmts;
         self._reset(mark)
         if (
-            (_newline := self.expect('NEWLINE'))
+            (self.expect('NEWLINE'))
         ):
             tok = self._tokenizer.get_last_non_whitespace_token()
             end_lineno, end_col_offset = tok.end
-            return [ast . Pass ( lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset )]
+            return [ast . Pass ( lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset )];
         self._reset(mark)
         if (
-            (_endmarker := self.expect('ENDMARKER'))
+            (self.expect('ENDMARKER'))
         ):
-            return None
+            return None;
         self._reset(mark)
-        return None
+        return None;
 
     @memoize
     def simple_stmts(self) -> Optional[list]:
@@ -623,22 +623,22 @@ class HGLParser(Parser):
         if (
             (a := self.simple_stmt())
             and
-            self.negative_lookahead(self.expect, ';')
+            (self.negative_lookahead(self.expect, ';'))
             and
-            (_newline := self.expect('NEWLINE'))
+            (self.expect('NEWLINE'))
         ):
-            return [a]
+            return [a];
         self._reset(mark)
         if (
             (a := self._gather_4())
             and
-            (opt := self.expect(';'),)
+            (self.expect(';'),)
             and
-            (_newline := self.expect('NEWLINE'))
+            (self.expect('NEWLINE'))
         ):
-            return a
+            return a;
         self._reset(mark)
-        return None
+        return None;
 
     @memoize
     def simple_stmt(self) -> Optional[Any]:
@@ -649,184 +649,184 @@ class HGLParser(Parser):
         if (
             (assignment := self.assignment())
         ):
-            return assignment
+            return assignment;
         self._reset(mark)
         if (
             (e := self.star_expressions())
         ):
             tok = self._tokenizer.get_last_non_whitespace_token()
             end_lineno, end_col_offset = tok.end
-            return ast . Expr ( value = e , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset )
+            return ast . Expr ( value = e , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset );
         self._reset(mark)
         if (
-            self.positive_lookahead(self.expect, 'return')
+            (self.positive_lookahead(self.expect, 'return'))
             and
             (return_stmt := self.return_stmt())
         ):
-            return return_stmt
+            return return_stmt;
         self._reset(mark)
         if (
-            self.positive_lookahead(self._tmp_6, )
+            (self.positive_lookahead(self._tmp_6, ))
             and
             (import_stmt := self.import_stmt())
         ):
-            return import_stmt
+            return import_stmt;
         self._reset(mark)
         if (
-            self.positive_lookahead(self.expect, 'raise')
+            (self.positive_lookahead(self.expect, 'raise'))
             and
             (raise_stmt := self.raise_stmt())
         ):
-            return raise_stmt
+            return raise_stmt;
         self._reset(mark)
         if (
-            (literal := self.expect('pass'))
+            (self.expect('pass'))
         ):
             tok = self._tokenizer.get_last_non_whitespace_token()
             end_lineno, end_col_offset = tok.end
-            return ast . Pass ( lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset )
+            return ast . Pass ( lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset );
         self._reset(mark)
         if (
-            self.positive_lookahead(self.expect, 'del')
+            (self.positive_lookahead(self.expect, 'del'))
             and
             (del_stmt := self.del_stmt())
         ):
-            return del_stmt
+            return del_stmt;
         self._reset(mark)
         if (
-            self.positive_lookahead(self.expect, 'yield')
+            (self.positive_lookahead(self.expect, 'yield'))
             and
             (yield_stmt := self.yield_stmt())
         ):
-            return yield_stmt
+            return yield_stmt;
         self._reset(mark)
         if (
-            self.positive_lookahead(self.expect, 'assert')
+            (self.positive_lookahead(self.expect, 'assert'))
             and
             (assert_stmt := self.assert_stmt())
         ):
-            return assert_stmt
+            return assert_stmt;
         self._reset(mark)
         if (
-            (literal := self.expect('break'))
+            (self.expect('break'))
         ):
             tok = self._tokenizer.get_last_non_whitespace_token()
             end_lineno, end_col_offset = tok.end
-            return ast . Break ( lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset )
+            return ast . Break ( lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset );
         self._reset(mark)
         if (
-            (literal := self.expect('continue'))
+            (self.expect('continue'))
         ):
             tok = self._tokenizer.get_last_non_whitespace_token()
             end_lineno, end_col_offset = tok.end
-            return ast . Continue ( lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset )
+            return ast . Continue ( lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset );
         self._reset(mark)
         if (
-            self.positive_lookahead(self.expect, 'global')
+            (self.positive_lookahead(self.expect, 'global'))
             and
             (global_stmt := self.global_stmt())
         ):
-            return global_stmt
+            return global_stmt;
         self._reset(mark)
         if (
-            self.positive_lookahead(self.expect, 'nonlocal')
+            (self.positive_lookahead(self.expect, 'nonlocal'))
             and
             (nonlocal_stmt := self.nonlocal_stmt())
         ):
-            return nonlocal_stmt
+            return nonlocal_stmt;
         self._reset(mark)
-        return None
+        return None;
 
     @memoize
     def compound_stmt(self) -> Optional[Any]:
         # compound_stmt: &('def' | '@' | 'async') function_def | &'if' if_stmt | &('class' | '@') class_def | &('with' | 'async') with_stmt | &('for' | 'async') for_stmt | &'try' try_stmt | &'while' while_stmt | match_stmt | when_stmt | elsewhen_stmt | otherwise_stmt | switch_stmt
         mark = self._mark()
         if (
-            self.positive_lookahead(self._tmp_7, )
+            (self.positive_lookahead(self._tmp_7, ))
             and
             (function_def := self.function_def())
         ):
-            return function_def
+            return function_def;
         self._reset(mark)
         if (
-            self.positive_lookahead(self.expect, 'if')
+            (self.positive_lookahead(self.expect, 'if'))
             and
             (if_stmt := self.if_stmt())
         ):
-            return if_stmt
+            return if_stmt;
         self._reset(mark)
         if (
-            self.positive_lookahead(self._tmp_8, )
+            (self.positive_lookahead(self._tmp_8, ))
             and
             (class_def := self.class_def())
         ):
-            return class_def
+            return class_def;
         self._reset(mark)
         if (
-            self.positive_lookahead(self._tmp_9, )
+            (self.positive_lookahead(self._tmp_9, ))
             and
             (with_stmt := self.with_stmt())
         ):
-            return with_stmt
+            return with_stmt;
         self._reset(mark)
         if (
-            self.positive_lookahead(self._tmp_10, )
+            (self.positive_lookahead(self._tmp_10, ))
             and
             (for_stmt := self.for_stmt())
         ):
-            return for_stmt
+            return for_stmt;
         self._reset(mark)
         if (
-            self.positive_lookahead(self.expect, 'try')
+            (self.positive_lookahead(self.expect, 'try'))
             and
             (try_stmt := self.try_stmt())
         ):
-            return try_stmt
+            return try_stmt;
         self._reset(mark)
         if (
-            self.positive_lookahead(self.expect, 'while')
+            (self.positive_lookahead(self.expect, 'while'))
             and
             (while_stmt := self.while_stmt())
         ):
-            return while_stmt
+            return while_stmt;
         self._reset(mark)
         if (
             (match_stmt := self.match_stmt())
         ):
-            return match_stmt
+            return match_stmt;
         self._reset(mark)
         if (
             (when_stmt := self.when_stmt())
         ):
-            return when_stmt
+            return when_stmt;
         self._reset(mark)
         if (
             (elsewhen_stmt := self.elsewhen_stmt())
         ):
-            return elsewhen_stmt
+            return elsewhen_stmt;
         self._reset(mark)
         if (
             (otherwise_stmt := self.otherwise_stmt())
         ):
-            return otherwise_stmt
+            return otherwise_stmt;
         self._reset(mark)
         if (
             (switch_stmt := self.switch_stmt())
         ):
-            return switch_stmt
+            return switch_stmt;
         self._reset(mark)
-        return None
+        return None;
 
     @memoize
     def assignment(self) -> Optional[Any]:
-        # assignment: NAME ':' expression ['=' annotated_rhs] | ('(' single_target ')' | single_subscript_attribute_target) ':' expression ['=' annotated_rhs] | ((star_targets '='))+ (yield_expr | star_expressions) !'=' TYPE_COMMENT? | single_target augassign ~ (yield_expr | star_expressions) | hgl_assignment | expression '<=>' expression | invalid_assignment
+        # assignment: NAME ':' expression ['=' annotated_rhs] | ('(' single_target ')' | single_subscript_attribute_target) ':' expression ['=' annotated_rhs] | ((star_targets '='))+ (yield_expr | star_expressions) !'=' TYPE_COMMENT? | single_target augassign ~ (yield_expr | star_expressions) | hgl_assignment | star_expressions '<=>' star_expressions | invalid_assignment
         mark = self._mark()
         tok = self._tokenizer.peek()
         start_lineno, start_col_offset = tok.start
         if (
             (a := self.name())
             and
-            (literal := self.expect(':'))
+            (self.expect(':'))
             and
             (b := self.expression())
             and
@@ -834,12 +834,12 @@ class HGLParser(Parser):
         ):
             tok = self._tokenizer.get_last_non_whitespace_token()
             end_lineno, end_col_offset = tok.end
-            return self . check_version ( ( 3 , 6 ) , "Variable annotation syntax is" , ast . AnnAssign ( target = ast . Name ( id = a . string , ctx = Store , lineno = a . start [0] , col_offset = a . start [1] , end_lineno = a . end [0] , end_col_offset = a . end [1] , ) , annotation = b , value = c , simple = 1 , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset , ) )
+            return self . check_version ( ( 3 , 6 ) , "Variable annotation syntax is" , ast . AnnAssign ( target = ast . Name ( id = a . string , ctx = Store , lineno = a . start [0] , col_offset = a . start [1] , end_lineno = a . end [0] , end_col_offset = a . end [1] , ) , annotation = b , value = c , simple = 1 , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset , ) );
         self._reset(mark)
         if (
             (a := self._tmp_12())
             and
-            (literal := self.expect(':'))
+            (self.expect(':'))
             and
             (b := self.expression())
             and
@@ -847,20 +847,20 @@ class HGLParser(Parser):
         ):
             tok = self._tokenizer.get_last_non_whitespace_token()
             end_lineno, end_col_offset = tok.end
-            return self . check_version ( ( 3 , 6 ) , "Variable annotation syntax is" , ast . AnnAssign ( target = a , annotation = b , value = c , simple = 0 , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset , ) )
+            return self . check_version ( ( 3 , 6 ) , "Variable annotation syntax is" , ast . AnnAssign ( target = a , annotation = b , value = c , simple = 0 , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset , ) );
         self._reset(mark)
         if (
             (a := self._loop1_14())
             and
             (b := self._tmp_15())
             and
-            self.negative_lookahead(self.expect, '=')
+            (self.negative_lookahead(self.expect, '='))
             and
             (tc := self.type_comment(),)
         ):
             tok = self._tokenizer.get_last_non_whitespace_token()
             end_lineno, end_col_offset = tok.end
-            return ast . Assign ( targets = a , value = b , type_comment = tc , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset )
+            return ast . Assign ( targets = a , value = b , type_comment = tc , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset );
         self._reset(mark)
         cut = False
         if (
@@ -874,71 +874,74 @@ class HGLParser(Parser):
         ):
             tok = self._tokenizer.get_last_non_whitespace_token()
             end_lineno, end_col_offset = tok.end
-            return ast . AugAssign ( target = a , op = b , value = c , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset )
+            return ast . AugAssign ( target = a , op = b , value = c , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset );
         self._reset(mark)
-        if cut: return None
+        if cut:
+            return None;
         if (
             (hgl_assignment := self.hgl_assignment())
         ):
             tok = self._tokenizer.get_last_non_whitespace_token()
             end_lineno, end_col_offset = tok.end
-            return ast . Expr ( value = hgl_assignment , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset )
+            return ast . Expr ( value = hgl_assignment , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset );
         self._reset(mark)
         if (
-            (a := self.expression())
+            (a := self.star_expressions())
             and
-            (literal := self.expect('<=>'))
+            (self.expect('<=>'))
             and
-            (b := self.expression())
+            (b := self.star_expressions())
         ):
             tok = self._tokenizer.get_last_non_whitespace_token()
             end_lineno, end_col_offset = tok.end
-            return ast . Expr ( value = ast . Call ( func = ast . Name ( id = '__hgl_connect__' , ctx = Load , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset ) , args = [a , b] , keywords = [] , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset ) , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset )
+            return ast . Expr ( value = ast . Call ( func = ast . Name ( id = '__hgl_connect__' , ctx = Load , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset ) , args = [a , b] , keywords = [] , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset ) , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset );
         self._reset(mark)
         if (
-            (invalid_assignment := self.invalid_assignment())
+            self.call_invalid_rules
+            and
+            (self.invalid_assignment())
         ):
-            return None  # pragma: no cover
+            return None  # pragma: no cover;
         self._reset(mark)
-        return None
+        return None;
 
     @memoize
     def hgl_assignment(self) -> Optional[Any]:
-        # hgl_assignment: t_primary '[' slices ']' !t_lookahead '<==' expression | expression '<==' expression
+        # hgl_assignment: t_primary '[' slices ']' !t_lookahead '<==' star_expressions | star_expressions '<==' star_expressions
         mark = self._mark()
         tok = self._tokenizer.peek()
         start_lineno, start_col_offset = tok.start
         if (
             (a := self.t_primary())
             and
-            (literal := self.expect('['))
+            (self.expect('['))
             and
             (b := self.slices())
             and
-            (literal_1 := self.expect(']'))
+            (self.expect(']'))
             and
-            self.negative_lookahead(self.t_lookahead, )
+            (self.negative_lookahead(self.t_lookahead, ))
             and
-            (literal_2 := self.expect('<=='))
+            (self.expect('<=='))
             and
-            (c := self.expression())
+            (c := self.star_expressions())
         ):
             tok = self._tokenizer.get_last_non_whitespace_token()
             end_lineno, end_col_offset = tok.end
-            return ast . Call ( func = ast . Name ( id = '__hgl_partial_assign__' , ctx = Load , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset ) , args = [a , c , b] , keywords = [] , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset )
+            return ast . Call ( func = ast . Name ( id = '__hgl_partial_assign__' , ctx = Load , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset ) , args = [a , c , b] , keywords = [] , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset );
         self._reset(mark)
         if (
-            (a := self.expression())
+            (a := self.star_expressions())
             and
-            (literal := self.expect('<=='))
+            (self.expect('<=='))
             and
-            (b := self.expression())
+            (b := self.star_expressions())
         ):
             tok = self._tokenizer.get_last_non_whitespace_token()
             end_lineno, end_col_offset = tok.end
-            return ast . Call ( func = ast . Name ( id = '__hgl_partial_assign__' , ctx = Load , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset ) , args = [a , b] , keywords = [] , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset )
+            return ast . Call ( func = ast . Name ( id = '__hgl_partial_assign__' , ctx = Load , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset ) , args = [a , b] , keywords = [] , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset );
         self._reset(mark)
-        return None
+        return None;
 
     @memoize
     def annotated_rhs(self) -> Optional[Any]:
@@ -947,85 +950,85 @@ class HGLParser(Parser):
         if (
             (yield_expr := self.yield_expr())
         ):
-            return yield_expr
+            return yield_expr;
         self._reset(mark)
         if (
             (star_expressions := self.star_expressions())
         ):
-            return star_expressions
+            return star_expressions;
         self._reset(mark)
-        return None
+        return None;
 
     @memoize
     def augassign(self) -> Optional[Any]:
         # augassign: '+=' | '-=' | '*=' | '@=' | '/=' | '%=' | '&=' | '|=' | '^=' | '<<=' | '>>=' | '**=' | '//='
         mark = self._mark()
         if (
-            (literal := self.expect('+='))
+            (self.expect('+='))
         ):
-            return ast . Add ( )
+            return ast . Add ( );
         self._reset(mark)
         if (
-            (literal := self.expect('-='))
+            (self.expect('-='))
         ):
-            return ast . Sub ( )
+            return ast . Sub ( );
         self._reset(mark)
         if (
-            (literal := self.expect('*='))
+            (self.expect('*='))
         ):
-            return ast . Mult ( )
+            return ast . Mult ( );
         self._reset(mark)
         if (
-            (literal := self.expect('@='))
+            (self.expect('@='))
         ):
-            return self . check_version ( ( 3 , 5 ) , "The '@' operator is" , ast . MatMult ( ) )
+            return self . check_version ( ( 3 , 5 ) , "The '@' operator is" , ast . MatMult ( ) );
         self._reset(mark)
         if (
-            (literal := self.expect('/='))
+            (self.expect('/='))
         ):
-            return ast . Div ( )
+            return ast . Div ( );
         self._reset(mark)
         if (
-            (literal := self.expect('%='))
+            (self.expect('%='))
         ):
-            return ast . Mod ( )
+            return ast . Mod ( );
         self._reset(mark)
         if (
-            (literal := self.expect('&='))
+            (self.expect('&='))
         ):
-            return ast . BitAnd ( )
+            return ast . BitAnd ( );
         self._reset(mark)
         if (
-            (literal := self.expect('|='))
+            (self.expect('|='))
         ):
-            return ast . BitOr ( )
+            return ast . BitOr ( );
         self._reset(mark)
         if (
-            (literal := self.expect('^='))
+            (self.expect('^='))
         ):
-            return ast . BitXor ( )
+            return ast . BitXor ( );
         self._reset(mark)
         if (
-            (literal := self.expect('<<='))
+            (self.expect('<<='))
         ):
-            return ast . LShift ( )
+            return ast . LShift ( );
         self._reset(mark)
         if (
-            (literal := self.expect('>>='))
+            (self.expect('>>='))
         ):
-            return ast . RShift ( )
+            return ast . RShift ( );
         self._reset(mark)
         if (
-            (literal := self.expect('**='))
+            (self.expect('**='))
         ):
-            return ast . Pow ( )
+            return ast . Pow ( );
         self._reset(mark)
         if (
-            (literal := self.expect('//='))
+            (self.expect('//='))
         ):
-            return ast . FloorDiv ( )
+            return ast . FloorDiv ( );
         self._reset(mark)
-        return None
+        return None;
 
     @memoize
     def return_stmt(self) -> Optional[ast . Return]:
@@ -1034,15 +1037,15 @@ class HGLParser(Parser):
         tok = self._tokenizer.peek()
         start_lineno, start_col_offset = tok.start
         if (
-            (literal := self.expect('return'))
+            (self.expect('return'))
             and
             (a := self.star_expressions(),)
         ):
             tok = self._tokenizer.get_last_non_whitespace_token()
             end_lineno, end_col_offset = tok.end
-            return ast . Return ( value = a , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset )
+            return ast . Return ( value = a , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset );
         self._reset(mark)
-        return None
+        return None;
 
     @memoize
     def raise_stmt(self) -> Optional[ast . Raise]:
@@ -1051,7 +1054,7 @@ class HGLParser(Parser):
         tok = self._tokenizer.peek()
         start_lineno, start_col_offset = tok.start
         if (
-            (literal := self.expect('raise'))
+            (self.expect('raise'))
             and
             (a := self.expression())
             and
@@ -1059,16 +1062,16 @@ class HGLParser(Parser):
         ):
             tok = self._tokenizer.get_last_non_whitespace_token()
             end_lineno, end_col_offset = tok.end
-            return ast . Raise ( exc = a , cause = b , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset )
+            return ast . Raise ( exc = a , cause = b , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset );
         self._reset(mark)
         if (
-            (literal := self.expect('raise'))
+            (self.expect('raise'))
         ):
             tok = self._tokenizer.get_last_non_whitespace_token()
             end_lineno, end_col_offset = tok.end
-            return ast . Raise ( exc = None , cause = None , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset )
+            return ast . Raise ( exc = None , cause = None , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset );
         self._reset(mark)
-        return None
+        return None;
 
     @memoize
     def global_stmt(self) -> Optional[ast . Global]:
@@ -1077,15 +1080,15 @@ class HGLParser(Parser):
         tok = self._tokenizer.peek()
         start_lineno, start_col_offset = tok.start
         if (
-            (literal := self.expect('global'))
+            (self.expect('global'))
             and
             (a := self._gather_18())
         ):
             tok = self._tokenizer.get_last_non_whitespace_token()
             end_lineno, end_col_offset = tok.end
-            return ast . Global ( names = [n . string for n in a] , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset )
+            return ast . Global ( names = [n . string for n in a] , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset );
         self._reset(mark)
-        return None
+        return None;
 
     @memoize
     def nonlocal_stmt(self) -> Optional[ast . Nonlocal]:
@@ -1094,15 +1097,15 @@ class HGLParser(Parser):
         tok = self._tokenizer.peek()
         start_lineno, start_col_offset = tok.start
         if (
-            (literal := self.expect('nonlocal'))
+            (self.expect('nonlocal'))
             and
             (a := self._gather_20())
         ):
             tok = self._tokenizer.get_last_non_whitespace_token()
             end_lineno, end_col_offset = tok.end
-            return ast . Nonlocal ( names = [n . string for n in a] , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset )
+            return ast . Nonlocal ( names = [n . string for n in a] , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset );
         self._reset(mark)
-        return None
+        return None;
 
     @memoize
     def del_stmt(self) -> Optional[ast . Delete]:
@@ -1111,22 +1114,24 @@ class HGLParser(Parser):
         tok = self._tokenizer.peek()
         start_lineno, start_col_offset = tok.start
         if (
-            (literal := self.expect('del'))
+            (self.expect('del'))
             and
             (a := self.del_targets())
             and
-            self.positive_lookahead(self._tmp_22, )
+            (self.positive_lookahead(self._tmp_22, ))
         ):
             tok = self._tokenizer.get_last_non_whitespace_token()
             end_lineno, end_col_offset = tok.end
-            return ast . Delete ( targets = a , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset )
+            return ast . Delete ( targets = a , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset );
         self._reset(mark)
         if (
-            (invalid_del_stmt := self.invalid_del_stmt())
+            self.call_invalid_rules
+            and
+            (self.invalid_del_stmt())
         ):
-            return None  # pragma: no cover
+            return None  # pragma: no cover;
         self._reset(mark)
-        return None
+        return None;
 
     @memoize
     def yield_stmt(self) -> Optional[ast . Expr]:
@@ -1139,9 +1144,9 @@ class HGLParser(Parser):
         ):
             tok = self._tokenizer.get_last_non_whitespace_token()
             end_lineno, end_col_offset = tok.end
-            return ast . Expr ( value = y , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset )
+            return ast . Expr ( value = y , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset );
         self._reset(mark)
-        return None
+        return None;
 
     @memoize
     def assert_stmt(self) -> Optional[ast . Assert]:
@@ -1150,7 +1155,7 @@ class HGLParser(Parser):
         tok = self._tokenizer.peek()
         start_lineno, start_col_offset = tok.start
         if (
-            (literal := self.expect('assert'))
+            (self.expect('assert'))
             and
             (a := self.expression())
             and
@@ -1158,9 +1163,9 @@ class HGLParser(Parser):
         ):
             tok = self._tokenizer.get_last_non_whitespace_token()
             end_lineno, end_col_offset = tok.end
-            return ast . Assert ( test = a , msg = b , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset )
+            return ast . Assert ( test = a , msg = b , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset );
         self._reset(mark)
-        return None
+        return None;
 
     @memoize
     def import_stmt(self) -> Optional[ast . Import]:
@@ -1169,14 +1174,14 @@ class HGLParser(Parser):
         if (
             (import_name := self.import_name())
         ):
-            return import_name
+            return import_name;
         self._reset(mark)
         if (
             (import_from := self.import_from())
         ):
-            return import_from
+            return import_from;
         self._reset(mark)
-        return None
+        return None;
 
     @memoize
     def import_name(self) -> Optional[ast . Import]:
@@ -1185,15 +1190,15 @@ class HGLParser(Parser):
         tok = self._tokenizer.peek()
         start_lineno, start_col_offset = tok.start
         if (
-            (literal := self.expect('import'))
+            (self.expect('import'))
             and
             (a := self.dotted_as_names())
         ):
             tok = self._tokenizer.get_last_non_whitespace_token()
             end_lineno, end_col_offset = tok.end
-            return ast . Import ( names = a , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset )
+            return ast . Import ( names = a , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset );
         self._reset(mark)
-        return None
+        return None;
 
     @memoize
     def import_from(self) -> Optional[ast . ImportFrom]:
@@ -1202,34 +1207,34 @@ class HGLParser(Parser):
         tok = self._tokenizer.peek()
         start_lineno, start_col_offset = tok.start
         if (
-            (literal := self.expect('from'))
+            (self.expect('from'))
             and
             (a := self._loop0_24(),)
             and
             (b := self.dotted_name())
             and
-            (literal_1 := self.expect('import'))
+            (self.expect('import'))
             and
             (c := self.import_from_targets())
         ):
             tok = self._tokenizer.get_last_non_whitespace_token()
             end_lineno, end_col_offset = tok.end
-            return ast . ImportFrom ( module = b , names = c , level = self . extract_import_level ( a ) , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset )
+            return ast . ImportFrom ( module = b , names = c , level = self . extract_import_level ( a ) , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset );
         self._reset(mark)
         if (
-            (literal := self.expect('from'))
+            (self.expect('from'))
             and
             (a := self._loop1_25())
             and
-            (literal_1 := self.expect('import'))
+            (self.expect('import'))
             and
             (b := self.import_from_targets())
         ):
             tok = self._tokenizer.get_last_non_whitespace_token()
             end_lineno, end_col_offset = tok.end
-            return ast . ImportFrom ( names = b , level = self . extract_import_level ( a ) , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset ) if sys . version_info >= ( 3 , 9 ) else ast . ImportFrom ( module = None , names = b , level = self . extract_import_level ( a ) , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset )
+            return ast . ImportFrom ( names = b , level = self . extract_import_level ( a ) , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset ) if sys . version_info >= ( 3 , 9 ) else ast . ImportFrom ( module = None , names = b , level = self . extract_import_level ( a ) , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset );
         self._reset(mark)
-        return None
+        return None;
 
     @memoize
     def import_from_targets(self) -> Optional[List [ast . alias]]:
@@ -1238,36 +1243,38 @@ class HGLParser(Parser):
         tok = self._tokenizer.peek()
         start_lineno, start_col_offset = tok.start
         if (
-            (literal := self.expect('('))
+            (self.expect('('))
             and
             (a := self.import_from_as_names())
             and
-            (opt := self.expect(','),)
+            (self.expect(','),)
             and
-            (literal_1 := self.expect(')'))
+            (self.expect(')'))
         ):
-            return a
+            return a;
         self._reset(mark)
         if (
             (import_from_as_names := self.import_from_as_names())
             and
-            self.negative_lookahead(self.expect, ',')
+            (self.negative_lookahead(self.expect, ','))
         ):
-            return import_from_as_names
+            return import_from_as_names;
         self._reset(mark)
         if (
-            (literal := self.expect('*'))
+            (self.expect('*'))
         ):
             tok = self._tokenizer.get_last_non_whitespace_token()
             end_lineno, end_col_offset = tok.end
-            return [ast . alias ( name = "*" , asname = None , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset )]
+            return [ast . alias ( name = "*" , asname = None , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset )];
         self._reset(mark)
         if (
-            (invalid_import_from_targets := self.invalid_import_from_targets())
+            self.call_invalid_rules
+            and
+            (self.invalid_import_from_targets())
         ):
-            return None  # pragma: no cover
+            return None  # pragma: no cover;
         self._reset(mark)
-        return None
+        return None;
 
     @memoize
     def import_from_as_names(self) -> Optional[List [ast . alias]]:
@@ -1276,9 +1283,9 @@ class HGLParser(Parser):
         if (
             (a := self._gather_26())
         ):
-            return a
+            return a;
         self._reset(mark)
-        return None
+        return None;
 
     @memoize
     def import_from_as_name(self) -> Optional[ast . alias]:
@@ -1293,9 +1300,9 @@ class HGLParser(Parser):
         ):
             tok = self._tokenizer.get_last_non_whitespace_token()
             end_lineno, end_col_offset = tok.end
-            return ast . alias ( name = a . string , asname = b , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset )
+            return ast . alias ( name = a . string , asname = b , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset );
         self._reset(mark)
-        return None
+        return None;
 
     @memoize
     def dotted_as_names(self) -> Optional[List [ast . alias]]:
@@ -1304,9 +1311,9 @@ class HGLParser(Parser):
         if (
             (a := self._gather_29())
         ):
-            return a
+            return a;
         self._reset(mark)
-        return None
+        return None;
 
     @memoize
     def dotted_as_name(self) -> Optional[ast . alias]:
@@ -1321,9 +1328,9 @@ class HGLParser(Parser):
         ):
             tok = self._tokenizer.get_last_non_whitespace_token()
             end_lineno, end_col_offset = tok.end
-            return ast . alias ( name = a , asname = b , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset )
+            return ast . alias ( name = a , asname = b , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset );
         self._reset(mark)
-        return None
+        return None;
 
     @memoize_left_rec
     def dotted_name(self) -> Optional[str]:
@@ -1332,45 +1339,47 @@ class HGLParser(Parser):
         if (
             (a := self.dotted_name())
             and
-            (literal := self.expect('.'))
+            (self.expect('.'))
             and
             (b := self.name())
         ):
-            return a + "." + b . string
+            return a + "." + b . string;
         self._reset(mark)
         if (
             (a := self.name())
         ):
-            return a . string
+            return a . string;
         self._reset(mark)
-        return None
+        return None;
 
     @memoize
     def block(self) -> Optional[list]:
         # block: NEWLINE INDENT statements DEDENT | simple_stmts | invalid_block
         mark = self._mark()
         if (
-            (_newline := self.expect('NEWLINE'))
+            (self.expect('NEWLINE'))
             and
-            (_indent := self.expect('INDENT'))
+            (self.expect('INDENT'))
             and
             (a := self.statements())
             and
-            (_dedent := self.expect('DEDENT'))
+            (self.expect('DEDENT'))
         ):
-            return a
+            return a;
         self._reset(mark)
         if (
             (simple_stmts := self.simple_stmts())
         ):
-            return simple_stmts
+            return simple_stmts;
         self._reset(mark)
         if (
-            (invalid_block := self.invalid_block())
+            self.call_invalid_rules
+            and
+            (self.invalid_block())
         ):
-            return None  # pragma: no cover
+            return None  # pragma: no cover;
         self._reset(mark)
-        return None
+        return None;
 
     @memoize
     def decorators(self) -> Optional[Any]:
@@ -1379,9 +1388,9 @@ class HGLParser(Parser):
         if (
             (_loop1_32 := self._loop1_32())
         ):
-            return _loop1_32
+            return _loop1_32;
         self._reset(mark)
-        return None
+        return None;
 
     @memoize
     def decorator(self) -> Optional[Any]:
@@ -1390,14 +1399,14 @@ class HGLParser(Parser):
         if (
             (a := self._tmp_33())
         ):
-            return a
+            return a;
         self._reset(mark)
         if (
             (a := self._tmp_34())
         ):
-            return self . check_version ( ( 3 , 9 ) , "Generic decorator are" , a )
+            return self . check_version ( ( 3 , 9 ) , "Generic decorator are" , a );
         self._reset(mark)
-        return None
+        return None;
 
     @memoize
     def dec_maybe_call(self) -> Optional[Any]:
@@ -1408,22 +1417,22 @@ class HGLParser(Parser):
         if (
             (dn := self.dec_primary())
             and
-            (literal := self.expect('('))
+            (self.expect('('))
             and
             (z := self.arguments(),)
             and
-            (literal_1 := self.expect(')'))
+            (self.expect(')'))
         ):
             tok = self._tokenizer.get_last_non_whitespace_token()
             end_lineno, end_col_offset = tok.end
-            return ast . Call ( func = dn , args = z [0] if z else [] , keywords = z [1] if z else [] , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset )
+            return ast . Call ( func = dn , args = z [0] if z else [] , keywords = z [1] if z else [] , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset );
         self._reset(mark)
         if (
             (dec_primary := self.dec_primary())
         ):
-            return dec_primary
+            return dec_primary;
         self._reset(mark)
-        return None
+        return None;
 
     @memoize_left_rec
     def dec_primary(self) -> Optional[Any]:
@@ -1434,22 +1443,22 @@ class HGLParser(Parser):
         if (
             (a := self.dec_primary())
             and
-            (literal := self.expect('.'))
+            (self.expect('.'))
             and
             (b := self.name())
         ):
             tok = self._tokenizer.get_last_non_whitespace_token()
             end_lineno, end_col_offset = tok.end
-            return ast . Attribute ( value = a , attr = b . string , ctx = Load , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset )
+            return ast . Attribute ( value = a , attr = b . string , ctx = Load , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset );
         self._reset(mark)
         if (
             (a := self.name())
         ):
             tok = self._tokenizer.get_last_non_whitespace_token()
             end_lineno, end_col_offset = tok.end
-            return ast . Name ( id = a . string , ctx = Load , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset )
+            return ast . Name ( id = a . string , ctx = Load , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset );
         self._reset(mark)
-        return None
+        return None;
 
     @memoize
     def class_def(self) -> Optional[ast . ClassDef]:
@@ -1460,14 +1469,14 @@ class HGLParser(Parser):
             and
             (b := self.class_def_raw())
         ):
-            return self . set_decorators ( b , a )
+            return self . set_decorators ( b , a );
         self._reset(mark)
         if (
             (class_def_raw := self.class_def_raw())
         ):
-            return class_def_raw
+            return class_def_raw;
         self._reset(mark)
-        return None
+        return None;
 
     @memoize
     def class_def_raw(self) -> Optional[ast . ClassDef]:
@@ -1476,26 +1485,28 @@ class HGLParser(Parser):
         tok = self._tokenizer.peek()
         start_lineno, start_col_offset = tok.start
         if (
-            (invalid_class_def_raw := self.invalid_class_def_raw())
+            self.call_invalid_rules
+            and
+            (self.invalid_class_def_raw())
         ):
-            return None  # pragma: no cover
+            return None  # pragma: no cover;
         self._reset(mark)
         if (
-            (literal := self.expect('class'))
+            (self.expect('class'))
             and
             (a := self.name())
             and
             (b := self._tmp_35(),)
             and
-            (forced := self.expect_forced(self.expect(':'), "':'"))
+            (self.expect_forced(self.expect(':'), "':'"))
             and
             (c := self.block())
         ):
             tok = self._tokenizer.get_last_non_whitespace_token()
             end_lineno, end_col_offset = tok.end
-            return ast . ClassDef ( a . string , bases = b [0] if b else [] , keywords = b [1] if b else [] , body = c , decorator_list = [] , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset , )
+            return ast . ClassDef ( a . string , bases = b [0] if b else [] , keywords = b [1] if b else [] , body = c , decorator_list = [] , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset , );
         self._reset(mark)
-        return None
+        return None;
 
     @memoize
     def function_def(self) -> Optional[Union [ast . FunctionDef , ast . AsyncFunctionDef]]:
@@ -1504,7 +1515,7 @@ class HGLParser(Parser):
         tok = self._tokenizer.peek()
         start_lineno, start_col_offset = tok.start
         if (
-            (literal := self.expect('@'))
+            (self.expect('@'))
             and
             (d := self.dec_maybe_call())
             and
@@ -1512,27 +1523,27 @@ class HGLParser(Parser):
             and
             (params := self._tmp_36(),)
             and
-            (forced := self.expect_forced(self.expect(':'), "':'"))
+            (self.expect_forced(self.expect(':'), "':'"))
             and
             (b := self.block())
         ):
             tok = self._tokenizer.get_last_non_whitespace_token()
             end_lineno, end_col_offset = tok.end
-            return self . set_decorators ( ast . FunctionDef ( name = n . string , args = params or self . make_arguments ( None , [] , None , [] , None ) , returns = None , body = b . append ( ast . Return ( value = ast . Call ( func = ast . Name ( id = 'locals' , ctx = Load , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset ) , args = [] , keywords = [] , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset ) , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset ) ) or b , type_comment = None , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset , ) , [d] )
+            return self . set_decorators ( ast . FunctionDef ( name = n . string , args = params or self . make_arguments ( None , [] , None , [] , None ) , returns = None , body = b . append ( ast . Return ( value = ast . Call ( func = ast . Name ( id = 'locals' , ctx = Load , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset ) , args = [] , keywords = [] , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset ) , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset ) ) or b , type_comment = None , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset , ) , [d] );
         self._reset(mark)
         if (
             (d := self.decorators())
             and
             (f := self.function_def_raw())
         ):
-            return self . set_decorators ( f , d )
+            return self . set_decorators ( f , d );
         self._reset(mark)
         if (
             (f := self.function_def_raw())
         ):
-            return self . set_decorators ( f , [] )
+            return self . set_decorators ( f , [] );
         self._reset(mark)
-        return None
+        return None;
 
     @memoize
     def function_def_raw(self) -> Optional[Union [ast . FunctionDef , ast . AsyncFunctionDef]]:
@@ -1541,24 +1552,26 @@ class HGLParser(Parser):
         tok = self._tokenizer.peek()
         start_lineno, start_col_offset = tok.start
         if (
-            (invalid_def_raw := self.invalid_def_raw())
+            self.call_invalid_rules
+            and
+            (self.invalid_def_raw())
         ):
-            return None  # pragma: no cover
+            return None  # pragma: no cover;
         self._reset(mark)
         if (
-            (literal := self.expect('def'))
+            (self.expect('def'))
             and
             (n := self.name())
             and
-            (forced := self.expect_forced(self.expect('('), "'('"))
+            (self.expect_forced(self.expect('('), "'('"))
             and
             (params := self.params(),)
             and
-            (literal_1 := self.expect(')'))
+            (self.expect(')'))
             and
             (a := self._tmp_37(),)
             and
-            (forced_1 := self.expect_forced(self.expect(':'), "':'"))
+            (self.expect_forced(self.expect(':'), "':'"))
             and
             (tc := self.func_type_comment(),)
             and
@@ -1566,24 +1579,24 @@ class HGLParser(Parser):
         ):
             tok = self._tokenizer.get_last_non_whitespace_token()
             end_lineno, end_col_offset = tok.end
-            return ast . FunctionDef ( name = n . string , args = params or self . make_arguments ( None , [] , None , [] , None ) , returns = a , body = b , type_comment = tc , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset , )
+            return ast . FunctionDef ( name = n . string , args = params or self . make_arguments ( None , [] , None , [] , None ) , returns = a , body = b , type_comment = tc , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset , );
         self._reset(mark)
         if (
-            (literal := self.expect('async'))
+            (self.expect('async'))
             and
-            (literal_1 := self.expect('def'))
+            (self.expect('def'))
             and
             (n := self.name())
             and
-            (forced := self.expect_forced(self.expect('('), "'('"))
+            (self.expect_forced(self.expect('('), "'('"))
             and
             (params := self.params(),)
             and
-            (literal_2 := self.expect(')'))
+            (self.expect(')'))
             and
             (a := self._tmp_38(),)
             and
-            (forced_1 := self.expect_forced(self.expect(':'), "':'"))
+            (self.expect_forced(self.expect(':'), "':'"))
             and
             (tc := self.func_type_comment(),)
             and
@@ -1591,25 +1604,27 @@ class HGLParser(Parser):
         ):
             tok = self._tokenizer.get_last_non_whitespace_token()
             end_lineno, end_col_offset = tok.end
-            return self . check_version ( ( 3 , 5 ) , "Async functions are" , ast . AsyncFunctionDef ( name = n . string , args = params or self . make_arguments ( None , [] , None , [] , None ) , returns = a , body = b , type_comment = tc , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset , ) )
+            return self . check_version ( ( 3 , 5 ) , "Async functions are" , ast . AsyncFunctionDef ( name = n . string , args = params or self . make_arguments ( None , [] , None , [] , None ) , returns = a , body = b , type_comment = tc , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset , ) );
         self._reset(mark)
-        return None
+        return None;
 
     @memoize
     def params(self) -> Optional[Any]:
         # params: invalid_parameters | parameters
         mark = self._mark()
         if (
-            (invalid_parameters := self.invalid_parameters())
+            self.call_invalid_rules
+            and
+            (self.invalid_parameters())
         ):
-            return None  # pragma: no cover
+            return None  # pragma: no cover;
         self._reset(mark)
         if (
             (parameters := self.parameters())
         ):
-            return parameters
+            return parameters;
         self._reset(mark)
-        return None
+        return None;
 
     @memoize
     def parameters(self) -> Optional[ast . arguments]:
@@ -1624,7 +1639,7 @@ class HGLParser(Parser):
             and
             (d := self.star_etc(),)
         ):
-            return self . check_version ( ( 3 , 8 ) , "Positional only arguments are" , self . make_arguments ( a , [] , b , c , d ) )
+            return self . check_version ( ( 3 , 8 ) , "Positional only arguments are" , self . make_arguments ( a , [] , b , c , d ) );
         self._reset(mark)
         if (
             (a := self.slash_with_default())
@@ -1633,7 +1648,7 @@ class HGLParser(Parser):
             and
             (c := self.star_etc(),)
         ):
-            return self . check_version ( ( 3 , 8 ) , "Positional only arguments are" , self . make_arguments ( None , a , None , b , c ) , )
+            return self . check_version ( ( 3 , 8 ) , "Positional only arguments are" , self . make_arguments ( None , a , None , b , c ) , );
         self._reset(mark)
         if (
             (a := self._loop1_42())
@@ -1642,21 +1657,21 @@ class HGLParser(Parser):
             and
             (c := self.star_etc(),)
         ):
-            return self . make_arguments ( None , [] , a , b , c )
+            return self . make_arguments ( None , [] , a , b , c );
         self._reset(mark)
         if (
             (a := self._loop1_44())
             and
             (b := self.star_etc(),)
         ):
-            return self . make_arguments ( None , [] , None , a , b )
+            return self . make_arguments ( None , [] , None , a , b );
         self._reset(mark)
         if (
             (a := self.star_etc())
         ):
-            return self . make_arguments ( None , [] , None , None , a )
+            return self . make_arguments ( None , [] , None , None , a );
         self._reset(mark)
-        return None
+        return None;
 
     @memoize
     def slash_no_default(self) -> Optional[List [Tuple [ast . arg , None]]]:
@@ -1665,22 +1680,22 @@ class HGLParser(Parser):
         if (
             (a := self._loop1_45())
             and
-            (literal := self.expect('/'))
+            (self.expect('/'))
             and
-            (literal_1 := self.expect(','))
+            (self.expect(','))
         ):
-            return [( p , None ) for p in a]
+            return [( p , None ) for p in a];
         self._reset(mark)
         if (
             (a := self._loop1_46())
             and
-            (literal := self.expect('/'))
+            (self.expect('/'))
             and
-            self.positive_lookahead(self.expect, ')')
+            (self.positive_lookahead(self.expect, ')'))
         ):
-            return [( p , None ) for p in a]
+            return [( p , None ) for p in a];
         self._reset(mark)
-        return None
+        return None;
 
     @memoize
     def slash_with_default(self) -> Optional[List [Tuple [ast . arg , Any]]]:
@@ -1691,36 +1706,38 @@ class HGLParser(Parser):
             and
             (b := self._loop1_48())
             and
-            (literal := self.expect('/'))
+            (self.expect('/'))
             and
-            (literal_1 := self.expect(','))
+            (self.expect(','))
         ):
-            return ( [( p , None ) for p in a] if a else [] ) + b
+            return ( [( p , None ) for p in a] if a else [] ) + b;
         self._reset(mark)
         if (
             (a := self._loop0_49(),)
             and
             (b := self._loop1_50())
             and
-            (literal := self.expect('/'))
+            (self.expect('/'))
             and
-            self.positive_lookahead(self.expect, ')')
+            (self.positive_lookahead(self.expect, ')'))
         ):
-            return ( [( p , None ) for p in a] if a else [] ) + b
+            return ( [( p , None ) for p in a] if a else [] ) + b;
         self._reset(mark)
-        return None
+        return None;
 
     @memoize
     def star_etc(self) -> Optional[Tuple [Optional [ast . arg] , List [Tuple [ast . arg , Any]] , Optional [ast . arg]]]:
         # star_etc: invalid_star_etc | '*' param_no_default param_maybe_default* kwds? | '*' ',' param_maybe_default+ kwds? | kwds
         mark = self._mark()
         if (
-            (invalid_star_etc := self.invalid_star_etc())
+            self.call_invalid_rules
+            and
+            (self.invalid_star_etc())
         ):
-            return None  # pragma: no cover
+            return None  # pragma: no cover;
         self._reset(mark)
         if (
-            (literal := self.expect('*'))
+            (self.expect('*'))
             and
             (a := self.param_no_default())
             and
@@ -1728,43 +1745,45 @@ class HGLParser(Parser):
             and
             (c := self.kwds(),)
         ):
-            return ( a , b , c )
+            return ( a , b , c );
         self._reset(mark)
         if (
-            (literal := self.expect('*'))
+            (self.expect('*'))
             and
-            (literal_1 := self.expect(','))
+            (self.expect(','))
             and
             (b := self._loop1_52())
             and
             (c := self.kwds(),)
         ):
-            return ( None , b , c )
+            return ( None , b , c );
         self._reset(mark)
         if (
             (a := self.kwds())
         ):
-            return ( None , [] , a )
+            return ( None , [] , a );
         self._reset(mark)
-        return None
+        return None;
 
     @memoize
     def kwds(self) -> Optional[ast . arg]:
         # kwds: invalid_kwds | '**' param_no_default
         mark = self._mark()
         if (
-            (invalid_kwds := self.invalid_kwds())
+            self.call_invalid_rules
+            and
+            (self.invalid_kwds())
         ):
-            return None  # pragma: no cover
+            return None  # pragma: no cover;
         self._reset(mark)
         if (
-            (literal := self.expect('**'))
+            (self.expect('**'))
             and
             (a := self.param_no_default())
         ):
-            return a
+            return a;
         self._reset(mark)
-        return None
+        return None;
 
     @memoize
     def param_no_default(self) -> Optional[ast . arg]:
@@ -1773,22 +1792,22 @@ class HGLParser(Parser):
         if (
             (a := self.param())
             and
-            (literal := self.expect(','))
+            (self.expect(','))
             and
             (tc := self.type_comment(),)
         ):
-            return self . set_arg_type_comment ( a , tc )
+            return self . set_arg_type_comment ( a , tc );
         self._reset(mark)
         if (
             (a := self.param())
             and
             (tc := self.type_comment(),)
             and
-            self.positive_lookahead(self.expect, ')')
+            (self.positive_lookahead(self.expect, ')'))
         ):
-            return self . set_arg_type_comment ( a , tc )
+            return self . set_arg_type_comment ( a , tc );
         self._reset(mark)
-        return None
+        return None;
 
     @memoize
     def param_with_default(self) -> Optional[Tuple [ast . arg , Any]]:
@@ -1799,11 +1818,11 @@ class HGLParser(Parser):
             and
             (c := self.default())
             and
-            (literal := self.expect(','))
+            (self.expect(','))
             and
             (tc := self.type_comment(),)
         ):
-            return ( self . set_arg_type_comment ( a , tc ) , c )
+            return ( self . set_arg_type_comment ( a , tc ) , c );
         self._reset(mark)
         if (
             (a := self.param())
@@ -1812,11 +1831,11 @@ class HGLParser(Parser):
             and
             (tc := self.type_comment(),)
             and
-            self.positive_lookahead(self.expect, ')')
+            (self.positive_lookahead(self.expect, ')'))
         ):
-            return ( self . set_arg_type_comment ( a , tc ) , c )
+            return ( self . set_arg_type_comment ( a , tc ) , c );
         self._reset(mark)
-        return None
+        return None;
 
     @memoize
     def param_maybe_default(self) -> Optional[Tuple [ast . arg , Any]]:
@@ -1827,11 +1846,11 @@ class HGLParser(Parser):
             and
             (c := self.default(),)
             and
-            (literal := self.expect(','))
+            (self.expect(','))
             and
             (tc := self.type_comment(),)
         ):
-            return ( self . set_arg_type_comment ( a , tc ) , c )
+            return ( self . set_arg_type_comment ( a , tc ) , c );
         self._reset(mark)
         if (
             (a := self.param())
@@ -1840,11 +1859,11 @@ class HGLParser(Parser):
             and
             (tc := self.type_comment(),)
             and
-            self.positive_lookahead(self.expect, ')')
+            (self.positive_lookahead(self.expect, ')'))
         ):
-            return ( self . set_arg_type_comment ( a , tc ) , c )
+            return ( self . set_arg_type_comment ( a , tc ) , c );
         self._reset(mark)
-        return None
+        return None;
 
     @memoize
     def param(self) -> Optional[Any]:
@@ -1859,40 +1878,42 @@ class HGLParser(Parser):
         ):
             tok = self._tokenizer.get_last_non_whitespace_token()
             end_lineno, end_col_offset = tok.end
-            return ast . arg ( arg = a . string , annotation = b , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset )
+            return ast . arg ( arg = a . string , annotation = b , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset );
         self._reset(mark)
-        return None
+        return None;
 
     @memoize
     def annotation(self) -> Optional[Any]:
         # annotation: ':' expression
         mark = self._mark()
         if (
-            (literal := self.expect(':'))
+            (self.expect(':'))
             and
             (a := self.expression())
         ):
-            return a
+            return a;
         self._reset(mark)
-        return None
+        return None;
 
     @memoize
     def default(self) -> Optional[Any]:
         # default: '=' expression | invalid_default
         mark = self._mark()
         if (
-            (literal := self.expect('='))
+            (self.expect('='))
             and
             (a := self.expression())
         ):
-            return a
+            return a;
         self._reset(mark)
         if (
-            (invalid_default := self.invalid_default())
+            self.call_invalid_rules
+            and
+            (self.invalid_default())
         ):
-            return None  # pragma: no cover
+            return None  # pragma: no cover;
         self._reset(mark)
-        return None
+        return None;
 
     @memoize
     def if_stmt(self) -> Optional[ast . If]:
@@ -1901,16 +1922,18 @@ class HGLParser(Parser):
         tok = self._tokenizer.peek()
         start_lineno, start_col_offset = tok.start
         if (
-            (invalid_if_stmt := self.invalid_if_stmt())
+            self.call_invalid_rules
+            and
+            (self.invalid_if_stmt())
         ):
-            return None  # pragma: no cover
+            return None  # pragma: no cover;
         self._reset(mark)
         if (
-            (literal := self.expect('if'))
+            (self.expect('if'))
             and
             (a := self.named_expression())
             and
-            (literal_1 := self.expect(':'))
+            (self.expect(':'))
             and
             (b := self.block())
             and
@@ -1918,14 +1941,14 @@ class HGLParser(Parser):
         ):
             tok = self._tokenizer.get_last_non_whitespace_token()
             end_lineno, end_col_offset = tok.end
-            return ast . If ( test = a , body = b , orelse = c or [] , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset )
+            return ast . If ( test = a , body = b , orelse = c or [] , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset );
         self._reset(mark)
         if (
-            (literal := self.expect('if'))
+            (self.expect('if'))
             and
             (a := self.named_expression())
             and
-            (literal_1 := self.expect(':'))
+            (self.expect(':'))
             and
             (b := self.block())
             and
@@ -1933,9 +1956,9 @@ class HGLParser(Parser):
         ):
             tok = self._tokenizer.get_last_non_whitespace_token()
             end_lineno, end_col_offset = tok.end
-            return ast . If ( test = a , body = b , orelse = c or [] , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset )
+            return ast . If ( test = a , body = b , orelse = c or [] , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset );
         self._reset(mark)
-        return None
+        return None;
 
     @memoize
     def elif_stmt(self) -> Optional[List [ast . If]]:
@@ -1944,16 +1967,18 @@ class HGLParser(Parser):
         tok = self._tokenizer.peek()
         start_lineno, start_col_offset = tok.start
         if (
-            (invalid_elif_stmt := self.invalid_elif_stmt())
+            self.call_invalid_rules
+            and
+            (self.invalid_elif_stmt())
         ):
-            return None  # pragma: no cover
+            return None  # pragma: no cover;
         self._reset(mark)
         if (
-            (literal := self.expect('elif'))
+            (self.expect('elif'))
             and
             (a := self.named_expression())
             and
-            (literal_1 := self.expect(':'))
+            (self.expect(':'))
             and
             (b := self.block())
             and
@@ -1961,14 +1986,14 @@ class HGLParser(Parser):
         ):
             tok = self._tokenizer.get_last_non_whitespace_token()
             end_lineno, end_col_offset = tok.end
-            return [ast . If ( test = a , body = b , orelse = c , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset )]
+            return [ast . If ( test = a , body = b , orelse = c , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset )];
         self._reset(mark)
         if (
-            (literal := self.expect('elif'))
+            (self.expect('elif'))
             and
             (a := self.named_expression())
             and
-            (literal_1 := self.expect(':'))
+            (self.expect(':'))
             and
             (b := self.block())
             and
@@ -1976,29 +2001,31 @@ class HGLParser(Parser):
         ):
             tok = self._tokenizer.get_last_non_whitespace_token()
             end_lineno, end_col_offset = tok.end
-            return [ast . If ( test = a , body = b , orelse = c or [] , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset )]
+            return [ast . If ( test = a , body = b , orelse = c or [] , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset )];
         self._reset(mark)
-        return None
+        return None;
 
     @memoize
     def else_block(self) -> Optional[list]:
         # else_block: invalid_else_stmt | 'else' &&':' block
         mark = self._mark()
         if (
-            (invalid_else_stmt := self.invalid_else_stmt())
+            self.call_invalid_rules
+            and
+            (self.invalid_else_stmt())
         ):
-            return None  # pragma: no cover
+            return None  # pragma: no cover;
         self._reset(mark)
         if (
-            (literal := self.expect('else'))
+            (self.expect('else'))
             and
-            (forced := self.expect_forced(self.expect(':'), "':'"))
+            (self.expect_forced(self.expect(':'), "':'"))
             and
             (b := self.block())
         ):
-            return b
+            return b;
         self._reset(mark)
-        return None
+        return None;
 
     @memoize
     def while_stmt(self) -> Optional[ast . While]:
@@ -2007,16 +2034,18 @@ class HGLParser(Parser):
         tok = self._tokenizer.peek()
         start_lineno, start_col_offset = tok.start
         if (
-            (invalid_while_stmt := self.invalid_while_stmt())
+            self.call_invalid_rules
+            and
+            (self.invalid_while_stmt())
         ):
-            return None  # pragma: no cover
+            return None  # pragma: no cover;
         self._reset(mark)
         if (
-            (literal := self.expect('while'))
+            (self.expect('while'))
             and
             (a := self.named_expression())
             and
-            (literal_1 := self.expect(':'))
+            (self.expect(':'))
             and
             (b := self.block())
             and
@@ -2024,9 +2053,9 @@ class HGLParser(Parser):
         ):
             tok = self._tokenizer.get_last_non_whitespace_token()
             end_lineno, end_col_offset = tok.end
-            return ast . While ( test = a , body = b , orelse = c or [] , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset )
+            return ast . While ( test = a , body = b , orelse = c or [] , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset );
         self._reset(mark)
-        return None
+        return None;
 
     @memoize
     def for_stmt(self) -> Optional[Union [ast . For , ast . AsyncFor]]:
@@ -2035,23 +2064,25 @@ class HGLParser(Parser):
         tok = self._tokenizer.peek()
         start_lineno, start_col_offset = tok.start
         if (
-            (invalid_for_stmt := self.invalid_for_stmt())
+            self.call_invalid_rules
+            and
+            (self.invalid_for_stmt())
         ):
-            return None  # pragma: no cover
+            return None  # pragma: no cover;
         self._reset(mark)
         cut = False
         if (
-            (literal := self.expect('for'))
+            (self.expect('for'))
             and
             (t := self.star_targets())
             and
-            (literal_1 := self.expect('in'))
+            (self.expect('in'))
             and
             (cut := True)
             and
             (ex := self.star_expressions())
             and
-            (forced := self.expect_forced(self.expect(':'), "':'"))
+            (self.expect_forced(self.expect(':'), "':'"))
             and
             (tc := self.type_comment(),)
             and
@@ -2061,24 +2092,25 @@ class HGLParser(Parser):
         ):
             tok = self._tokenizer.get_last_non_whitespace_token()
             end_lineno, end_col_offset = tok.end
-            return ast . For ( target = t , iter = ex , body = b , orelse = el or [] , type_comment = tc , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset )
+            return ast . For ( target = t , iter = ex , body = b , orelse = el or [] , type_comment = tc , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset );
         self._reset(mark)
-        if cut: return None
+        if cut:
+            return None;
         cut = False
         if (
-            (literal := self.expect('async'))
+            (self.expect('async'))
             and
-            (literal_1 := self.expect('for'))
+            (self.expect('for'))
             and
             (t := self.star_targets())
             and
-            (literal_2 := self.expect('in'))
+            (self.expect('in'))
             and
             (cut := True)
             and
             (ex := self.star_expressions())
             and
-            (literal_3 := self.expect(':'))
+            (self.expect(':'))
             and
             (tc := self.type_comment(),)
             and
@@ -2088,15 +2120,18 @@ class HGLParser(Parser):
         ):
             tok = self._tokenizer.get_last_non_whitespace_token()
             end_lineno, end_col_offset = tok.end
-            return self . check_version ( ( 3 , 5 ) , "Async for loops are" , ast . AsyncFor ( target = t , iter = ex , body = b , orelse = el or [] , type_comment = tc , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset ) )
+            return self . check_version ( ( 3 , 5 ) , "Async for loops are" , ast . AsyncFor ( target = t , iter = ex , body = b , orelse = el or [] , type_comment = tc , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset ) );
         self._reset(mark)
-        if cut: return None
+        if cut:
+            return None;
         if (
-            (invalid_for_target := self.invalid_for_target())
+            self.call_invalid_rules
+            and
+            (self.invalid_for_target())
         ):
-            return None  # pragma: no cover
+            return None  # pragma: no cover;
         self._reset(mark)
-        return None
+        return None;
 
     @memoize
     def with_stmt(self) -> Optional[Union [ast . With , ast . AsyncWith]]:
@@ -2105,35 +2140,37 @@ class HGLParser(Parser):
         tok = self._tokenizer.peek()
         start_lineno, start_col_offset = tok.start
         if (
-            (invalid_with_stmt_indent := self.invalid_with_stmt_indent())
+            self.call_invalid_rules
+            and
+            (self.invalid_with_stmt_indent())
         ):
-            return None  # pragma: no cover
+            return None  # pragma: no cover;
         self._reset(mark)
         if (
-            (literal := self.expect('with'))
+            (self.expect('with'))
             and
-            (literal_1 := self.expect('('))
+            (self.expect('('))
             and
             (a := self._gather_53())
             and
-            (opt := self.expect(','),)
+            (self.expect(','),)
             and
-            (literal_2 := self.expect(')'))
+            (self.expect(')'))
             and
-            (literal_3 := self.expect(':'))
+            (self.expect(':'))
             and
             (b := self.block())
         ):
             tok = self._tokenizer.get_last_non_whitespace_token()
             end_lineno, end_col_offset = tok.end
-            return self . check_version ( ( 3 , 9 ) , "Parenthesized with items" , ast . With ( items = a , body = b , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset ) )
+            return self . check_version ( ( 3 , 9 ) , "Parenthesized with items" , ast . With ( items = a , body = b , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset ) );
         self._reset(mark)
         if (
-            (literal := self.expect('with'))
+            (self.expect('with'))
             and
             (a := self._gather_55())
             and
-            (literal_1 := self.expect(':'))
+            (self.expect(':'))
             and
             (tc := self.type_comment(),)
             and
@@ -2141,37 +2178,37 @@ class HGLParser(Parser):
         ):
             tok = self._tokenizer.get_last_non_whitespace_token()
             end_lineno, end_col_offset = tok.end
-            return ast . With ( items = a , body = b , type_comment = tc , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset )
+            return ast . With ( items = a , body = b , type_comment = tc , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset );
         self._reset(mark)
         if (
-            (literal := self.expect('async'))
+            (self.expect('async'))
             and
-            (literal_1 := self.expect('with'))
+            (self.expect('with'))
             and
-            (literal_2 := self.expect('('))
+            (self.expect('('))
             and
             (a := self._gather_57())
             and
-            (opt := self.expect(','),)
+            (self.expect(','),)
             and
-            (literal_3 := self.expect(')'))
+            (self.expect(')'))
             and
-            (literal_4 := self.expect(':'))
+            (self.expect(':'))
             and
             (b := self.block())
         ):
             tok = self._tokenizer.get_last_non_whitespace_token()
             end_lineno, end_col_offset = tok.end
-            return self . check_version ( ( 3 , 9 ) , "Parenthesized with items" , ast . AsyncWith ( items = a , body = b , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset ) )
+            return self . check_version ( ( 3 , 9 ) , "Parenthesized with items" , ast . AsyncWith ( items = a , body = b , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset ) );
         self._reset(mark)
         if (
-            (literal := self.expect('async'))
+            (self.expect('async'))
             and
-            (literal_1 := self.expect('with'))
+            (self.expect('with'))
             and
             (a := self._gather_59())
             and
-            (literal_2 := self.expect(':'))
+            (self.expect(':'))
             and
             (tc := self.type_comment(),)
             and
@@ -2179,14 +2216,16 @@ class HGLParser(Parser):
         ):
             tok = self._tokenizer.get_last_non_whitespace_token()
             end_lineno, end_col_offset = tok.end
-            return self . check_version ( ( 3 , 5 ) , "Async with statements are" , ast . AsyncWith ( items = a , body = b , type_comment = tc , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset ) )
+            return self . check_version ( ( 3 , 5 ) , "Async with statements are" , ast . AsyncWith ( items = a , body = b , type_comment = tc , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset ) );
         self._reset(mark)
         if (
-            (invalid_with_stmt := self.invalid_with_stmt())
+            self.call_invalid_rules
+            and
+            (self.invalid_with_stmt())
         ):
-            return None  # pragma: no cover
+            return None  # pragma: no cover;
         self._reset(mark)
-        return None
+        return None;
 
     @memoize
     def with_item(self) -> Optional[ast . withitem]:
@@ -2195,25 +2234,27 @@ class HGLParser(Parser):
         if (
             (e := self.expression())
             and
-            (literal := self.expect('as'))
+            (self.expect('as'))
             and
             (t := self.star_target())
             and
-            self.positive_lookahead(self._tmp_61, )
+            (self.positive_lookahead(self._tmp_61, ))
         ):
-            return ast . withitem ( context_expr = e , optional_vars = t )
+            return ast . withitem ( context_expr = e , optional_vars = t );
         self._reset(mark)
         if (
-            (invalid_with_item := self.invalid_with_item())
+            self.call_invalid_rules
+            and
+            (self.invalid_with_item())
         ):
-            return None  # pragma: no cover
+            return None  # pragma: no cover;
         self._reset(mark)
         if (
             (e := self.expression())
         ):
-            return ast . withitem ( context_expr = e , optional_vars = None )
+            return ast . withitem ( context_expr = e , optional_vars = None );
         self._reset(mark)
-        return None
+        return None;
 
     @memoize
     def when_stmt(self) -> Optional[ast . With]:
@@ -2222,19 +2263,19 @@ class HGLParser(Parser):
         tok = self._tokenizer.peek()
         start_lineno, start_col_offset = tok.start
         if (
-            (literal := self.expect("when"))
+            (self.expect("when"))
             and
             (e := self.named_expression())
             and
-            (literal_1 := self.expect(':'))
+            (self.expect(':'))
             and
             (b := self.block())
         ):
             tok = self._tokenizer.get_last_non_whitespace_token()
             end_lineno, end_col_offset = tok.end
-            return ast . With ( items = [ast . withitem ( context_expr = ast . Call ( func = ast . Name ( id = '__hgl_when__' , ctx = Load , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset ) , args = [e] , keywords = [] , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset ) , optional_vars = None )] , body = b , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset )
+            return ast . With ( items = [ast . withitem ( context_expr = ast . Call ( func = ast . Name ( id = '__hgl_when__' , ctx = Load , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset ) , args = [e] , keywords = [] , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset ) , optional_vars = None )] , body = b , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset );
         self._reset(mark)
-        return None
+        return None;
 
     @memoize
     def elsewhen_stmt(self) -> Optional[ast . With]:
@@ -2243,19 +2284,19 @@ class HGLParser(Parser):
         tok = self._tokenizer.peek()
         start_lineno, start_col_offset = tok.start
         if (
-            (literal := self.expect("elsewhen"))
+            (self.expect("elsewhen"))
             and
             (e := self.named_expression())
             and
-            (literal_1 := self.expect(':'))
+            (self.expect(':'))
             and
             (b := self.block())
         ):
             tok = self._tokenizer.get_last_non_whitespace_token()
             end_lineno, end_col_offset = tok.end
-            return ast . With ( items = [ast . withitem ( context_expr = ast . Call ( func = ast . Name ( id = '__hgl_elsewhen__' , ctx = Load , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset ) , args = [e] , keywords = [] , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset ) , optional_vars = None )] , body = b , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset )
+            return ast . With ( items = [ast . withitem ( context_expr = ast . Call ( func = ast . Name ( id = '__hgl_elsewhen__' , ctx = Load , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset ) , args = [e] , keywords = [] , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset ) , optional_vars = None )] , body = b , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset );
         self._reset(mark)
-        return None
+        return None;
 
     @memoize
     def otherwise_stmt(self) -> Optional[ast . With]:
@@ -2264,17 +2305,17 @@ class HGLParser(Parser):
         tok = self._tokenizer.peek()
         start_lineno, start_col_offset = tok.start
         if (
-            (literal := self.expect("otherwise"))
+            (self.expect("otherwise"))
             and
-            (literal_1 := self.expect(':'))
+            (self.expect(':'))
             and
             (b := self.block())
         ):
             tok = self._tokenizer.get_last_non_whitespace_token()
             end_lineno, end_col_offset = tok.end
-            return ast . With ( items = [ast . withitem ( context_expr = ast . Call ( func = ast . Name ( id = '__hgl_otherwise__' , ctx = Load , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset ) , args = [] , keywords = [] , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset ) , optional_vars = None )] , body = b , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset )
+            return ast . With ( items = [ast . withitem ( context_expr = ast . Call ( func = ast . Name ( id = '__hgl_otherwise__' , ctx = Load , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset ) , args = [] , keywords = [] , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset ) , optional_vars = None )] , body = b , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset );
         self._reset(mark)
-        return None
+        return None;
 
     @memoize
     def switch_stmt(self) -> Optional[ast . With]:
@@ -2283,25 +2324,25 @@ class HGLParser(Parser):
         tok = self._tokenizer.peek()
         start_lineno, start_col_offset = tok.start
         if (
-            (literal := self.expect("switch"))
+            (self.expect("switch"))
             and
             (e := self.named_expression())
             and
-            (literal_1 := self.expect(':'))
+            (self.expect(':'))
             and
-            (_newline := self.expect('NEWLINE'))
+            (self.expect('NEWLINE'))
             and
-            (_indent := self.expect('INDENT'))
+            (self.expect('INDENT'))
             and
             (cases := self._loop1_62())
             and
-            (_dedent := self.expect('DEDENT'))
+            (self.expect('DEDENT'))
         ):
             tok = self._tokenizer.get_last_non_whitespace_token()
             end_lineno, end_col_offset = tok.end
-            return ast . With ( items = [ast . withitem ( context_expr = ast . Call ( func = ast . Name ( id = '__hgl_switch__' , ctx = Load , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset ) , args = [e] , keywords = [] , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset ) , optional_vars = None )] , body = cases , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset )
+            return ast . With ( items = [ast . withitem ( context_expr = ast . Call ( func = ast . Name ( id = '__hgl_switch__' , ctx = Load , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset ) , args = [e] , keywords = [] , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset ) , optional_vars = None )] , body = cases , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset );
         self._reset(mark)
-        return None
+        return None;
 
     @memoize
     def switch_block(self) -> Optional[ast . With]:
@@ -2310,19 +2351,19 @@ class HGLParser(Parser):
         tok = self._tokenizer.peek()
         start_lineno, start_col_offset = tok.start
         if (
-            (literal := self.expect("once"))
+            (self.expect("once"))
             and
             (e := self.star_named_expressions())
             and
-            (literal_1 := self.expect(':'))
+            (self.expect(':'))
             and
             (b := self.block())
         ):
             tok = self._tokenizer.get_last_non_whitespace_token()
             end_lineno, end_col_offset = tok.end
-            return ast . With ( items = [ast . withitem ( context_expr = ast . Call ( func = ast . Name ( id = '__hgl_once__' , ctx = Load , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset ) , args = [ast . Tuple ( elts = e or [] , ctx = Load , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset )] , keywords = [] , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset ) , optional_vars = None )] , body = b , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset )
+            return ast . With ( items = [ast . withitem ( context_expr = ast . Call ( func = ast . Name ( id = '__hgl_once__' , ctx = Load , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset ) , args = [ast . Tuple ( elts = e or [] , ctx = Load , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset )] , keywords = [] , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset ) , optional_vars = None )] , body = b , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset );
         self._reset(mark)
-        return None
+        return None;
 
     @memoize
     def try_stmt(self) -> Optional[ast . Try]:
@@ -2331,14 +2372,16 @@ class HGLParser(Parser):
         tok = self._tokenizer.peek()
         start_lineno, start_col_offset = tok.start
         if (
-            (invalid_try_stmt := self.invalid_try_stmt())
+            self.call_invalid_rules
+            and
+            (self.invalid_try_stmt())
         ):
-            return None  # pragma: no cover
+            return None  # pragma: no cover;
         self._reset(mark)
         if (
-            (literal := self.expect('try'))
+            (self.expect('try'))
             and
-            (forced := self.expect_forced(self.expect(':'), "':'"))
+            (self.expect_forced(self.expect(':'), "':'"))
             and
             (b := self.block())
             and
@@ -2346,12 +2389,12 @@ class HGLParser(Parser):
         ):
             tok = self._tokenizer.get_last_non_whitespace_token()
             end_lineno, end_col_offset = tok.end
-            return ast . Try ( body = b , handlers = [] , orelse = [] , finalbody = f , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset )
+            return ast . Try ( body = b , handlers = [] , orelse = [] , finalbody = f , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset );
         self._reset(mark)
         if (
-            (literal := self.expect('try'))
+            (self.expect('try'))
             and
-            (forced := self.expect_forced(self.expect(':'), "':'"))
+            (self.expect_forced(self.expect(':'), "':'"))
             and
             (b := self.block())
             and
@@ -2363,9 +2406,9 @@ class HGLParser(Parser):
         ):
             tok = self._tokenizer.get_last_non_whitespace_token()
             end_lineno, end_col_offset = tok.end
-            return ast . Try ( body = b , handlers = ex , orelse = el or [] , finalbody = f or [] , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset )
+            return ast . Try ( body = b , handlers = ex , orelse = el or [] , finalbody = f or [] , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset );
         self._reset(mark)
-        return None
+        return None;
 
     @memoize
     def except_block(self) -> Optional[ast . ExceptHandler]:
@@ -2374,62 +2417,68 @@ class HGLParser(Parser):
         tok = self._tokenizer.peek()
         start_lineno, start_col_offset = tok.start
         if (
-            (invalid_except_stmt_indent := self.invalid_except_stmt_indent())
+            self.call_invalid_rules
+            and
+            (self.invalid_except_stmt_indent())
         ):
-            return None  # pragma: no cover
+            return None  # pragma: no cover;
         self._reset(mark)
         if (
-            (literal := self.expect('except'))
+            (self.expect('except'))
             and
             (e := self.expression())
             and
             (t := self._tmp_64(),)
             and
-            (literal_1 := self.expect(':'))
+            (self.expect(':'))
             and
             (b := self.block())
         ):
             tok = self._tokenizer.get_last_non_whitespace_token()
             end_lineno, end_col_offset = tok.end
-            return ast . ExceptHandler ( type = e , name = t , body = b , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset )
+            return ast . ExceptHandler ( type = e , name = t , body = b , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset );
         self._reset(mark)
         if (
-            (literal := self.expect('except'))
+            (self.expect('except'))
             and
-            (literal_1 := self.expect(':'))
+            (self.expect(':'))
             and
             (b := self.block())
         ):
             tok = self._tokenizer.get_last_non_whitespace_token()
             end_lineno, end_col_offset = tok.end
-            return ast . ExceptHandler ( type = None , name = None , body = b , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset )
+            return ast . ExceptHandler ( type = None , name = None , body = b , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset );
         self._reset(mark)
         if (
-            (invalid_except_stmt := self.invalid_except_stmt())
+            self.call_invalid_rules
+            and
+            (self.invalid_except_stmt())
         ):
-            return None  # pragma: no cover
+            return None  # pragma: no cover;
         self._reset(mark)
-        return None
+        return None;
 
     @memoize
     def finally_block(self) -> Optional[list]:
         # finally_block: invalid_finally_stmt | 'finally' &&':' block
         mark = self._mark()
         if (
-            (invalid_finally_stmt := self.invalid_finally_stmt())
+            self.call_invalid_rules
+            and
+            (self.invalid_finally_stmt())
         ):
-            return None  # pragma: no cover
+            return None  # pragma: no cover;
         self._reset(mark)
         if (
-            (literal := self.expect('finally'))
+            (self.expect('finally'))
             and
-            (forced := self.expect_forced(self.expect(':'), "':'"))
+            (self.expect_forced(self.expect(':'), "':'"))
             and
             (a := self.block())
         ):
-            return a
+            return a;
         self._reset(mark)
-        return None
+        return None;
 
     @memoize
     def match_stmt(self) -> Optional["ast.Match"]:
@@ -2438,30 +2487,32 @@ class HGLParser(Parser):
         tok = self._tokenizer.peek()
         start_lineno, start_col_offset = tok.start
         if (
-            (literal := self.expect("match"))
+            (self.expect("match"))
             and
             (subject := self.subject_expr())
             and
-            (literal_1 := self.expect(':'))
+            (self.expect(':'))
             and
-            (_newline := self.expect('NEWLINE'))
+            (self.expect('NEWLINE'))
             and
-            (_indent := self.expect('INDENT'))
+            (self.expect('INDENT'))
             and
             (cases := self._loop1_65())
             and
-            (_dedent := self.expect('DEDENT'))
+            (self.expect('DEDENT'))
         ):
             tok = self._tokenizer.get_last_non_whitespace_token()
             end_lineno, end_col_offset = tok.end
-            return ast . Match ( subject = subject , cases = cases , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset )
+            return ast . Match ( subject = subject , cases = cases , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset );
         self._reset(mark)
         if (
-            (invalid_match_stmt := self.invalid_match_stmt())
+            self.call_invalid_rules
+            and
+            (self.invalid_match_stmt())
         ):
-            return None  # pragma: no cover
+            return None  # pragma: no cover;
         self._reset(mark)
-        return None
+        return None;
 
     @memoize
     def subject_expr(self) -> Optional[Any]:
@@ -2472,57 +2523,59 @@ class HGLParser(Parser):
         if (
             (value := self.star_named_expression())
             and
-            (literal := self.expect(','))
+            (self.expect(','))
             and
             (values := self.star_named_expressions(),)
         ):
             tok = self._tokenizer.get_last_non_whitespace_token()
             end_lineno, end_col_offset = tok.end
-            return self . check_version ( ( 3 , 10 ) , "Pattern matching is" , ast . Tuple ( elts = [value] + ( values or [] ) , ctx = Load , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset ) )
+            return self . check_version ( ( 3 , 10 ) , "Pattern matching is" , ast . Tuple ( elts = [value] + ( values or [] ) , ctx = Load , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset ) );
         self._reset(mark)
         if (
             (e := self.named_expression())
         ):
-            return self . check_version ( ( 3 , 10 ) , "Pattern matching is" , e )
+            return self . check_version ( ( 3 , 10 ) , "Pattern matching is" , e );
         self._reset(mark)
-        return None
+        return None;
 
     @memoize
     def case_block(self) -> Optional["ast.match_case"]:
         # case_block: invalid_case_block | "case" patterns guard? ':' block
         mark = self._mark()
         if (
-            (invalid_case_block := self.invalid_case_block())
+            self.call_invalid_rules
+            and
+            (self.invalid_case_block())
         ):
-            return None  # pragma: no cover
+            return None  # pragma: no cover;
         self._reset(mark)
         if (
-            (literal := self.expect("case"))
+            (self.expect("case"))
             and
             (pattern := self.patterns())
             and
             (guard := self.guard(),)
             and
-            (literal_1 := self.expect(':'))
+            (self.expect(':'))
             and
             (body := self.block())
         ):
-            return ast . match_case ( pattern = pattern , guard = guard , body = body )
+            return ast . match_case ( pattern = pattern , guard = guard , body = body );
         self._reset(mark)
-        return None
+        return None;
 
     @memoize
     def guard(self) -> Optional[Any]:
         # guard: 'if' named_expression
         mark = self._mark()
         if (
-            (literal := self.expect('if'))
+            (self.expect('if'))
             and
             (guard := self.named_expression())
         ):
-            return guard
+            return guard;
         self._reset(mark)
-        return None
+        return None;
 
     @memoize
     def patterns(self) -> Optional[Any]:
@@ -2535,14 +2588,14 @@ class HGLParser(Parser):
         ):
             tok = self._tokenizer.get_last_non_whitespace_token()
             end_lineno, end_col_offset = tok.end
-            return ast . MatchSequence ( patterns = patterns , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset )
+            return ast . MatchSequence ( patterns = patterns , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset );
         self._reset(mark)
         if (
             (pattern := self.pattern())
         ):
-            return pattern
+            return pattern;
         self._reset(mark)
-        return None
+        return None;
 
     @memoize
     def pattern(self) -> Optional[Any]:
@@ -2551,14 +2604,14 @@ class HGLParser(Parser):
         if (
             (as_pattern := self.as_pattern())
         ):
-            return as_pattern
+            return as_pattern;
         self._reset(mark)
         if (
             (or_pattern := self.or_pattern())
         ):
-            return or_pattern
+            return or_pattern;
         self._reset(mark)
-        return None
+        return None;
 
     @memoize
     def as_pattern(self) -> Optional["ast.MatchAs"]:
@@ -2569,20 +2622,22 @@ class HGLParser(Parser):
         if (
             (pattern := self.or_pattern())
             and
-            (literal := self.expect('as'))
+            (self.expect('as'))
             and
             (target := self.pattern_capture_target())
         ):
             tok = self._tokenizer.get_last_non_whitespace_token()
             end_lineno, end_col_offset = tok.end
-            return ast . MatchAs ( pattern = pattern , name = target , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset )
+            return ast . MatchAs ( pattern = pattern , name = target , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset );
         self._reset(mark)
         if (
-            (invalid_as_pattern := self.invalid_as_pattern())
+            self.call_invalid_rules
+            and
+            (self.invalid_as_pattern())
         ):
-            return None  # pragma: no cover
+            return None  # pragma: no cover;
         self._reset(mark)
-        return None
+        return None;
 
     @memoize
     def or_pattern(self) -> Optional["ast.MatchOr"]:
@@ -2595,9 +2650,9 @@ class HGLParser(Parser):
         ):
             tok = self._tokenizer.get_last_non_whitespace_token()
             end_lineno, end_col_offset = tok.end
-            return ast . MatchOr ( patterns = patterns , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset ) if len ( patterns ) > 1 else patterns [0]
+            return ast . MatchOr ( patterns = patterns , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset ) if len ( patterns ) > 1 else patterns [0];
         self._reset(mark)
-        return None
+        return None;
 
     @memoize
     def closed_pattern(self) -> Optional[Any]:
@@ -2606,44 +2661,44 @@ class HGLParser(Parser):
         if (
             (literal_pattern := self.literal_pattern())
         ):
-            return literal_pattern
+            return literal_pattern;
         self._reset(mark)
         if (
             (capture_pattern := self.capture_pattern())
         ):
-            return capture_pattern
+            return capture_pattern;
         self._reset(mark)
         if (
             (wildcard_pattern := self.wildcard_pattern())
         ):
-            return wildcard_pattern
+            return wildcard_pattern;
         self._reset(mark)
         if (
             (value_pattern := self.value_pattern())
         ):
-            return value_pattern
+            return value_pattern;
         self._reset(mark)
         if (
             (group_pattern := self.group_pattern())
         ):
-            return group_pattern
+            return group_pattern;
         self._reset(mark)
         if (
             (sequence_pattern := self.sequence_pattern())
         ):
-            return sequence_pattern
+            return sequence_pattern;
         self._reset(mark)
         if (
             (mapping_pattern := self.mapping_pattern())
         ):
-            return mapping_pattern
+            return mapping_pattern;
         self._reset(mark)
         if (
             (class_pattern := self.class_pattern())
         ):
-            return class_pattern
+            return class_pattern;
         self._reset(mark)
-        return None
+        return None;
 
     @memoize
     def literal_pattern(self) -> Optional[Any]:
@@ -2654,48 +2709,48 @@ class HGLParser(Parser):
         if (
             (value := self.signed_number())
             and
-            self.negative_lookahead(self._tmp_68, )
+            (self.negative_lookahead(self._tmp_68, ))
         ):
             tok = self._tokenizer.get_last_non_whitespace_token()
             end_lineno, end_col_offset = tok.end
-            return ast . MatchValue ( value = value , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset )
+            return ast . MatchValue ( value = value , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset );
         self._reset(mark)
         if (
             (value := self.complex_number())
         ):
             tok = self._tokenizer.get_last_non_whitespace_token()
             end_lineno, end_col_offset = tok.end
-            return ast . MatchValue ( value = value , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset )
+            return ast . MatchValue ( value = value , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset );
         self._reset(mark)
         if (
             (value := self.strings())
         ):
             tok = self._tokenizer.get_last_non_whitespace_token()
             end_lineno, end_col_offset = tok.end
-            return ast . MatchValue ( value = value , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset )
+            return ast . MatchValue ( value = value , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset );
         self._reset(mark)
         if (
-            (literal := self.expect('None'))
+            (self.expect('None'))
         ):
             tok = self._tokenizer.get_last_non_whitespace_token()
             end_lineno, end_col_offset = tok.end
-            return ast . MatchSingleton ( value = None , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset )
+            return ast . MatchSingleton ( value = None , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset );
         self._reset(mark)
         if (
-            (literal := self.expect('True'))
+            (self.expect('True'))
         ):
             tok = self._tokenizer.get_last_non_whitespace_token()
             end_lineno, end_col_offset = tok.end
-            return ast . MatchSingleton ( value = True , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset )
+            return ast . MatchSingleton ( value = True , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset );
         self._reset(mark)
         if (
-            (literal := self.expect('False'))
+            (self.expect('False'))
         ):
             tok = self._tokenizer.get_last_non_whitespace_token()
             end_lineno, end_col_offset = tok.end
-            return ast . MatchSingleton ( value = False , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset )
+            return ast . MatchSingleton ( value = False , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset );
         self._reset(mark)
-        return None
+        return None;
 
     @memoize
     def literal_expr(self) -> Optional[Any]:
@@ -2706,42 +2761,42 @@ class HGLParser(Parser):
         if (
             (signed_number := self.signed_number())
             and
-            self.negative_lookahead(self._tmp_69, )
+            (self.negative_lookahead(self._tmp_69, ))
         ):
-            return signed_number
+            return signed_number;
         self._reset(mark)
         if (
             (complex_number := self.complex_number())
         ):
-            return complex_number
+            return complex_number;
         self._reset(mark)
         if (
             (strings := self.strings())
         ):
-            return strings
+            return strings;
         self._reset(mark)
         if (
-            (literal := self.expect('None'))
+            (self.expect('None'))
         ):
             tok = self._tokenizer.get_last_non_whitespace_token()
             end_lineno, end_col_offset = tok.end
-            return ast . Constant ( value = None , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset )
+            return ast . Constant ( value = None , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset );
         self._reset(mark)
         if (
-            (literal := self.expect('True'))
+            (self.expect('True'))
         ):
             tok = self._tokenizer.get_last_non_whitespace_token()
             end_lineno, end_col_offset = tok.end
-            return ast . Constant ( value = True , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset )
+            return ast . Constant ( value = True , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset );
         self._reset(mark)
         if (
-            (literal := self.expect('False'))
+            (self.expect('False'))
         ):
             tok = self._tokenizer.get_last_non_whitespace_token()
             end_lineno, end_col_offset = tok.end
-            return ast . Constant ( value = False , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset )
+            return ast . Constant ( value = False , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset );
         self._reset(mark)
-        return None
+        return None;
 
     @memoize
     def complex_number(self) -> Optional[Any]:
@@ -2752,26 +2807,26 @@ class HGLParser(Parser):
         if (
             (real := self.signed_real_number())
             and
-            (literal := self.expect('+'))
+            (self.expect('+'))
             and
             (imag := self.imaginary_number())
         ):
             tok = self._tokenizer.get_last_non_whitespace_token()
             end_lineno, end_col_offset = tok.end
-            return ast . BinOp ( left = real , op = ast . Add ( ) , right = imag , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset )
+            return ast . BinOp ( left = real , op = ast . Add ( ) , right = imag , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset );
         self._reset(mark)
         if (
             (real := self.signed_real_number())
             and
-            (literal := self.expect('-'))
+            (self.expect('-'))
             and
             (imag := self.imaginary_number())
         ):
             tok = self._tokenizer.get_last_non_whitespace_token()
             end_lineno, end_col_offset = tok.end
-            return ast . BinOp ( left = real , op = ast . Sub ( ) , right = imag , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset )
+            return ast . BinOp ( left = real , op = ast . Sub ( ) , right = imag , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset );
         self._reset(mark)
-        return None
+        return None;
 
     @memoize
     def signed_number(self) -> Optional[Any]:
@@ -2784,18 +2839,18 @@ class HGLParser(Parser):
         ):
             tok = self._tokenizer.get_last_non_whitespace_token()
             end_lineno, end_col_offset = tok.end
-            return ast . Constant ( value = ast . literal_eval ( a . string ) , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset )
+            return ast . Constant ( value = ast . literal_eval ( a . string ) , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset );
         self._reset(mark)
         if (
-            (literal := self.expect('-'))
+            (self.expect('-'))
             and
             (a := self.number())
         ):
             tok = self._tokenizer.get_last_non_whitespace_token()
             end_lineno, end_col_offset = tok.end
-            return ast . UnaryOp ( op = ast . USub ( ) , operand = ast . Constant ( value = ast . literal_eval ( a . string ) , lineno = a . start [0] , col_offset = a . start [1] , end_lineno = a . end [0] , end_col_offset = a . end [1] ) , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset , )
+            return ast . UnaryOp ( op = ast . USub ( ) , operand = ast . Constant ( value = ast . literal_eval ( a . string ) , lineno = a . start [0] , col_offset = a . start [1] , end_lineno = a . end [0] , end_col_offset = a . end [1] ) , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset , );
         self._reset(mark)
-        return None
+        return None;
 
     @memoize
     def signed_real_number(self) -> Optional[Any]:
@@ -2806,18 +2861,18 @@ class HGLParser(Parser):
         if (
             (real_number := self.real_number())
         ):
-            return real_number
+            return real_number;
         self._reset(mark)
         if (
-            (literal := self.expect('-'))
+            (self.expect('-'))
             and
             (real := self.real_number())
         ):
             tok = self._tokenizer.get_last_non_whitespace_token()
             end_lineno, end_col_offset = tok.end
-            return ast . UnaryOp ( op = ast . USub ( ) , operand = real , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset )
+            return ast . UnaryOp ( op = ast . USub ( ) , operand = real , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset );
         self._reset(mark)
-        return None
+        return None;
 
     @memoize
     def real_number(self) -> Optional[ast . Constant]:
@@ -2830,9 +2885,9 @@ class HGLParser(Parser):
         ):
             tok = self._tokenizer.get_last_non_whitespace_token()
             end_lineno, end_col_offset = tok.end
-            return ast . Constant ( value = self . ensure_real ( real ) , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset )
+            return ast . Constant ( value = self . ensure_real ( real ) , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset );
         self._reset(mark)
-        return None
+        return None;
 
     @memoize
     def imaginary_number(self) -> Optional[ast . Constant]:
@@ -2845,9 +2900,9 @@ class HGLParser(Parser):
         ):
             tok = self._tokenizer.get_last_non_whitespace_token()
             end_lineno, end_col_offset = tok.end
-            return ast . Constant ( value = self . ensure_imaginary ( imag ) , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset )
+            return ast . Constant ( value = self . ensure_imaginary ( imag ) , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset );
         self._reset(mark)
-        return None
+        return None;
 
     @memoize
     def capture_pattern(self) -> Optional[Any]:
@@ -2860,24 +2915,24 @@ class HGLParser(Parser):
         ):
             tok = self._tokenizer.get_last_non_whitespace_token()
             end_lineno, end_col_offset = tok.end
-            return ast . MatchAs ( pattern = None , name = target , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset )
+            return ast . MatchAs ( pattern = None , name = target , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset );
         self._reset(mark)
-        return None
+        return None;
 
     @memoize
     def pattern_capture_target(self) -> Optional[str]:
         # pattern_capture_target: !"_" NAME !('.' | '(' | '=')
         mark = self._mark()
         if (
-            self.negative_lookahead(self.expect, "_")
+            (self.negative_lookahead(self.expect, "_"))
             and
             (name := self.name())
             and
-            self.negative_lookahead(self._tmp_70, )
+            (self.negative_lookahead(self._tmp_70, ))
         ):
-            return name . string
+            return name . string;
         self._reset(mark)
-        return None
+        return None;
 
     @memoize
     def wildcard_pattern(self) -> Optional["ast.MatchAs"]:
@@ -2886,13 +2941,13 @@ class HGLParser(Parser):
         tok = self._tokenizer.peek()
         start_lineno, start_col_offset = tok.start
         if (
-            (literal := self.expect("_"))
+            (self.expect("_"))
         ):
             tok = self._tokenizer.get_last_non_whitespace_token()
             end_lineno, end_col_offset = tok.end
-            return ast . MatchAs ( pattern = None , target = None , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset )
+            return ast . MatchAs ( pattern = None , target = None , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset );
         self._reset(mark)
-        return None
+        return None;
 
     @memoize
     def value_pattern(self) -> Optional["ast.MatchValue"]:
@@ -2903,13 +2958,13 @@ class HGLParser(Parser):
         if (
             (attr := self.attr())
             and
-            self.negative_lookahead(self._tmp_71, )
+            (self.negative_lookahead(self._tmp_71, ))
         ):
             tok = self._tokenizer.get_last_non_whitespace_token()
             end_lineno, end_col_offset = tok.end
-            return ast . MatchValue ( value = attr , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset )
+            return ast . MatchValue ( value = attr , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset );
         self._reset(mark)
-        return None
+        return None;
 
     @memoize_left_rec
     def attr(self) -> Optional[ast . Attribute]:
@@ -2920,15 +2975,15 @@ class HGLParser(Parser):
         if (
             (value := self.name_or_attr())
             and
-            (literal := self.expect('.'))
+            (self.expect('.'))
             and
             (attr := self.name())
         ):
             tok = self._tokenizer.get_last_non_whitespace_token()
             end_lineno, end_col_offset = tok.end
-            return ast . Attribute ( value = value , attr = attr . string , ctx = Load , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset )
+            return ast . Attribute ( value = value , attr = attr . string , ctx = Load , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset );
         self._reset(mark)
-        return None
+        return None;
 
     @logger
     def name_or_attr(self) -> Optional[Any]:
@@ -2939,31 +2994,31 @@ class HGLParser(Parser):
         if (
             (attr := self.attr())
         ):
-            return attr
+            return attr;
         self._reset(mark)
         if (
             (name := self.name())
         ):
             tok = self._tokenizer.get_last_non_whitespace_token()
             end_lineno, end_col_offset = tok.end
-            return ast . Name ( id = name . string , ctx = Load , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset )
+            return ast . Name ( id = name . string , ctx = Load , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset );
         self._reset(mark)
-        return None
+        return None;
 
     @memoize
     def group_pattern(self) -> Optional[Any]:
         # group_pattern: '(' pattern ')'
         mark = self._mark()
         if (
-            (literal := self.expect('('))
+            (self.expect('('))
             and
             (pattern := self.pattern())
             and
-            (literal_1 := self.expect(')'))
+            (self.expect(')'))
         ):
-            return pattern
+            return pattern;
         self._reset(mark)
-        return None
+        return None;
 
     @memoize
     def sequence_pattern(self) -> Optional["ast.MatchSequence"]:
@@ -2972,28 +3027,28 @@ class HGLParser(Parser):
         tok = self._tokenizer.peek()
         start_lineno, start_col_offset = tok.start
         if (
-            (literal := self.expect('['))
+            (self.expect('['))
             and
             (patterns := self.maybe_sequence_pattern(),)
             and
-            (literal_1 := self.expect(']'))
+            (self.expect(']'))
         ):
             tok = self._tokenizer.get_last_non_whitespace_token()
             end_lineno, end_col_offset = tok.end
-            return ast . MatchSequence ( patterns = patterns or [] , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset )
+            return ast . MatchSequence ( patterns = patterns or [] , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset );
         self._reset(mark)
         if (
-            (literal := self.expect('('))
+            (self.expect('('))
             and
             (patterns := self.open_sequence_pattern(),)
             and
-            (literal_1 := self.expect(')'))
+            (self.expect(')'))
         ):
             tok = self._tokenizer.get_last_non_whitespace_token()
             end_lineno, end_col_offset = tok.end
-            return ast . MatchSequence ( patterns = patterns or [] , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset )
+            return ast . MatchSequence ( patterns = patterns or [] , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset );
         self._reset(mark)
-        return None
+        return None;
 
     @memoize
     def open_sequence_pattern(self) -> Optional[Any]:
@@ -3002,13 +3057,13 @@ class HGLParser(Parser):
         if (
             (pattern := self.maybe_star_pattern())
             and
-            (literal := self.expect(','))
+            (self.expect(','))
             and
             (patterns := self.maybe_sequence_pattern(),)
         ):
-            return [pattern] + ( patterns or [] )
+            return [pattern] + ( patterns or [] );
         self._reset(mark)
-        return None
+        return None;
 
     @memoize
     def maybe_sequence_pattern(self) -> Optional[Any]:
@@ -3017,11 +3072,11 @@ class HGLParser(Parser):
         if (
             (patterns := self._gather_72())
             and
-            (opt := self.expect(','),)
+            (self.expect(','),)
         ):
-            return patterns
+            return patterns;
         self._reset(mark)
-        return None
+        return None;
 
     @memoize
     def maybe_star_pattern(self) -> Optional[Any]:
@@ -3030,14 +3085,14 @@ class HGLParser(Parser):
         if (
             (star_pattern := self.star_pattern())
         ):
-            return star_pattern
+            return star_pattern;
         self._reset(mark)
         if (
             (pattern := self.pattern())
         ):
-            return pattern
+            return pattern;
         self._reset(mark)
-        return None
+        return None;
 
     @memoize
     def star_pattern(self) -> Optional[Any]:
@@ -3046,24 +3101,24 @@ class HGLParser(Parser):
         tok = self._tokenizer.peek()
         start_lineno, start_col_offset = tok.start
         if (
-            (literal := self.expect('*'))
+            (self.expect('*'))
             and
             (target := self.pattern_capture_target())
         ):
             tok = self._tokenizer.get_last_non_whitespace_token()
             end_lineno, end_col_offset = tok.end
-            return ast . MatchStar ( name = target , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset )
+            return ast . MatchStar ( name = target , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset );
         self._reset(mark)
         if (
-            (literal := self.expect('*'))
+            (self.expect('*'))
             and
-            (wildcard_pattern := self.wildcard_pattern())
+            (self.wildcard_pattern())
         ):
             tok = self._tokenizer.get_last_non_whitespace_token()
             end_lineno, end_col_offset = tok.end
-            return ast . MatchStar ( target = None , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset )
+            return ast . MatchStar ( target = None , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset );
         self._reset(mark)
-        return None
+        return None;
 
     @memoize
     def mapping_pattern(self) -> Optional[Any]:
@@ -3072,58 +3127,58 @@ class HGLParser(Parser):
         tok = self._tokenizer.peek()
         start_lineno, start_col_offset = tok.start
         if (
-            (literal := self.expect('{'))
+            (self.expect('{'))
             and
-            (literal_1 := self.expect('}'))
+            (self.expect('}'))
         ):
             tok = self._tokenizer.get_last_non_whitespace_token()
             end_lineno, end_col_offset = tok.end
-            return ast . MatchMapping ( keys = [] , patterns = [] , rest = None , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset )
+            return ast . MatchMapping ( keys = [] , patterns = [] , rest = None , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset );
         self._reset(mark)
         if (
-            (literal := self.expect('{'))
+            (self.expect('{'))
             and
             (rest := self.double_star_pattern())
             and
-            (opt := self.expect(','),)
+            (self.expect(','),)
             and
-            (literal_1 := self.expect('}'))
+            (self.expect('}'))
         ):
             tok = self._tokenizer.get_last_non_whitespace_token()
             end_lineno, end_col_offset = tok.end
-            return ast . MatchMapping ( keys = [] , patterns = [] , rest = rest , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset )
+            return ast . MatchMapping ( keys = [] , patterns = [] , rest = rest , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset );
         self._reset(mark)
         if (
-            (literal := self.expect('{'))
+            (self.expect('{'))
             and
             (items := self.items_pattern())
             and
-            (literal_1 := self.expect(','))
+            (self.expect(','))
             and
             (rest := self.double_star_pattern())
             and
-            (opt := self.expect(','),)
+            (self.expect(','),)
             and
-            (literal_2 := self.expect('}'))
+            (self.expect('}'))
         ):
             tok = self._tokenizer.get_last_non_whitespace_token()
             end_lineno, end_col_offset = tok.end
-            return ast . MatchMapping ( keys = [k for k , _ in items] , patterns = [p for _ , p in items] , rest = rest , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset , )
+            return ast . MatchMapping ( keys = [k for k , _ in items] , patterns = [p for _ , p in items] , rest = rest , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset , );
         self._reset(mark)
         if (
-            (literal := self.expect('{'))
+            (self.expect('{'))
             and
             (items := self.items_pattern())
             and
-            (opt := self.expect(','),)
+            (self.expect(','),)
             and
-            (literal_1 := self.expect('}'))
+            (self.expect('}'))
         ):
             tok = self._tokenizer.get_last_non_whitespace_token()
             end_lineno, end_col_offset = tok.end
-            return ast . MatchMapping ( keys = [k for k , _ in items] , patterns = [p for _ , p in items] , rest = None , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset , )
+            return ast . MatchMapping ( keys = [k for k , _ in items] , patterns = [p for _ , p in items] , rest = None , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset , );
         self._reset(mark)
-        return None
+        return None;
 
     @memoize
     def items_pattern(self) -> Optional[Any]:
@@ -3132,9 +3187,9 @@ class HGLParser(Parser):
         if (
             (_gather_74 := self._gather_74())
         ):
-            return _gather_74
+            return _gather_74;
         self._reset(mark)
-        return None
+        return None;
 
     @memoize
     def key_value_pattern(self) -> Optional[Any]:
@@ -3143,26 +3198,26 @@ class HGLParser(Parser):
         if (
             (key := self._tmp_76())
             and
-            (literal := self.expect(':'))
+            (self.expect(':'))
             and
             (pattern := self.pattern())
         ):
-            return ( key , pattern )
+            return ( key , pattern );
         self._reset(mark)
-        return None
+        return None;
 
     @memoize
     def double_star_pattern(self) -> Optional[Any]:
         # double_star_pattern: '**' pattern_capture_target
         mark = self._mark()
         if (
-            (literal := self.expect('**'))
+            (self.expect('**'))
             and
             (target := self.pattern_capture_target())
         ):
-            return target
+            return target;
         self._reset(mark)
-        return None
+        return None;
 
     @memoize
     def class_pattern(self) -> Optional["ast.MatchClass"]:
@@ -3173,69 +3228,71 @@ class HGLParser(Parser):
         if (
             (cls := self.name_or_attr())
             and
-            (literal := self.expect('('))
+            (self.expect('('))
             and
-            (literal_1 := self.expect(')'))
+            (self.expect(')'))
         ):
             tok = self._tokenizer.get_last_non_whitespace_token()
             end_lineno, end_col_offset = tok.end
-            return ast . MatchClass ( cls = cls , patterns = [] , kwd_attrs = [] , kwd_patterns = [] , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset )
+            return ast . MatchClass ( cls = cls , patterns = [] , kwd_attrs = [] , kwd_patterns = [] , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset );
         self._reset(mark)
         if (
             (cls := self.name_or_attr())
             and
-            (literal := self.expect('('))
+            (self.expect('('))
             and
             (patterns := self.positional_patterns())
             and
-            (opt := self.expect(','),)
+            (self.expect(','),)
             and
-            (literal_1 := self.expect(')'))
+            (self.expect(')'))
         ):
             tok = self._tokenizer.get_last_non_whitespace_token()
             end_lineno, end_col_offset = tok.end
-            return ast . MatchClass ( cls = cls , patterns = patterns , kwd_attrs = [] , kwd_patterns = [] , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset )
+            return ast . MatchClass ( cls = cls , patterns = patterns , kwd_attrs = [] , kwd_patterns = [] , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset );
         self._reset(mark)
         if (
             (cls := self.name_or_attr())
             and
-            (literal := self.expect('('))
+            (self.expect('('))
             and
             (keywords := self.keyword_patterns())
             and
-            (opt := self.expect(','),)
+            (self.expect(','),)
             and
-            (literal_1 := self.expect(')'))
+            (self.expect(')'))
         ):
             tok = self._tokenizer.get_last_non_whitespace_token()
             end_lineno, end_col_offset = tok.end
-            return ast . MatchClass ( cls = cls , patterns = [] , kwd_attrs = [k for k , _ in keywords] , kwd_patterns = [p for _ , p in keywords] , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset , )
+            return ast . MatchClass ( cls = cls , patterns = [] , kwd_attrs = [k for k , _ in keywords] , kwd_patterns = [p for _ , p in keywords] , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset , );
         self._reset(mark)
         if (
             (cls := self.name_or_attr())
             and
-            (literal := self.expect('('))
+            (self.expect('('))
             and
             (patterns := self.positional_patterns())
             and
-            (literal_1 := self.expect(','))
+            (self.expect(','))
             and
             (keywords := self.keyword_patterns())
             and
-            (opt := self.expect(','),)
+            (self.expect(','),)
             and
-            (literal_2 := self.expect(')'))
+            (self.expect(')'))
         ):
             tok = self._tokenizer.get_last_non_whitespace_token()
             end_lineno, end_col_offset = tok.end
-            return ast . MatchClass ( cls = cls , patterns = patterns , kwd_attrs = [k for k , _ in keywords] , kwd_patterns = [p for _ , p in keywords] , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset , )
+            return ast . MatchClass ( cls = cls , patterns = patterns , kwd_attrs = [k for k , _ in keywords] , kwd_patterns = [p for _ , p in keywords] , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset , );
         self._reset(mark)
         if (
-            (invalid_class_pattern := self.invalid_class_pattern())
+            self.call_invalid_rules
+            and
+            (self.invalid_class_pattern())
         ):
-            return None  # pragma: no cover
+            return None  # pragma: no cover;
         self._reset(mark)
-        return None
+        return None;
 
     @memoize
     def positional_patterns(self) -> Optional[Any]:
@@ -3244,9 +3301,9 @@ class HGLParser(Parser):
         if (
             (args := self._gather_77())
         ):
-            return args
+            return args;
         self._reset(mark)
-        return None
+        return None;
 
     @memoize
     def keyword_patterns(self) -> Optional[Any]:
@@ -3255,9 +3312,9 @@ class HGLParser(Parser):
         if (
             (_gather_79 := self._gather_79())
         ):
-            return _gather_79
+            return _gather_79;
         self._reset(mark)
-        return None
+        return None;
 
     @memoize
     def keyword_pattern(self) -> Optional[Any]:
@@ -3266,13 +3323,13 @@ class HGLParser(Parser):
         if (
             (arg := self.name())
             and
-            (literal := self.expect('='))
+            (self.expect('='))
             and
             (value := self.pattern())
         ):
-            return ( arg . string , value )
+            return ( arg . string , value );
         self._reset(mark)
-        return None
+        return None;
 
     @memoize
     def expressions(self) -> Optional[Any]:
@@ -3285,27 +3342,27 @@ class HGLParser(Parser):
             and
             (b := self._loop1_81())
             and
-            (opt := self.expect(','),)
+            (self.expect(','),)
         ):
             tok = self._tokenizer.get_last_non_whitespace_token()
             end_lineno, end_col_offset = tok.end
-            return ast . Tuple ( elts = [a] + b , ctx = Load , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset )
+            return ast . Tuple ( elts = [a] + b , ctx = Load , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset );
         self._reset(mark)
         if (
             (a := self.expression())
             and
-            (literal := self.expect(','))
+            (self.expect(','))
         ):
             tok = self._tokenizer.get_last_non_whitespace_token()
             end_lineno, end_col_offset = tok.end
-            return ast . Tuple ( elts = [a] , ctx = Load , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset )
+            return ast . Tuple ( elts = [a] , ctx = Load , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset );
         self._reset(mark)
         if (
             (expression := self.expression())
         ):
-            return expression
+            return expression;
         self._reset(mark)
-        return None
+        return None;
 
     @memoize
     def expression(self) -> Optional[Any]:
@@ -3314,36 +3371,38 @@ class HGLParser(Parser):
         tok = self._tokenizer.peek()
         start_lineno, start_col_offset = tok.start
         if (
-            (invalid_legacy_expression := self.invalid_legacy_expression())
+            self.call_invalid_rules
+            and
+            (self.invalid_legacy_expression())
         ):
-            return None  # pragma: no cover
+            return None  # pragma: no cover;
         self._reset(mark)
         if (
             (a := self.disjunction())
             and
-            (literal := self.expect('if'))
+            (self.expect('if'))
             and
             (b := self.disjunction())
             and
-            (literal_1 := self.expect('else'))
+            (self.expect('else'))
             and
             (c := self.expression())
         ):
             tok = self._tokenizer.get_last_non_whitespace_token()
             end_lineno, end_col_offset = tok.end
-            return ast . IfExp ( body = a , test = b , orelse = c , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset )
+            return ast . IfExp ( body = a , test = b , orelse = c , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset );
         self._reset(mark)
         if (
             (disjunction := self.disjunction())
         ):
-            return disjunction
+            return disjunction;
         self._reset(mark)
         if (
             (lambdef := self.lambdef())
         ):
-            return lambdef
+            return lambdef;
         self._reset(mark)
-        return None
+        return None;
 
     @memoize
     def yield_expr(self) -> Optional[Any]:
@@ -3352,26 +3411,26 @@ class HGLParser(Parser):
         tok = self._tokenizer.peek()
         start_lineno, start_col_offset = tok.start
         if (
-            (literal := self.expect('yield'))
+            (self.expect('yield'))
             and
-            (literal_1 := self.expect('from'))
+            (self.expect('from'))
             and
             (a := self.expression())
         ):
             tok = self._tokenizer.get_last_non_whitespace_token()
             end_lineno, end_col_offset = tok.end
-            return ast . YieldFrom ( value = a , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset )
+            return ast . YieldFrom ( value = a , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset );
         self._reset(mark)
         if (
-            (literal := self.expect('yield'))
+            (self.expect('yield'))
             and
             (a := self.star_expressions(),)
         ):
             tok = self._tokenizer.get_last_non_whitespace_token()
             end_lineno, end_col_offset = tok.end
-            return ast . Yield ( value = a , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset )
+            return ast . Yield ( value = a , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset );
         self._reset(mark)
-        return None
+        return None;
 
     @memoize
     def star_expressions(self) -> Optional[Any]:
@@ -3384,27 +3443,27 @@ class HGLParser(Parser):
             and
             (b := self._loop1_82())
             and
-            (opt := self.expect(','),)
+            (self.expect(','),)
         ):
             tok = self._tokenizer.get_last_non_whitespace_token()
             end_lineno, end_col_offset = tok.end
-            return ast . Tuple ( elts = [a] + b , ctx = Load , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset )
+            return ast . Tuple ( elts = [a] + b , ctx = Load , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset );
         self._reset(mark)
         if (
             (a := self.star_expression())
             and
-            (literal := self.expect(','))
+            (self.expect(','))
         ):
             tok = self._tokenizer.get_last_non_whitespace_token()
             end_lineno, end_col_offset = tok.end
-            return ast . Tuple ( elts = [a] , ctx = Load , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset )
+            return ast . Tuple ( elts = [a] , ctx = Load , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset );
         self._reset(mark)
         if (
             (star_expression := self.star_expression())
         ):
-            return star_expression
+            return star_expression;
         self._reset(mark)
-        return None
+        return None;
 
     @memoize
     def star_expression(self) -> Optional[Any]:
@@ -3413,20 +3472,20 @@ class HGLParser(Parser):
         tok = self._tokenizer.peek()
         start_lineno, start_col_offset = tok.start
         if (
-            (literal := self.expect('*'))
+            (self.expect('*'))
             and
             (a := self.bitwise_or())
         ):
             tok = self._tokenizer.get_last_non_whitespace_token()
             end_lineno, end_col_offset = tok.end
-            return ast . Starred ( value = a , ctx = Load , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset )
+            return ast . Starred ( value = a , ctx = Load , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset );
         self._reset(mark)
         if (
             (expression := self.expression())
         ):
-            return expression
+            return expression;
         self._reset(mark)
-        return None
+        return None;
 
     @memoize
     def star_named_expressions(self) -> Optional[Any]:
@@ -3435,11 +3494,11 @@ class HGLParser(Parser):
         if (
             (a := self._gather_83())
             and
-            (opt := self.expect(','),)
+            (self.expect(','),)
         ):
-            return a
+            return a;
         self._reset(mark)
-        return None
+        return None;
 
     @memoize
     def star_named_expression(self) -> Optional[Any]:
@@ -3448,20 +3507,20 @@ class HGLParser(Parser):
         tok = self._tokenizer.peek()
         start_lineno, start_col_offset = tok.start
         if (
-            (literal := self.expect('*'))
+            (self.expect('*'))
             and
             (a := self.bitwise_or())
         ):
             tok = self._tokenizer.get_last_non_whitespace_token()
             end_lineno, end_col_offset = tok.end
-            return ast . Starred ( value = a , ctx = Load , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset )
+            return ast . Starred ( value = a , ctx = Load , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset );
         self._reset(mark)
         if (
             (named_expression := self.named_expression())
         ):
-            return named_expression
+            return named_expression;
         self._reset(mark)
-        return None
+        return None;
 
     @memoize
     def assignment_expression(self) -> Optional[Any]:
@@ -3473,7 +3532,7 @@ class HGLParser(Parser):
         if (
             (a := self.name())
             and
-            (literal := self.expect(':='))
+            (self.expect(':='))
             and
             (cut := True)
             and
@@ -3481,10 +3540,11 @@ class HGLParser(Parser):
         ):
             tok = self._tokenizer.get_last_non_whitespace_token()
             end_lineno, end_col_offset = tok.end
-            return self . check_version ( ( 3 , 8 ) , "The ':=' operator is" , ast . NamedExpr ( target = ast . Name ( id = a . string , ctx = Store , lineno = a . start [0] , col_offset = a . start [1] , end_lineno = a . end [0] , end_col_offset = a . end [1] ) , value = b , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset , ) )
+            return self . check_version ( ( 3 , 8 ) , "The ':=' operator is" , ast . NamedExpr ( target = ast . Name ( id = a . string , ctx = Store , lineno = a . start [0] , col_offset = a . start [1] , end_lineno = a . end [0] , end_col_offset = a . end [1] ) , value = b , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset , ) );
         self._reset(mark)
-        if cut: return None
-        return None
+        if cut:
+            return None;
+        return None;
 
     @memoize
     def named_expression(self) -> Optional[Any]:
@@ -3493,21 +3553,23 @@ class HGLParser(Parser):
         if (
             (assignment_expression := self.assignment_expression())
         ):
-            return assignment_expression
+            return assignment_expression;
         self._reset(mark)
         if (
-            (invalid_named_expression := self.invalid_named_expression())
+            self.call_invalid_rules
+            and
+            (self.invalid_named_expression())
         ):
-            return None  # pragma: no cover
+            return None  # pragma: no cover;
         self._reset(mark)
         if (
             (a := self.expression())
             and
-            self.negative_lookahead(self.expect, ':=')
+            (self.negative_lookahead(self.expect, ':='))
         ):
-            return a
+            return a;
         self._reset(mark)
-        return None
+        return None;
 
     @memoize
     def disjunction(self) -> Optional[Any]:
@@ -3522,14 +3584,14 @@ class HGLParser(Parser):
         ):
             tok = self._tokenizer.get_last_non_whitespace_token()
             end_lineno, end_col_offset = tok.end
-            return ast . BoolOp ( op = ast . Or ( ) , values = [a] + b , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset )
+            return ast . BoolOp ( op = ast . Or ( ) , values = [a] + b , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset );
         self._reset(mark)
         if (
             (conjunction := self.conjunction())
         ):
-            return conjunction
+            return conjunction;
         self._reset(mark)
-        return None
+        return None;
 
     @memoize
     def conjunction(self) -> Optional[Any]:
@@ -3544,14 +3606,14 @@ class HGLParser(Parser):
         ):
             tok = self._tokenizer.get_last_non_whitespace_token()
             end_lineno, end_col_offset = tok.end
-            return ast . BoolOp ( op = ast . And ( ) , values = [a] + b , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset )
+            return ast . BoolOp ( op = ast . And ( ) , values = [a] + b , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset );
         self._reset(mark)
         if (
             (inversion := self.inversion())
         ):
-            return inversion
+            return inversion;
         self._reset(mark)
-        return None
+        return None;
 
     @memoize
     def inversion(self) -> Optional[Any]:
@@ -3560,20 +3622,20 @@ class HGLParser(Parser):
         tok = self._tokenizer.peek()
         start_lineno, start_col_offset = tok.start
         if (
-            (literal := self.expect('not'))
+            (self.expect('not'))
             and
             (a := self.inversion())
         ):
             tok = self._tokenizer.get_last_non_whitespace_token()
             end_lineno, end_col_offset = tok.end
-            return ast . UnaryOp ( op = ast . Not ( ) , operand = a , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset )
+            return ast . UnaryOp ( op = ast . Not ( ) , operand = a , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset );
         self._reset(mark)
         if (
             (hgl_imply := self.hgl_imply())
         ):
-            return hgl_imply
+            return hgl_imply;
         self._reset(mark)
-        return None
+        return None;
 
     @memoize_left_rec
     def hgl_imply(self) -> Optional[Any]:
@@ -3584,20 +3646,20 @@ class HGLParser(Parser):
         if (
             (a := self.hgl_imply())
             and
-            (literal := self.expect('|->'))
+            (self.expect('|->'))
             and
             (b := self.hgl_logic())
         ):
             tok = self._tokenizer.get_last_non_whitespace_token()
             end_lineno, end_col_offset = tok.end
-            return ast . Call ( func = ast . Name ( id = '__hgl_imply__' , ctx = Load , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset ) , args = [a , b] , keywords = [] , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset )
+            return ast . Call ( func = ast . Name ( id = '__hgl_imply__' , ctx = Load , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset ) , args = [a , b] , keywords = [] , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset );
         self._reset(mark)
         if (
             (hgl_logic := self.hgl_logic())
         ):
-            return hgl_logic
+            return hgl_logic;
         self._reset(mark)
-        return None
+        return None;
 
     @memoize_left_rec
     def hgl_logic(self) -> Optional[Any]:
@@ -3608,42 +3670,42 @@ class HGLParser(Parser):
         if (
             (a := self.hgl_logic())
             and
-            (literal := self.expect('&&'))
+            (self.expect('&&'))
             and
             (b := self.comparison())
         ):
             tok = self._tokenizer.get_last_non_whitespace_token()
             end_lineno, end_col_offset = tok.end
-            return ast . Call ( func = ast . Name ( id = '__hgl_logicand__' , ctx = Load , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset ) , args = [a , b] , keywords = [] , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset )
+            return ast . Call ( func = ast . Name ( id = '__hgl_logicand__' , ctx = Load , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset ) , args = [a , b] , keywords = [] , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset );
         self._reset(mark)
         if (
             (a := self.hgl_logic())
             and
-            (literal := self.expect('||'))
+            (self.expect('||'))
             and
             (b := self.comparison())
         ):
             tok = self._tokenizer.get_last_non_whitespace_token()
             end_lineno, end_col_offset = tok.end
-            return ast . Call ( func = ast . Name ( id = '__hgl_logicor__' , ctx = Load , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset ) , args = [a , b] , keywords = [] , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset )
+            return ast . Call ( func = ast . Name ( id = '__hgl_logicor__' , ctx = Load , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset ) , args = [a , b] , keywords = [] , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset );
         self._reset(mark)
         if (
             (a := self.hgl_logic())
             and
-            (literal := self.expect('>>>'))
+            (self.expect('>>>'))
             and
             (b := self.comparison())
         ):
             tok = self._tokenizer.get_last_non_whitespace_token()
             end_lineno, end_col_offset = tok.end
-            return ast . Call ( func = ast . Name ( id = '__hgl_rshift__' , ctx = Load , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset ) , args = [a , b] , keywords = [] , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset )
+            return ast . Call ( func = ast . Name ( id = '__hgl_rshift__' , ctx = Load , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset ) , args = [a , b] , keywords = [] , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset );
         self._reset(mark)
         if (
             (comparison := self.comparison())
         ):
-            return comparison
+            return comparison;
         self._reset(mark)
-        return None
+        return None;
 
     @memoize
     def comparison(self) -> Optional[Any]:
@@ -3658,14 +3720,14 @@ class HGLParser(Parser):
         ):
             tok = self._tokenizer.get_last_non_whitespace_token()
             end_lineno, end_col_offset = tok.end
-            return ast . Compare ( left = a , ops = self . get_comparison_ops ( b ) , comparators = self . get_comparators ( b ) , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset )
+            return ast . Compare ( left = a , ops = self . get_comparison_ops ( b ) , comparators = self . get_comparators ( b ) , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset );
         self._reset(mark)
         if (
             (bitwise_or := self.bitwise_or())
         ):
-            return bitwise_or
+            return bitwise_or;
         self._reset(mark)
-        return None
+        return None;
 
     @memoize
     def compare_op_bitwise_or_pair(self) -> Optional[Any]:
@@ -3674,188 +3736,188 @@ class HGLParser(Parser):
         if (
             (eq_bitwise_or := self.eq_bitwise_or())
         ):
-            return eq_bitwise_or
+            return eq_bitwise_or;
         self._reset(mark)
         if (
             (noteq_bitwise_or := self.noteq_bitwise_or())
         ):
-            return noteq_bitwise_or
+            return noteq_bitwise_or;
         self._reset(mark)
         if (
             (lte_bitwise_or := self.lte_bitwise_or())
         ):
-            return lte_bitwise_or
+            return lte_bitwise_or;
         self._reset(mark)
         if (
             (lt_bitwise_or := self.lt_bitwise_or())
         ):
-            return lt_bitwise_or
+            return lt_bitwise_or;
         self._reset(mark)
         if (
             (gte_bitwise_or := self.gte_bitwise_or())
         ):
-            return gte_bitwise_or
+            return gte_bitwise_or;
         self._reset(mark)
         if (
             (gt_bitwise_or := self.gt_bitwise_or())
         ):
-            return gt_bitwise_or
+            return gt_bitwise_or;
         self._reset(mark)
         if (
             (notin_bitwise_or := self.notin_bitwise_or())
         ):
-            return notin_bitwise_or
+            return notin_bitwise_or;
         self._reset(mark)
         if (
             (in_bitwise_or := self.in_bitwise_or())
         ):
-            return in_bitwise_or
+            return in_bitwise_or;
         self._reset(mark)
         if (
             (isnot_bitwise_or := self.isnot_bitwise_or())
         ):
-            return isnot_bitwise_or
+            return isnot_bitwise_or;
         self._reset(mark)
         if (
             (is_bitwise_or := self.is_bitwise_or())
         ):
-            return is_bitwise_or
+            return is_bitwise_or;
         self._reset(mark)
-        return None
+        return None;
 
     @memoize
     def eq_bitwise_or(self) -> Optional[Any]:
         # eq_bitwise_or: '==' bitwise_or
         mark = self._mark()
         if (
-            (literal := self.expect('=='))
+            (self.expect('=='))
             and
             (a := self.bitwise_or())
         ):
-            return ( ast . Eq ( ) , a )
+            return ( ast . Eq ( ) , a );
         self._reset(mark)
-        return None
+        return None;
 
     @memoize
     def noteq_bitwise_or(self) -> Optional[tuple]:
         # noteq_bitwise_or: '!=' bitwise_or
         mark = self._mark()
         if (
-            (literal := self.expect('!='))
+            (self.expect('!='))
             and
             (a := self.bitwise_or())
         ):
-            return ( ast . NotEq ( ) , a )
+            return ( ast . NotEq ( ) , a );
         self._reset(mark)
-        return None
+        return None;
 
     @memoize
     def lte_bitwise_or(self) -> Optional[Any]:
         # lte_bitwise_or: '<=' bitwise_or
         mark = self._mark()
         if (
-            (literal := self.expect('<='))
+            (self.expect('<='))
             and
             (a := self.bitwise_or())
         ):
-            return ( ast . LtE ( ) , a )
+            return ( ast . LtE ( ) , a );
         self._reset(mark)
-        return None
+        return None;
 
     @memoize
     def lt_bitwise_or(self) -> Optional[Any]:
         # lt_bitwise_or: '<' bitwise_or
         mark = self._mark()
         if (
-            (literal := self.expect('<'))
+            (self.expect('<'))
             and
             (a := self.bitwise_or())
         ):
-            return ( ast . Lt ( ) , a )
+            return ( ast . Lt ( ) , a );
         self._reset(mark)
-        return None
+        return None;
 
     @memoize
     def gte_bitwise_or(self) -> Optional[Any]:
         # gte_bitwise_or: '>=' bitwise_or
         mark = self._mark()
         if (
-            (literal := self.expect('>='))
+            (self.expect('>='))
             and
             (a := self.bitwise_or())
         ):
-            return ( ast . GtE ( ) , a )
+            return ( ast . GtE ( ) , a );
         self._reset(mark)
-        return None
+        return None;
 
     @memoize
     def gt_bitwise_or(self) -> Optional[Any]:
         # gt_bitwise_or: '>' bitwise_or
         mark = self._mark()
         if (
-            (literal := self.expect('>'))
+            (self.expect('>'))
             and
             (a := self.bitwise_or())
         ):
-            return ( ast . Gt ( ) , a )
+            return ( ast . Gt ( ) , a );
         self._reset(mark)
-        return None
+        return None;
 
     @memoize
     def notin_bitwise_or(self) -> Optional[Any]:
         # notin_bitwise_or: 'not' 'in' bitwise_or
         mark = self._mark()
         if (
-            (literal := self.expect('not'))
+            (self.expect('not'))
             and
-            (literal_1 := self.expect('in'))
+            (self.expect('in'))
             and
             (a := self.bitwise_or())
         ):
-            return ( ast . NotIn ( ) , a )
+            return ( ast . NotIn ( ) , a );
         self._reset(mark)
-        return None
+        return None;
 
     @memoize
     def in_bitwise_or(self) -> Optional[Any]:
         # in_bitwise_or: 'in' bitwise_or
         mark = self._mark()
         if (
-            (literal := self.expect('in'))
+            (self.expect('in'))
             and
             (a := self.bitwise_or())
         ):
-            return ( ast . In ( ) , a )
+            return ( ast . In ( ) , a );
         self._reset(mark)
-        return None
+        return None;
 
     @memoize
     def isnot_bitwise_or(self) -> Optional[Any]:
         # isnot_bitwise_or: 'is' 'not' bitwise_or
         mark = self._mark()
         if (
-            (literal := self.expect('is'))
+            (self.expect('is'))
             and
-            (literal_1 := self.expect('not'))
+            (self.expect('not'))
             and
             (a := self.bitwise_or())
         ):
-            return ( ast . IsNot ( ) , a )
+            return ( ast . IsNot ( ) , a );
         self._reset(mark)
-        return None
+        return None;
 
     @memoize
     def is_bitwise_or(self) -> Optional[Any]:
         # is_bitwise_or: 'is' bitwise_or
         mark = self._mark()
         if (
-            (literal := self.expect('is'))
+            (self.expect('is'))
             and
             (a := self.bitwise_or())
         ):
-            return ( ast . Is ( ) , a )
+            return ( ast . Is ( ) , a );
         self._reset(mark)
-        return None
+        return None;
 
     @memoize_left_rec
     def bitwise_or(self) -> Optional[Any]:
@@ -3866,20 +3928,20 @@ class HGLParser(Parser):
         if (
             (a := self.bitwise_or())
             and
-            (literal := self.expect('|'))
+            (self.expect('|'))
             and
             (b := self.bitwise_xor())
         ):
             tok = self._tokenizer.get_last_non_whitespace_token()
             end_lineno, end_col_offset = tok.end
-            return ast . BinOp ( left = a , op = ast . BitOr ( ) , right = b , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset )
+            return ast . BinOp ( left = a , op = ast . BitOr ( ) , right = b , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset );
         self._reset(mark)
         if (
             (bitwise_xor := self.bitwise_xor())
         ):
-            return bitwise_xor
+            return bitwise_xor;
         self._reset(mark)
-        return None
+        return None;
 
     @memoize_left_rec
     def bitwise_xor(self) -> Optional[Any]:
@@ -3890,20 +3952,20 @@ class HGLParser(Parser):
         if (
             (a := self.bitwise_xor())
             and
-            (literal := self.expect('^'))
+            (self.expect('^'))
             and
             (b := self.bitwise_and())
         ):
             tok = self._tokenizer.get_last_non_whitespace_token()
             end_lineno, end_col_offset = tok.end
-            return ast . BinOp ( left = a , op = ast . BitXor ( ) , right = b , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset )
+            return ast . BinOp ( left = a , op = ast . BitXor ( ) , right = b , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset );
         self._reset(mark)
         if (
             (bitwise_and := self.bitwise_and())
         ):
-            return bitwise_and
+            return bitwise_and;
         self._reset(mark)
-        return None
+        return None;
 
     @memoize_left_rec
     def bitwise_and(self) -> Optional[Any]:
@@ -3914,20 +3976,20 @@ class HGLParser(Parser):
         if (
             (a := self.bitwise_and())
             and
-            (literal := self.expect('&'))
+            (self.expect('&'))
             and
             (b := self.shift_expr())
         ):
             tok = self._tokenizer.get_last_non_whitespace_token()
             end_lineno, end_col_offset = tok.end
-            return ast . BinOp ( left = a , op = ast . BitAnd ( ) , right = b , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset )
+            return ast . BinOp ( left = a , op = ast . BitAnd ( ) , right = b , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset );
         self._reset(mark)
         if (
             (shift_expr := self.shift_expr())
         ):
-            return shift_expr
+            return shift_expr;
         self._reset(mark)
-        return None
+        return None;
 
     @memoize_left_rec
     def shift_expr(self) -> Optional[Any]:
@@ -3938,31 +4000,31 @@ class HGLParser(Parser):
         if (
             (a := self.shift_expr())
             and
-            (literal := self.expect('<<'))
+            (self.expect('<<'))
             and
             (b := self.sum())
         ):
             tok = self._tokenizer.get_last_non_whitespace_token()
             end_lineno, end_col_offset = tok.end
-            return ast . BinOp ( left = a , op = ast . LShift ( ) , right = b , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset )
+            return ast . BinOp ( left = a , op = ast . LShift ( ) , right = b , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset );
         self._reset(mark)
         if (
             (a := self.shift_expr())
             and
-            (literal := self.expect('>>'))
+            (self.expect('>>'))
             and
             (b := self.sum())
         ):
             tok = self._tokenizer.get_last_non_whitespace_token()
             end_lineno, end_col_offset = tok.end
-            return ast . BinOp ( left = a , op = ast . RShift ( ) , right = b , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset )
+            return ast . BinOp ( left = a , op = ast . RShift ( ) , right = b , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset );
         self._reset(mark)
         if (
             (sum := self.sum())
         ):
-            return sum
+            return sum;
         self._reset(mark)
-        return None
+        return None;
 
     @memoize_left_rec
     def sum(self) -> Optional[Any]:
@@ -3973,31 +4035,31 @@ class HGLParser(Parser):
         if (
             (a := self.sum())
             and
-            (literal := self.expect('+'))
+            (self.expect('+'))
             and
             (b := self.term())
         ):
             tok = self._tokenizer.get_last_non_whitespace_token()
             end_lineno, end_col_offset = tok.end
-            return ast . BinOp ( left = a , op = ast . Add ( ) , right = b , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset )
+            return ast . BinOp ( left = a , op = ast . Add ( ) , right = b , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset );
         self._reset(mark)
         if (
             (a := self.sum())
             and
-            (literal := self.expect('-'))
+            (self.expect('-'))
             and
             (b := self.term())
         ):
             tok = self._tokenizer.get_last_non_whitespace_token()
             end_lineno, end_col_offset = tok.end
-            return ast . BinOp ( left = a , op = ast . Sub ( ) , right = b , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset )
+            return ast . BinOp ( left = a , op = ast . Sub ( ) , right = b , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset );
         self._reset(mark)
         if (
             (term := self.term())
         ):
-            return term
+            return term;
         self._reset(mark)
-        return None
+        return None;
 
     @memoize_left_rec
     def term(self) -> Optional[Any]:
@@ -4008,64 +4070,64 @@ class HGLParser(Parser):
         if (
             (a := self.term())
             and
-            (literal := self.expect('*'))
+            (self.expect('*'))
             and
             (b := self.factor())
         ):
             tok = self._tokenizer.get_last_non_whitespace_token()
             end_lineno, end_col_offset = tok.end
-            return ast . BinOp ( left = a , op = ast . Mult ( ) , right = b , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset )
+            return ast . BinOp ( left = a , op = ast . Mult ( ) , right = b , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset );
         self._reset(mark)
         if (
             (a := self.term())
             and
-            (literal := self.expect('/'))
+            (self.expect('/'))
             and
             (b := self.factor())
         ):
             tok = self._tokenizer.get_last_non_whitespace_token()
             end_lineno, end_col_offset = tok.end
-            return ast . BinOp ( left = a , op = ast . Div ( ) , right = b , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset )
+            return ast . BinOp ( left = a , op = ast . Div ( ) , right = b , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset );
         self._reset(mark)
         if (
             (a := self.term())
             and
-            (literal := self.expect('//'))
+            (self.expect('//'))
             and
             (b := self.factor())
         ):
             tok = self._tokenizer.get_last_non_whitespace_token()
             end_lineno, end_col_offset = tok.end
-            return ast . BinOp ( left = a , op = ast . FloorDiv ( ) , right = b , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset )
+            return ast . BinOp ( left = a , op = ast . FloorDiv ( ) , right = b , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset );
         self._reset(mark)
         if (
             (a := self.term())
             and
-            (literal := self.expect('%'))
+            (self.expect('%'))
             and
             (b := self.factor())
         ):
             tok = self._tokenizer.get_last_non_whitespace_token()
             end_lineno, end_col_offset = tok.end
-            return ast . BinOp ( left = a , op = ast . Mod ( ) , right = b , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset )
+            return ast . BinOp ( left = a , op = ast . Mod ( ) , right = b , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset );
         self._reset(mark)
         if (
             (a := self.term())
             and
-            (literal := self.expect('@'))
+            (self.expect('@'))
             and
             (b := self.factor())
         ):
             tok = self._tokenizer.get_last_non_whitespace_token()
             end_lineno, end_col_offset = tok.end
-            return self . check_version ( ( 3 , 5 ) , "The '@' operator is" , ast . BinOp ( left = a , op = ast . MatMult ( ) , right = b , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset ) )
+            return self . check_version ( ( 3 , 5 ) , "The '@' operator is" , ast . BinOp ( left = a , op = ast . MatMult ( ) , right = b , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset ) );
         self._reset(mark)
         if (
             (factor := self.factor())
         ):
-            return factor
+            return factor;
         self._reset(mark)
-        return None
+        return None;
 
     @memoize
     def factor(self) -> Optional[Any]:
@@ -4074,56 +4136,56 @@ class HGLParser(Parser):
         tok = self._tokenizer.peek()
         start_lineno, start_col_offset = tok.start
         if (
-            (literal := self.expect('!'))
+            (self.expect('!'))
             and
             (a := self.factor())
         ):
             tok = self._tokenizer.get_last_non_whitespace_token()
             end_lineno, end_col_offset = tok.end
-            return ast . Call ( func = ast . Name ( id = '__hgl_logicnot__' , ctx = Load , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset ) , args = [a] , keywords = [] , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset )
+            return ast . Call ( func = ast . Name ( id = '__hgl_logicnot__' , ctx = Load , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset ) , args = [a] , keywords = [] , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset );
         self._reset(mark)
         if (
-            (literal := self.expect('>>>'))
+            (self.expect('>>>'))
             and
             (a := self.factor())
         ):
             tok = self._tokenizer.get_last_non_whitespace_token()
             end_lineno, end_col_offset = tok.end
-            return ast . Call ( func = ast . Name ( id = '__hgl_rshift__' , ctx = Load , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset ) , args = [a] , keywords = [] , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset )
+            return ast . Call ( func = ast . Name ( id = '__hgl_rshift__' , ctx = Load , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset ) , args = [a] , keywords = [] , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset );
         self._reset(mark)
         if (
-            (literal := self.expect('+'))
+            (self.expect('+'))
             and
             (a := self.factor())
         ):
             tok = self._tokenizer.get_last_non_whitespace_token()
             end_lineno, end_col_offset = tok.end
-            return ast . UnaryOp ( op = ast . UAdd ( ) , operand = a , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset )
+            return ast . UnaryOp ( op = ast . UAdd ( ) , operand = a , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset );
         self._reset(mark)
         if (
-            (literal := self.expect('-'))
+            (self.expect('-'))
             and
             (a := self.factor())
         ):
             tok = self._tokenizer.get_last_non_whitespace_token()
             end_lineno, end_col_offset = tok.end
-            return ast . UnaryOp ( op = ast . USub ( ) , operand = a , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset )
+            return ast . UnaryOp ( op = ast . USub ( ) , operand = a , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset );
         self._reset(mark)
         if (
-            (literal := self.expect('~'))
+            (self.expect('~'))
             and
             (a := self.factor())
         ):
             tok = self._tokenizer.get_last_non_whitespace_token()
             end_lineno, end_col_offset = tok.end
-            return ast . UnaryOp ( op = ast . Invert ( ) , operand = a , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset )
+            return ast . UnaryOp ( op = ast . Invert ( ) , operand = a , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset );
         self._reset(mark)
         if (
             (power := self.power())
         ):
-            return power
+            return power;
         self._reset(mark)
-        return None
+        return None;
 
     @memoize
     def power(self) -> Optional[Any]:
@@ -4134,20 +4196,20 @@ class HGLParser(Parser):
         if (
             (a := self.await_primary())
             and
-            (literal := self.expect('**'))
+            (self.expect('**'))
             and
             (b := self.factor())
         ):
             tok = self._tokenizer.get_last_non_whitespace_token()
             end_lineno, end_col_offset = tok.end
-            return ast . BinOp ( left = a , op = ast . Pow ( ) , right = b , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset )
+            return ast . BinOp ( left = a , op = ast . Pow ( ) , right = b , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset );
         self._reset(mark)
         if (
             (await_primary := self.await_primary())
         ):
-            return await_primary
+            return await_primary;
         self._reset(mark)
-        return None
+        return None;
 
     @memoize
     def await_primary(self) -> Optional[Any]:
@@ -4156,20 +4218,20 @@ class HGLParser(Parser):
         tok = self._tokenizer.peek()
         start_lineno, start_col_offset = tok.start
         if (
-            (literal := self.expect('await'))
+            (self.expect('await'))
             and
             (a := self.primary())
         ):
             tok = self._tokenizer.get_last_non_whitespace_token()
             end_lineno, end_col_offset = tok.end
-            return self . check_version ( ( 3 , 5 ) , "Await expressions are" , ast . Await ( a , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset ) )
+            return self . check_version ( ( 3 , 5 ) , "Await expressions are" , ast . Await ( a , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset ) );
         self._reset(mark)
         if (
             (primary := self.primary())
         ):
-            return primary
+            return primary;
         self._reset(mark)
-        return None
+        return None;
 
     @memoize_left_rec
     def primary(self) -> Optional[Any]:
@@ -4180,13 +4242,13 @@ class HGLParser(Parser):
         if (
             (a := self.primary())
             and
-            (literal := self.expect('.'))
+            (self.expect('.'))
             and
             (b := self.name())
         ):
             tok = self._tokenizer.get_last_non_whitespace_token()
             end_lineno, end_col_offset = tok.end
-            return ast . Attribute ( value = a , attr = b . string , ctx = Load , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset )
+            return ast . Attribute ( value = a , attr = b . string , ctx = Load , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset );
         self._reset(mark)
         if (
             (a := self.primary())
@@ -4195,33 +4257,33 @@ class HGLParser(Parser):
         ):
             tok = self._tokenizer.get_last_non_whitespace_token()
             end_lineno, end_col_offset = tok.end
-            return ast . Call ( func = a , args = [b] , keywords = [] , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset )
+            return ast . Call ( func = a , args = [b] , keywords = [] , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset );
         self._reset(mark)
         if (
             (a := self.primary())
             and
-            (literal := self.expect('('))
+            (self.expect('('))
             and
             (b := self.arguments(),)
             and
-            (literal_1 := self.expect(')'))
+            (self.expect(')'))
         ):
             tok = self._tokenizer.get_last_non_whitespace_token()
             end_lineno, end_col_offset = tok.end
-            return ast . Call ( func = a , args = b [0] if b else [] , keywords = b [1] if b else [] , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset , )
+            return ast . Call ( func = a , args = b [0] if b else [] , keywords = b [1] if b else [] , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset , );
         self._reset(mark)
         if (
             (a := self.primary())
             and
-            (literal := self.expect('['))
+            (self.expect('['))
             and
             (b := self.slices())
             and
-            (literal_1 := self.expect(']'))
+            (self.expect(']'))
         ):
             tok = self._tokenizer.get_last_non_whitespace_token()
             end_lineno, end_col_offset = tok.end
-            return ast . Subscript ( value = a , slice = b , ctx = Load , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset )
+            return ast . Subscript ( value = a , slice = b , ctx = Load , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset );
         self._reset(mark)
         if (
             (a := self.primary())
@@ -4230,14 +4292,14 @@ class HGLParser(Parser):
         ):
             tok = self._tokenizer.get_last_non_whitespace_token()
             end_lineno, end_col_offset = tok.end
-            return ast . Call ( func = ast . Name ( id = '__hgl_unit__' , ctx = Load , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset ) , args = [a , b] , keywords = [] , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset )
+            return ast . Call ( func = ast . Name ( id = '__hgl_unit__' , ctx = Load , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset ) , args = [a , b] , keywords = [] , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset );
         self._reset(mark)
         if (
             (atom := self.atom())
         ):
-            return atom
+            return atom;
         self._reset(mark)
-        return None
+        return None;
 
     @memoize
     def hgl_unit(self) -> Optional[Any]:
@@ -4246,17 +4308,17 @@ class HGLParser(Parser):
         tok = self._tokenizer.peek()
         start_lineno, start_col_offset = tok.start
         if (
-            (literal := self.expect('`'))
+            (self.expect('`'))
             and
             (b := self.expression())
             and
-            (literal_1 := self.expect('`'))
+            (self.expect('`'))
         ):
             tok = self._tokenizer.get_last_non_whitespace_token()
             end_lineno, end_col_offset = tok.end
-            return ast . Lambda ( args = self . make_arguments ( None , [] , None , [] , ( None , [] , None ) ) , body = b , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset )
+            return ast . Lambda ( args = self . make_arguments ( None , [] , None , [] , ( None , [] , None ) ) , body = b , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset );
         self._reset(mark)
-        return None
+        return None;
 
     @memoize
     def slices(self) -> Optional[Any]:
@@ -4267,20 +4329,20 @@ class HGLParser(Parser):
         if (
             (a := self.slice())
             and
-            self.negative_lookahead(self.expect, ',')
+            (self.negative_lookahead(self.expect, ','))
         ):
-            return a
+            return a;
         self._reset(mark)
         if (
             (a := self._gather_88())
             and
-            (opt := self.expect(','),)
+            (self.expect(','),)
         ):
             tok = self._tokenizer.get_last_non_whitespace_token()
             end_lineno, end_col_offset = tok.end
-            return ast . Tuple ( elts = a , ctx = Load , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset ) if sys . version_info >= ( 3 , 9 ) else ( ast . ExtSlice ( dims = a , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset ) if any ( isinstance ( e , ast . Slice ) for e in a ) else ast . Index ( value = ast . Tuple ( elts = [e . value for e in a] , ctx = Load , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset ) , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset ) )
+            return ast . Tuple ( elts = a , ctx = Load , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset ) if sys . version_info >= ( 3 , 9 ) else ( ast . ExtSlice ( dims = a , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset ) if any ( isinstance ( e , ast . Slice ) for e in a ) else ast . Index ( value = ast . Tuple ( elts = [e . value for e in a] , ctx = Load , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset ) , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset ) );
         self._reset(mark)
-        return None
+        return None;
 
     @memoize
     def slice(self) -> Optional[Any]:
@@ -4291,7 +4353,7 @@ class HGLParser(Parser):
         if (
             (a := self.expression(),)
             and
-            (literal := self.expect(':'))
+            (self.expect(':'))
             and
             (b := self.expression(),)
             and
@@ -4299,14 +4361,14 @@ class HGLParser(Parser):
         ):
             tok = self._tokenizer.get_last_non_whitespace_token()
             end_lineno, end_col_offset = tok.end
-            return ast . Slice ( lower = a , upper = b , step = c , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset )
+            return ast . Slice ( lower = a , upper = b , step = c , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset );
         self._reset(mark)
         if (
             (a := self.named_expression())
         ):
-            return a if sys . version_info >= ( 3 , 9 ) or isinstance ( a , ast . Slice ) else ast . Index ( value = a , lineno = a . lineno , col_offset = a . col_offset , end_lineno = a . end_lineno , end_col_offset = a . end_col_offset )
+            return a if sys . version_info >= ( 3 , 9 ) or isinstance ( a , ast . Slice ) else ast . Index ( value = a , lineno = a . lineno , col_offset = a . col_offset , end_lineno = a . end_lineno , end_col_offset = a . end_col_offset );
         self._reset(mark)
-        return None
+        return None;
 
     @memoize
     def atom(self) -> Optional[Any]:
@@ -4319,92 +4381,94 @@ class HGLParser(Parser):
         ):
             tok = self._tokenizer.get_last_non_whitespace_token()
             end_lineno, end_col_offset = tok.end
-            return ast . Name ( id = a . string , ctx = Load , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset )
+            return ast . Name ( id = a . string , ctx = Load , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset );
         self._reset(mark)
         if (
-            (literal := self.expect('True'))
+            (self.expect('True'))
         ):
             tok = self._tokenizer.get_last_non_whitespace_token()
             end_lineno, end_col_offset = tok.end
-            return ast . Constant ( value = True , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset ) if sys . version_info >= ( 3 , 9 ) else ast . Constant ( value = True , kind = None , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset )
+            return ast . Constant ( value = True , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset ) if sys . version_info >= ( 3 , 9 ) else ast . Constant ( value = True , kind = None , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset );
         self._reset(mark)
         if (
-            (literal := self.expect('False'))
+            (self.expect('False'))
         ):
             tok = self._tokenizer.get_last_non_whitespace_token()
             end_lineno, end_col_offset = tok.end
-            return ast . Constant ( value = False , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset ) if sys . version_info >= ( 3 , 9 ) else ast . Constant ( value = False , kind = None , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset )
+            return ast . Constant ( value = False , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset ) if sys . version_info >= ( 3 , 9 ) else ast . Constant ( value = False , kind = None , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset );
         self._reset(mark)
         if (
-            (literal := self.expect('None'))
+            (self.expect('None'))
         ):
             tok = self._tokenizer.get_last_non_whitespace_token()
             end_lineno, end_col_offset = tok.end
-            return ast . Constant ( value = None , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset ) if sys . version_info >= ( 3 , 9 ) else ast . Constant ( value = None , kind = None , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset )
+            return ast . Constant ( value = None , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset ) if sys . version_info >= ( 3 , 9 ) else ast . Constant ( value = None , kind = None , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset );
         self._reset(mark)
         if (
-            self.positive_lookahead(self.string, )
+            (self.positive_lookahead(self.string, ))
             and
             (strings := self.strings())
         ):
-            return strings
+            return strings;
         self._reset(mark)
         if (
             (a := self.number())
         ):
             tok = self._tokenizer.get_last_non_whitespace_token()
             end_lineno, end_col_offset = tok.end
-            return ast . Constant ( value = ast . literal_eval ( a . string ) , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset ) if sys . version_info >= ( 3 , 9 ) else ast . Constant ( value = ast . literal_eval ( a . string ) , kind = None , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset )
+            return ast . Constant ( value = ast . literal_eval ( a . string ) , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset ) if sys . version_info >= ( 3 , 9 ) else ast . Constant ( value = ast . literal_eval ( a . string ) , kind = None , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset );
         self._reset(mark)
         if (
-            self.positive_lookahead(self.expect, '(')
+            (self.positive_lookahead(self.expect, '('))
             and
             (_tmp_91 := self._tmp_91())
         ):
-            return _tmp_91
+            return _tmp_91;
         self._reset(mark)
         if (
-            self.positive_lookahead(self.expect, '[')
+            (self.positive_lookahead(self.expect, '['))
             and
             (_tmp_92 := self._tmp_92())
         ):
-            return _tmp_92
+            return _tmp_92;
         self._reset(mark)
         if (
-            self.positive_lookahead(self.expect, '{')
+            (self.positive_lookahead(self.expect, '{'))
             and
             (_tmp_93 := self._tmp_93())
         ):
-            return _tmp_93
+            return _tmp_93;
         self._reset(mark)
         if (
-            (literal := self.expect('...'))
+            (self.expect('...'))
         ):
             tok = self._tokenizer.get_last_non_whitespace_token()
             end_lineno, end_col_offset = tok.end
-            return ast . Constant ( value = Ellipsis , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset ) if sys . version_info >= ( 3 , 9 ) else ast . Constant ( value = Ellipsis , kind = None , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset )
+            return ast . Constant ( value = Ellipsis , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset ) if sys . version_info >= ( 3 , 9 ) else ast . Constant ( value = Ellipsis , kind = None , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset );
         self._reset(mark)
-        return None
+        return None;
 
     @memoize
     def group(self) -> Optional[Any]:
         # group: '(' (yield_expr | named_expression) ')' | invalid_group
         mark = self._mark()
         if (
-            (literal := self.expect('('))
+            (self.expect('('))
             and
             (a := self._tmp_94())
             and
-            (literal_1 := self.expect(')'))
+            (self.expect(')'))
         ):
-            return a
+            return a;
         self._reset(mark)
         if (
-            (invalid_group := self.invalid_group())
+            self.call_invalid_rules
+            and
+            (self.invalid_group())
         ):
-            return None  # pragma: no cover
+            return None  # pragma: no cover;
         self._reset(mark)
-        return None
+        return None;
 
     @memoize
     def lambdef(self) -> Optional[Any]:
@@ -4413,35 +4477,37 @@ class HGLParser(Parser):
         tok = self._tokenizer.peek()
         start_lineno, start_col_offset = tok.start
         if (
-            (literal := self.expect('lambda'))
+            (self.expect('lambda'))
             and
             (a := self.lambda_params(),)
             and
-            (literal_1 := self.expect(':'))
+            (self.expect(':'))
             and
             (b := self.expression())
         ):
             tok = self._tokenizer.get_last_non_whitespace_token()
             end_lineno, end_col_offset = tok.end
-            return ast . Lambda ( args = a or self . make_arguments ( None , [] , None , [] , ( None , [] , None ) ) , body = b , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset )
+            return ast . Lambda ( args = a or self . make_arguments ( None , [] , None , [] , ( None , [] , None ) ) , body = b , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset );
         self._reset(mark)
-        return None
+        return None;
 
     @memoize
     def lambda_params(self) -> Optional[Any]:
         # lambda_params: invalid_lambda_parameters | lambda_parameters
         mark = self._mark()
         if (
-            (invalid_lambda_parameters := self.invalid_lambda_parameters())
+            self.call_invalid_rules
+            and
+            (self.invalid_lambda_parameters())
         ):
-            return None  # pragma: no cover
+            return None  # pragma: no cover;
         self._reset(mark)
         if (
             (lambda_parameters := self.lambda_parameters())
         ):
-            return lambda_parameters
+            return lambda_parameters;
         self._reset(mark)
-        return None
+        return None;
 
     @memoize
     def lambda_parameters(self) -> Optional[ast . arguments]:
@@ -4456,7 +4522,7 @@ class HGLParser(Parser):
             and
             (d := self.lambda_star_etc(),)
         ):
-            return self . make_arguments ( a , [] , b , c , d )
+            return self . make_arguments ( a , [] , b , c , d );
         self._reset(mark)
         if (
             (a := self.lambda_slash_with_default())
@@ -4465,7 +4531,7 @@ class HGLParser(Parser):
             and
             (c := self.lambda_star_etc(),)
         ):
-            return self . make_arguments ( None , a , None , b , c )
+            return self . make_arguments ( None , a , None , b , c );
         self._reset(mark)
         if (
             (a := self._loop1_98())
@@ -4474,21 +4540,21 @@ class HGLParser(Parser):
             and
             (c := self.lambda_star_etc(),)
         ):
-            return self . make_arguments ( None , [] , a , b , c )
+            return self . make_arguments ( None , [] , a , b , c );
         self._reset(mark)
         if (
             (a := self._loop1_100())
             and
             (b := self.lambda_star_etc(),)
         ):
-            return self . make_arguments ( None , [] , None , a , b )
+            return self . make_arguments ( None , [] , None , a , b );
         self._reset(mark)
         if (
             (a := self.lambda_star_etc())
         ):
-            return self . make_arguments ( None , [] , None , [] , a )
+            return self . make_arguments ( None , [] , None , [] , a );
         self._reset(mark)
-        return None
+        return None;
 
     @memoize
     def lambda_slash_no_default(self) -> Optional[List [Tuple [ast . arg , None]]]:
@@ -4497,22 +4563,22 @@ class HGLParser(Parser):
         if (
             (a := self._loop1_101())
             and
-            (literal := self.expect('/'))
+            (self.expect('/'))
             and
-            (literal_1 := self.expect(','))
+            (self.expect(','))
         ):
-            return [( p , None ) for p in a]
+            return [( p , None ) for p in a];
         self._reset(mark)
         if (
             (a := self._loop1_102())
             and
-            (literal := self.expect('/'))
+            (self.expect('/'))
             and
-            self.positive_lookahead(self.expect, ':')
+            (self.positive_lookahead(self.expect, ':'))
         ):
-            return [( p , None ) for p in a]
+            return [( p , None ) for p in a];
         self._reset(mark)
-        return None
+        return None;
 
     @memoize
     def lambda_slash_with_default(self) -> Optional[List [Tuple [ast . arg , Any]]]:
@@ -4523,36 +4589,38 @@ class HGLParser(Parser):
             and
             (b := self._loop1_104())
             and
-            (literal := self.expect('/'))
+            (self.expect('/'))
             and
-            (literal_1 := self.expect(','))
+            (self.expect(','))
         ):
-            return ( [( p , None ) for p in a] if a else [] ) + b
+            return ( [( p , None ) for p in a] if a else [] ) + b;
         self._reset(mark)
         if (
             (a := self._loop0_105(),)
             and
             (b := self._loop1_106())
             and
-            (literal := self.expect('/'))
+            (self.expect('/'))
             and
-            self.positive_lookahead(self.expect, ':')
+            (self.positive_lookahead(self.expect, ':'))
         ):
-            return ( [( p , None ) for p in a] if a else [] ) + b
+            return ( [( p , None ) for p in a] if a else [] ) + b;
         self._reset(mark)
-        return None
+        return None;
 
     @memoize
     def lambda_star_etc(self) -> Optional[Tuple [Optional [ast . arg] , List [Tuple [ast . arg , Any]] , Optional [ast . arg]]]:
         # lambda_star_etc: invalid_lambda_star_etc | '*' lambda_param_no_default lambda_param_maybe_default* lambda_kwds? | '*' ',' lambda_param_maybe_default+ lambda_kwds? | lambda_kwds
         mark = self._mark()
         if (
-            (invalid_lambda_star_etc := self.invalid_lambda_star_etc())
+            self.call_invalid_rules
+            and
+            (self.invalid_lambda_star_etc())
         ):
-            return None  # pragma: no cover
+            return None  # pragma: no cover;
         self._reset(mark)
         if (
-            (literal := self.expect('*'))
+            (self.expect('*'))
             and
             (a := self.lambda_param_no_default())
             and
@@ -4560,43 +4628,45 @@ class HGLParser(Parser):
             and
             (c := self.lambda_kwds(),)
         ):
-            return ( a , b , c )
+            return ( a , b , c );
         self._reset(mark)
         if (
-            (literal := self.expect('*'))
+            (self.expect('*'))
             and
-            (literal_1 := self.expect(','))
+            (self.expect(','))
             and
             (b := self._loop1_108())
             and
             (c := self.lambda_kwds(),)
         ):
-            return ( None , b , c )
+            return ( None , b , c );
         self._reset(mark)
         if (
             (a := self.lambda_kwds())
         ):
-            return ( None , [] , a )
+            return ( None , [] , a );
         self._reset(mark)
-        return None
+        return None;
 
     @memoize
     def lambda_kwds(self) -> Optional[ast . arg]:
         # lambda_kwds: invalid_lambda_kwds | '**' lambda_param_no_default
         mark = self._mark()
         if (
-            (invalid_lambda_kwds := self.invalid_lambda_kwds())
+            self.call_invalid_rules
+            and
+            (self.invalid_lambda_kwds())
         ):
-            return None  # pragma: no cover
+            return None  # pragma: no cover;
         self._reset(mark)
         if (
-            (literal := self.expect('**'))
+            (self.expect('**'))
             and
             (a := self.lambda_param_no_default())
         ):
-            return a
+            return a;
         self._reset(mark)
-        return None
+        return None;
 
     @memoize
     def lambda_param_no_default(self) -> Optional[ast . arg]:
@@ -4605,18 +4675,18 @@ class HGLParser(Parser):
         if (
             (a := self.lambda_param())
             and
-            (literal := self.expect(','))
+            (self.expect(','))
         ):
-            return a
+            return a;
         self._reset(mark)
         if (
             (a := self.lambda_param())
             and
-            self.positive_lookahead(self.expect, ':')
+            (self.positive_lookahead(self.expect, ':'))
         ):
-            return a
+            return a;
         self._reset(mark)
-        return None
+        return None;
 
     @memoize
     def lambda_param_with_default(self) -> Optional[Tuple [ast . arg , Any]]:
@@ -4627,20 +4697,20 @@ class HGLParser(Parser):
             and
             (c := self.default())
             and
-            (literal := self.expect(','))
+            (self.expect(','))
         ):
-            return ( a , c )
+            return ( a , c );
         self._reset(mark)
         if (
             (a := self.lambda_param())
             and
             (c := self.default())
             and
-            self.positive_lookahead(self.expect, ':')
+            (self.positive_lookahead(self.expect, ':'))
         ):
-            return ( a , c )
+            return ( a , c );
         self._reset(mark)
-        return None
+        return None;
 
     @memoize
     def lambda_param_maybe_default(self) -> Optional[Tuple [ast . arg , Any]]:
@@ -4651,20 +4721,20 @@ class HGLParser(Parser):
             and
             (c := self.default(),)
             and
-            (literal := self.expect(','))
+            (self.expect(','))
         ):
-            return ( a , c )
+            return ( a , c );
         self._reset(mark)
         if (
             (a := self.lambda_param())
             and
             (c := self.default(),)
             and
-            self.positive_lookahead(self.expect, ':')
+            (self.positive_lookahead(self.expect, ':'))
         ):
-            return ( a , c )
+            return ( a , c );
         self._reset(mark)
-        return None
+        return None;
 
     @memoize
     def lambda_param(self) -> Optional[ast . arg]:
@@ -4677,9 +4747,9 @@ class HGLParser(Parser):
         ):
             tok = self._tokenizer.get_last_non_whitespace_token()
             end_lineno, end_col_offset = tok.end
-            return ast . arg ( arg = a . string , annotation = None , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset ) if sys . version_info >= ( 3 , 9 ) else ast . arg ( arg = a . string , annotation = None , type_comment = None , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset )
+            return ast . arg ( arg = a . string , annotation = None , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset ) if sys . version_info >= ( 3 , 9 ) else ast . arg ( arg = a . string , annotation = None , type_comment = None , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset );
         self._reset(mark)
-        return None
+        return None;
 
     @memoize
     def strings(self) -> Optional[ast . Str]:
@@ -4688,9 +4758,9 @@ class HGLParser(Parser):
         if (
             (a := self._loop1_109())
         ):
-            return self . generate_ast_for_string ( a )
+            return self . generate_ast_for_string ( a );
         self._reset(mark)
-        return None
+        return None;
 
     @memoize
     def list(self) -> Optional[ast . List]:
@@ -4699,17 +4769,17 @@ class HGLParser(Parser):
         tok = self._tokenizer.peek()
         start_lineno, start_col_offset = tok.start
         if (
-            (literal := self.expect('['))
+            (self.expect('['))
             and
             (a := self.star_named_expressions(),)
             and
-            (literal_1 := self.expect(']'))
+            (self.expect(']'))
         ):
             tok = self._tokenizer.get_last_non_whitespace_token()
             end_lineno, end_col_offset = tok.end
-            return ast . List ( elts = a or [] , ctx = Load , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset )
+            return ast . List ( elts = a or [] , ctx = Load , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset );
         self._reset(mark)
-        return None
+        return None;
 
     @memoize
     def tuple(self) -> Optional[ast . Tuple]:
@@ -4718,17 +4788,17 @@ class HGLParser(Parser):
         tok = self._tokenizer.peek()
         start_lineno, start_col_offset = tok.start
         if (
-            (literal := self.expect('('))
+            (self.expect('('))
             and
             (a := self._tmp_110(),)
             and
-            (literal_1 := self.expect(')'))
+            (self.expect(')'))
         ):
             tok = self._tokenizer.get_last_non_whitespace_token()
             end_lineno, end_col_offset = tok.end
-            return ast . Tuple ( elts = a or [] , ctx = Load , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset )
+            return ast . Tuple ( elts = a or [] , ctx = Load , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset );
         self._reset(mark)
-        return None
+        return None;
 
     @memoize
     def set(self) -> Optional[ast . Set]:
@@ -4737,17 +4807,17 @@ class HGLParser(Parser):
         tok = self._tokenizer.peek()
         start_lineno, start_col_offset = tok.start
         if (
-            (literal := self.expect('{'))
+            (self.expect('{'))
             and
             (a := self.star_named_expressions())
             and
-            (literal_1 := self.expect('}'))
+            (self.expect('}'))
         ):
             tok = self._tokenizer.get_last_non_whitespace_token()
             end_lineno, end_col_offset = tok.end
-            return ast . Set ( elts = a , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset )
+            return ast . Set ( elts = a , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset );
         self._reset(mark)
-        return None
+        return None;
 
     @memoize
     def dict(self) -> Optional[ast . Dict]:
@@ -4756,26 +4826,28 @@ class HGLParser(Parser):
         tok = self._tokenizer.peek()
         start_lineno, start_col_offset = tok.start
         if (
-            (literal := self.expect('{'))
+            (self.expect('{'))
             and
             (a := self.double_starred_kvpairs(),)
             and
-            (literal_1 := self.expect('}'))
+            (self.expect('}'))
         ):
             tok = self._tokenizer.get_last_non_whitespace_token()
             end_lineno, end_col_offset = tok.end
-            return ast . Dict ( keys = [kv [0] for kv in ( a or [] )] , values = [kv [1] for kv in ( a or [] )] , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset )
+            return ast . Dict ( keys = [kv [0] for kv in ( a or [] )] , values = [kv [1] for kv in ( a or [] )] , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset );
         self._reset(mark)
         if (
-            (literal := self.expect('{'))
+            self.call_invalid_rules
             and
-            (invalid_double_starred_kvpairs := self.invalid_double_starred_kvpairs())
+            (self.expect('{'))
             and
-            (literal_1 := self.expect('}'))
+            (self.invalid_double_starred_kvpairs())
+            and
+            (self.expect('}'))
         ):
-            return None  # pragma: no cover
+            return None  # pragma: no cover;
         self._reset(mark)
-        return None
+        return None;
 
     @memoize
     def double_starred_kvpairs(self) -> Optional[list]:
@@ -4784,29 +4856,29 @@ class HGLParser(Parser):
         if (
             (a := self._gather_111())
             and
-            (opt := self.expect(','),)
+            (self.expect(','),)
         ):
-            return a
+            return a;
         self._reset(mark)
-        return None
+        return None;
 
     @memoize
     def double_starred_kvpair(self) -> Optional[Any]:
         # double_starred_kvpair: '**' bitwise_or | kvpair
         mark = self._mark()
         if (
-            (literal := self.expect('**'))
+            (self.expect('**'))
             and
             (a := self.bitwise_or())
         ):
-            return ( None , a )
+            return ( None , a );
         self._reset(mark)
         if (
             (kvpair := self.kvpair())
         ):
-            return kvpair
+            return kvpair;
         self._reset(mark)
-        return None
+        return None;
 
     @memoize
     def kvpair(self) -> Optional[tuple]:
@@ -4815,13 +4887,13 @@ class HGLParser(Parser):
         if (
             (a := self.expression())
             and
-            (literal := self.expect(':'))
+            (self.expect(':'))
             and
             (b := self.expression())
         ):
-            return ( a , b )
+            return ( a , b );
         self._reset(mark)
-        return None
+        return None;
 
     @memoize
     def for_if_clauses(self) -> Optional[List [ast . comprehension]]:
@@ -4830,9 +4902,9 @@ class HGLParser(Parser):
         if (
             (a := self._loop1_113())
         ):
-            return a
+            return a;
         self._reset(mark)
-        return None
+        return None;
 
     @memoize
     def for_if_clause(self) -> Optional[ast . comprehension]:
@@ -4840,13 +4912,13 @@ class HGLParser(Parser):
         mark = self._mark()
         cut = False
         if (
-            (literal := self.expect('async'))
+            (self.expect('async'))
             and
-            (literal_1 := self.expect('for'))
+            (self.expect('for'))
             and
             (a := self.star_targets())
             and
-            (literal_2 := self.expect('in'))
+            (self.expect('in'))
             and
             (cut := True)
             and
@@ -4854,16 +4926,17 @@ class HGLParser(Parser):
             and
             (c := self._loop0_114(),)
         ):
-            return self . check_version ( ( 3 , 6 ) , "Async comprehensions are" , ast . comprehension ( target = a , iter = b , ifs = c , is_async = 1 ) )
+            return self . check_version ( ( 3 , 6 ) , "Async comprehensions are" , ast . comprehension ( target = a , iter = b , ifs = c , is_async = 1 ) );
         self._reset(mark)
-        if cut: return None
+        if cut:
+            return None;
         cut = False
         if (
-            (literal := self.expect('for'))
+            (self.expect('for'))
             and
             (a := self.star_targets())
             and
-            (literal_1 := self.expect('in'))
+            (self.expect('in'))
             and
             (cut := True)
             and
@@ -4871,15 +4944,18 @@ class HGLParser(Parser):
             and
             (c := self._loop0_115(),)
         ):
-            return ast . comprehension ( target = a , iter = b , ifs = c , is_async = 0 )
+            return ast . comprehension ( target = a , iter = b , ifs = c , is_async = 0 );
         self._reset(mark)
-        if cut: return None
+        if cut:
+            return None;
         if (
-            (invalid_for_target := self.invalid_for_target())
+            self.call_invalid_rules
+            and
+            (self.invalid_for_target())
         ):
-            return None  # pragma: no cover
+            return None  # pragma: no cover;
         self._reset(mark)
-        return None
+        return None;
 
     @memoize
     def listcomp(self) -> Optional[ast . ListComp]:
@@ -4888,24 +4964,26 @@ class HGLParser(Parser):
         tok = self._tokenizer.peek()
         start_lineno, start_col_offset = tok.start
         if (
-            (literal := self.expect('['))
+            (self.expect('['))
             and
             (a := self.named_expression())
             and
             (b := self.for_if_clauses())
             and
-            (literal_1 := self.expect(']'))
+            (self.expect(']'))
         ):
             tok = self._tokenizer.get_last_non_whitespace_token()
             end_lineno, end_col_offset = tok.end
-            return ast . ListComp ( elt = a , generators = b , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset )
+            return ast . ListComp ( elt = a , generators = b , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset );
         self._reset(mark)
         if (
-            (invalid_comprehension := self.invalid_comprehension())
+            self.call_invalid_rules
+            and
+            (self.invalid_comprehension())
         ):
-            return None  # pragma: no cover
+            return None  # pragma: no cover;
         self._reset(mark)
-        return None
+        return None;
 
     @memoize
     def setcomp(self) -> Optional[ast . SetComp]:
@@ -4914,24 +4992,26 @@ class HGLParser(Parser):
         tok = self._tokenizer.peek()
         start_lineno, start_col_offset = tok.start
         if (
-            (literal := self.expect('{'))
+            (self.expect('{'))
             and
             (a := self.named_expression())
             and
             (b := self.for_if_clauses())
             and
-            (literal_1 := self.expect('}'))
+            (self.expect('}'))
         ):
             tok = self._tokenizer.get_last_non_whitespace_token()
             end_lineno, end_col_offset = tok.end
-            return ast . SetComp ( elt = a , generators = b , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset )
+            return ast . SetComp ( elt = a , generators = b , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset );
         self._reset(mark)
         if (
-            (invalid_comprehension := self.invalid_comprehension())
+            self.call_invalid_rules
+            and
+            (self.invalid_comprehension())
         ):
-            return None  # pragma: no cover
+            return None  # pragma: no cover;
         self._reset(mark)
-        return None
+        return None;
 
     @memoize
     def genexp(self) -> Optional[ast . GeneratorExp]:
@@ -4940,24 +5020,26 @@ class HGLParser(Parser):
         tok = self._tokenizer.peek()
         start_lineno, start_col_offset = tok.start
         if (
-            (literal := self.expect('('))
+            (self.expect('('))
             and
             (a := self._tmp_116())
             and
             (b := self.for_if_clauses())
             and
-            (literal_1 := self.expect(')'))
+            (self.expect(')'))
         ):
             tok = self._tokenizer.get_last_non_whitespace_token()
             end_lineno, end_col_offset = tok.end
-            return ast . GeneratorExp ( elt = a , generators = b , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset )
+            return ast . GeneratorExp ( elt = a , generators = b , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset );
         self._reset(mark)
         if (
-            (invalid_comprehension := self.invalid_comprehension())
+            self.call_invalid_rules
+            and
+            (self.invalid_comprehension())
         ):
-            return None  # pragma: no cover
+            return None  # pragma: no cover;
         self._reset(mark)
-        return None
+        return None;
 
     @memoize
     def dictcomp(self) -> Optional[ast . DictComp]:
@@ -4966,24 +5048,26 @@ class HGLParser(Parser):
         tok = self._tokenizer.peek()
         start_lineno, start_col_offset = tok.start
         if (
-            (literal := self.expect('{'))
+            (self.expect('{'))
             and
             (a := self.kvpair())
             and
             (b := self.for_if_clauses())
             and
-            (literal_1 := self.expect('}'))
+            (self.expect('}'))
         ):
             tok = self._tokenizer.get_last_non_whitespace_token()
             end_lineno, end_col_offset = tok.end
-            return ast . DictComp ( key = a [0] , value = a [1] , generators = b , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset )
+            return ast . DictComp ( key = a [0] , value = a [1] , generators = b , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset );
         self._reset(mark)
         if (
-            (invalid_dict_comprehension := self.invalid_dict_comprehension())
+            self.call_invalid_rules
+            and
+            (self.invalid_dict_comprehension())
         ):
-            return None  # pragma: no cover
+            return None  # pragma: no cover;
         self._reset(mark)
-        return None
+        return None;
 
     @memoize
     def arguments(self) -> Optional[Tuple [list , list]]:
@@ -4992,18 +5076,20 @@ class HGLParser(Parser):
         if (
             (a := self.args())
             and
-            (opt := self.expect(','),)
+            (self.expect(','),)
             and
-            self.positive_lookahead(self.expect, ')')
+            (self.positive_lookahead(self.expect, ')'))
         ):
-            return a
+            return a;
         self._reset(mark)
         if (
-            (invalid_arguments := self.invalid_arguments())
+            self.call_invalid_rules
+            and
+            (self.invalid_arguments())
         ):
-            return None  # pragma: no cover
+            return None  # pragma: no cover;
         self._reset(mark)
-        return None
+        return None;
 
     @memoize
     def args(self) -> Optional[Tuple [list , list]]:
@@ -5014,14 +5100,14 @@ class HGLParser(Parser):
             and
             (b := self._tmp_119(),)
         ):
-            return ( a + ( [e for e in b if isinstance ( e , ast . Starred )] if b else [] ) , ( [e for e in b if not isinstance ( e , ast . Starred )] if b else [] ) )
+            return ( a + ( [e for e in b if isinstance ( e , ast . Starred )] if b else [] ) , ( [e for e in b if not isinstance ( e , ast . Starred )] if b else [] ) );
         self._reset(mark)
         if (
             (a := self.kwargs())
         ):
-            return ( [e for e in a if isinstance ( e , ast . Starred )] , [e for e in a if not isinstance ( e , ast . Starred )] )
+            return ( [e for e in a if isinstance ( e , ast . Starred )] , [e for e in a if not isinstance ( e , ast . Starred )] );
         self._reset(mark)
-        return None
+        return None;
 
     @memoize
     def kwargs(self) -> Optional[list]:
@@ -5030,23 +5116,23 @@ class HGLParser(Parser):
         if (
             (a := self._gather_120())
             and
-            (literal := self.expect(','))
+            (self.expect(','))
             and
             (b := self._gather_122())
         ):
-            return a + b
+            return a + b;
         self._reset(mark)
         if (
             (_gather_124 := self._gather_124())
         ):
-            return _gather_124
+            return _gather_124;
         self._reset(mark)
         if (
             (_gather_126 := self._gather_126())
         ):
-            return _gather_126
+            return _gather_126;
         self._reset(mark)
-        return None
+        return None;
 
     @memoize
     def starred_expression(self) -> Optional[Any]:
@@ -5055,15 +5141,15 @@ class HGLParser(Parser):
         tok = self._tokenizer.peek()
         start_lineno, start_col_offset = tok.start
         if (
-            (literal := self.expect('*'))
+            (self.expect('*'))
             and
             (a := self.expression())
         ):
             tok = self._tokenizer.get_last_non_whitespace_token()
             end_lineno, end_col_offset = tok.end
-            return ast . Starred ( value = a , ctx = Load , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset )
+            return ast . Starred ( value = a , ctx = Load , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset );
         self._reset(mark)
-        return None
+        return None;
 
     @memoize
     def kwarg_or_starred(self) -> Optional[Any]:
@@ -5072,27 +5158,29 @@ class HGLParser(Parser):
         tok = self._tokenizer.peek()
         start_lineno, start_col_offset = tok.start
         if (
-            (invalid_kwarg := self.invalid_kwarg())
+            self.call_invalid_rules
+            and
+            (self.invalid_kwarg())
         ):
-            return None  # pragma: no cover
+            return None  # pragma: no cover;
         self._reset(mark)
         if (
             (a := self.name())
             and
-            (literal := self.expect('='))
+            (self.expect('='))
             and
             (b := self.expression())
         ):
             tok = self._tokenizer.get_last_non_whitespace_token()
             end_lineno, end_col_offset = tok.end
-            return ast . keyword ( arg = a . string , value = b , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset )
+            return ast . keyword ( arg = a . string , value = b , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset );
         self._reset(mark)
         if (
             (a := self.starred_expression())
         ):
-            return a
+            return a;
         self._reset(mark)
-        return None
+        return None;
 
     @memoize
     def kwarg_or_double_starred(self) -> Optional[Any]:
@@ -5101,31 +5189,33 @@ class HGLParser(Parser):
         tok = self._tokenizer.peek()
         start_lineno, start_col_offset = tok.start
         if (
-            (invalid_kwarg := self.invalid_kwarg())
+            self.call_invalid_rules
+            and
+            (self.invalid_kwarg())
         ):
-            return None  # pragma: no cover
+            return None  # pragma: no cover;
         self._reset(mark)
         if (
             (a := self.name())
             and
-            (literal := self.expect('='))
+            (self.expect('='))
             and
             (b := self.expression())
         ):
             tok = self._tokenizer.get_last_non_whitespace_token()
             end_lineno, end_col_offset = tok.end
-            return ast . keyword ( arg = a . string , value = b , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset )
+            return ast . keyword ( arg = a . string , value = b , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset );
         self._reset(mark)
         if (
-            (literal := self.expect('**'))
+            (self.expect('**'))
             and
             (a := self.expression())
         ):
             tok = self._tokenizer.get_last_non_whitespace_token()
             end_lineno, end_col_offset = tok.end
-            return ast . keyword ( arg = None , value = a , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset )
+            return ast . keyword ( arg = None , value = a , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset );
         self._reset(mark)
-        return None
+        return None;
 
     @memoize
     def star_targets(self) -> Optional[Any]:
@@ -5136,22 +5226,22 @@ class HGLParser(Parser):
         if (
             (a := self.star_target())
             and
-            self.negative_lookahead(self.expect, ',')
+            (self.negative_lookahead(self.expect, ','))
         ):
-            return a
+            return a;
         self._reset(mark)
         if (
             (a := self.star_target())
             and
             (b := self._loop0_128(),)
             and
-            (opt := self.expect(','),)
+            (self.expect(','),)
         ):
             tok = self._tokenizer.get_last_non_whitespace_token()
             end_lineno, end_col_offset = tok.end
-            return ast . Tuple ( elts = [a] + b , ctx = Store , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset )
+            return ast . Tuple ( elts = [a] + b , ctx = Store , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset );
         self._reset(mark)
-        return None
+        return None;
 
     @memoize
     def star_targets_list_seq(self) -> Optional[list]:
@@ -5160,11 +5250,11 @@ class HGLParser(Parser):
         if (
             (a := self._gather_129())
             and
-            (opt := self.expect(','),)
+            (self.expect(','),)
         ):
-            return a
+            return a;
         self._reset(mark)
-        return None
+        return None;
 
     @memoize
     def star_targets_tuple_seq(self) -> Optional[list]:
@@ -5175,18 +5265,18 @@ class HGLParser(Parser):
             and
             (b := self._loop1_131())
             and
-            (opt := self.expect(','),)
+            (self.expect(','),)
         ):
-            return [a] + b
+            return [a] + b;
         self._reset(mark)
         if (
             (a := self.star_target())
             and
-            (literal := self.expect(','))
+            (self.expect(','))
         ):
-            return [a]
+            return [a];
         self._reset(mark)
-        return None
+        return None;
 
     @memoize
     def star_target(self) -> Optional[Any]:
@@ -5195,20 +5285,20 @@ class HGLParser(Parser):
         tok = self._tokenizer.peek()
         start_lineno, start_col_offset = tok.start
         if (
-            (literal := self.expect('*'))
+            (self.expect('*'))
             and
             (a := self._tmp_132())
         ):
             tok = self._tokenizer.get_last_non_whitespace_token()
             end_lineno, end_col_offset = tok.end
-            return ast . Starred ( value = self . set_expr_context ( a , Store ) , ctx = Store , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset )
+            return ast . Starred ( value = self . set_expr_context ( a , Store ) , ctx = Store , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset );
         self._reset(mark)
         if (
             (target_with_star_atom := self.target_with_star_atom())
         ):
-            return target_with_star_atom
+            return target_with_star_atom;
         self._reset(mark)
-        return None
+        return None;
 
     @memoize
     def target_with_star_atom(self) -> Optional[Any]:
@@ -5219,37 +5309,37 @@ class HGLParser(Parser):
         if (
             (a := self.t_primary())
             and
-            (literal := self.expect('.'))
+            (self.expect('.'))
             and
             (b := self.name())
             and
-            self.negative_lookahead(self.t_lookahead, )
+            (self.negative_lookahead(self.t_lookahead, ))
         ):
             tok = self._tokenizer.get_last_non_whitespace_token()
             end_lineno, end_col_offset = tok.end
-            return ast . Attribute ( value = a , attr = b . string , ctx = Store , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset )
+            return ast . Attribute ( value = a , attr = b . string , ctx = Store , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset );
         self._reset(mark)
         if (
             (a := self.t_primary())
             and
-            (literal := self.expect('['))
+            (self.expect('['))
             and
             (b := self.slices())
             and
-            (literal_1 := self.expect(']'))
+            (self.expect(']'))
             and
-            self.negative_lookahead(self.t_lookahead, )
+            (self.negative_lookahead(self.t_lookahead, ))
         ):
             tok = self._tokenizer.get_last_non_whitespace_token()
             end_lineno, end_col_offset = tok.end
-            return ast . Subscript ( value = a , slice = b , ctx = Store , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset )
+            return ast . Subscript ( value = a , slice = b , ctx = Store , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset );
         self._reset(mark)
         if (
             (star_atom := self.star_atom())
         ):
-            return star_atom
+            return star_atom;
         self._reset(mark)
-        return None
+        return None;
 
     @memoize
     def star_atom(self) -> Optional[Any]:
@@ -5262,40 +5352,40 @@ class HGLParser(Parser):
         ):
             tok = self._tokenizer.get_last_non_whitespace_token()
             end_lineno, end_col_offset = tok.end
-            return ast . Name ( id = a . string , ctx = Store , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset )
+            return ast . Name ( id = a . string , ctx = Store , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset );
         self._reset(mark)
         if (
-            (literal := self.expect('('))
+            (self.expect('('))
             and
             (a := self.target_with_star_atom())
             and
-            (literal_1 := self.expect(')'))
+            (self.expect(')'))
         ):
-            return self . set_expr_context ( a , Store )
+            return self . set_expr_context ( a , Store );
         self._reset(mark)
         if (
-            (literal := self.expect('('))
+            (self.expect('('))
             and
             (a := self.star_targets_tuple_seq(),)
             and
-            (literal_1 := self.expect(')'))
+            (self.expect(')'))
         ):
             tok = self._tokenizer.get_last_non_whitespace_token()
             end_lineno, end_col_offset = tok.end
-            return ast . Tuple ( elts = a , ctx = Store , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset )
+            return ast . Tuple ( elts = a , ctx = Store , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset );
         self._reset(mark)
         if (
-            (literal := self.expect('['))
+            (self.expect('['))
             and
             (a := self.star_targets_list_seq(),)
             and
-            (literal_1 := self.expect(']'))
+            (self.expect(']'))
         ):
             tok = self._tokenizer.get_last_non_whitespace_token()
             end_lineno, end_col_offset = tok.end
-            return ast . List ( elts = a , ctx = Store , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset )
+            return ast . List ( elts = a , ctx = Store , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset );
         self._reset(mark)
-        return None
+        return None;
 
     @memoize
     def single_target(self) -> Optional[Any]:
@@ -5306,25 +5396,25 @@ class HGLParser(Parser):
         if (
             (single_subscript_attribute_target := self.single_subscript_attribute_target())
         ):
-            return single_subscript_attribute_target
+            return single_subscript_attribute_target;
         self._reset(mark)
         if (
             (a := self.name())
         ):
             tok = self._tokenizer.get_last_non_whitespace_token()
             end_lineno, end_col_offset = tok.end
-            return ast . Name ( id = a . string , ctx = Store , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset )
+            return ast . Name ( id = a . string , ctx = Store , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset );
         self._reset(mark)
         if (
-            (literal := self.expect('('))
+            (self.expect('('))
             and
             (a := self.single_target())
             and
-            (literal_1 := self.expect(')'))
+            (self.expect(')'))
         ):
-            return a
+            return a;
         self._reset(mark)
-        return None
+        return None;
 
     @memoize
     def single_subscript_attribute_target(self) -> Optional[Any]:
@@ -5335,32 +5425,32 @@ class HGLParser(Parser):
         if (
             (a := self.t_primary())
             and
-            (literal := self.expect('.'))
+            (self.expect('.'))
             and
             (b := self.name())
             and
-            self.negative_lookahead(self.t_lookahead, )
+            (self.negative_lookahead(self.t_lookahead, ))
         ):
             tok = self._tokenizer.get_last_non_whitespace_token()
             end_lineno, end_col_offset = tok.end
-            return ast . Attribute ( value = a , attr = b . string , ctx = Store , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset )
+            return ast . Attribute ( value = a , attr = b . string , ctx = Store , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset );
         self._reset(mark)
         if (
             (a := self.t_primary())
             and
-            (literal := self.expect('['))
+            (self.expect('['))
             and
             (b := self.slices())
             and
-            (literal_1 := self.expect(']'))
+            (self.expect(']'))
             and
-            self.negative_lookahead(self.t_lookahead, )
+            (self.negative_lookahead(self.t_lookahead, ))
         ):
             tok = self._tokenizer.get_last_non_whitespace_token()
             end_lineno, end_col_offset = tok.end
-            return ast . Subscript ( value = a , slice = b , ctx = Store , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset )
+            return ast . Subscript ( value = a , slice = b , ctx = Store , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset );
         self._reset(mark)
-        return None
+        return None;
 
     @memoize_left_rec
     def t_primary(self) -> Optional[Any]:
@@ -5371,65 +5461,65 @@ class HGLParser(Parser):
         if (
             (a := self.t_primary())
             and
-            (literal := self.expect('.'))
+            (self.expect('.'))
             and
             (b := self.name())
             and
-            self.positive_lookahead(self.t_lookahead, )
+            (self.positive_lookahead(self.t_lookahead, ))
         ):
             tok = self._tokenizer.get_last_non_whitespace_token()
             end_lineno, end_col_offset = tok.end
-            return ast . Attribute ( value = a , attr = b . string , ctx = Load , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset )
+            return ast . Attribute ( value = a , attr = b . string , ctx = Load , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset );
         self._reset(mark)
         if (
             (a := self.t_primary())
             and
-            (literal := self.expect('['))
+            (self.expect('['))
             and
             (b := self.slices())
             and
-            (literal_1 := self.expect(']'))
+            (self.expect(']'))
             and
-            self.positive_lookahead(self.t_lookahead, )
+            (self.positive_lookahead(self.t_lookahead, ))
         ):
             tok = self._tokenizer.get_last_non_whitespace_token()
             end_lineno, end_col_offset = tok.end
-            return ast . Subscript ( value = a , slice = b , ctx = Load , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset )
+            return ast . Subscript ( value = a , slice = b , ctx = Load , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset );
         self._reset(mark)
         if (
             (a := self.t_primary())
             and
             (b := self.genexp())
             and
-            self.positive_lookahead(self.t_lookahead, )
+            (self.positive_lookahead(self.t_lookahead, ))
         ):
             tok = self._tokenizer.get_last_non_whitespace_token()
             end_lineno, end_col_offset = tok.end
-            return ast . Call ( func = a , args = [b] , keywords = [] , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset )
+            return ast . Call ( func = a , args = [b] , keywords = [] , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset );
         self._reset(mark)
         if (
             (a := self.t_primary())
             and
-            (literal := self.expect('('))
+            (self.expect('('))
             and
             (b := self.arguments(),)
             and
-            (literal_1 := self.expect(')'))
+            (self.expect(')'))
             and
-            self.positive_lookahead(self.t_lookahead, )
+            (self.positive_lookahead(self.t_lookahead, ))
         ):
             tok = self._tokenizer.get_last_non_whitespace_token()
             end_lineno, end_col_offset = tok.end
-            return ast . Call ( func = a , args = b [0] if b else [] , keywords = b [1] if b else [] , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset , )
+            return ast . Call ( func = a , args = b [0] if b else [] , keywords = b [1] if b else [] , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset , );
         self._reset(mark)
         if (
             (a := self.atom())
             and
-            self.positive_lookahead(self.t_lookahead, )
+            (self.positive_lookahead(self.t_lookahead, ))
         ):
-            return a
+            return a;
         self._reset(mark)
-        return None
+        return None;
 
     @memoize
     def t_lookahead(self) -> Optional[Any]:
@@ -5438,19 +5528,19 @@ class HGLParser(Parser):
         if (
             (literal := self.expect('('))
         ):
-            return literal
+            return literal;
         self._reset(mark)
         if (
             (literal := self.expect('['))
         ):
-            return literal
+            return literal;
         self._reset(mark)
         if (
             (literal := self.expect('.'))
         ):
-            return literal
+            return literal;
         self._reset(mark)
-        return None
+        return None;
 
     @memoize
     def del_targets(self) -> Optional[Any]:
@@ -5459,11 +5549,11 @@ class HGLParser(Parser):
         if (
             (a := self._gather_133())
             and
-            (opt := self.expect(','),)
+            (self.expect(','),)
         ):
-            return a
+            return a;
         self._reset(mark)
-        return None
+        return None;
 
     @memoize
     def del_target(self) -> Optional[Any]:
@@ -5474,37 +5564,37 @@ class HGLParser(Parser):
         if (
             (a := self.t_primary())
             and
-            (literal := self.expect('.'))
+            (self.expect('.'))
             and
             (b := self.name())
             and
-            self.negative_lookahead(self.t_lookahead, )
+            (self.negative_lookahead(self.t_lookahead, ))
         ):
             tok = self._tokenizer.get_last_non_whitespace_token()
             end_lineno, end_col_offset = tok.end
-            return ast . Attribute ( value = a , attr = b . string , ctx = Del , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset )
+            return ast . Attribute ( value = a , attr = b . string , ctx = Del , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset );
         self._reset(mark)
         if (
             (a := self.t_primary())
             and
-            (literal := self.expect('['))
+            (self.expect('['))
             and
             (b := self.slices())
             and
-            (literal_1 := self.expect(']'))
+            (self.expect(']'))
             and
-            self.negative_lookahead(self.t_lookahead, )
+            (self.negative_lookahead(self.t_lookahead, ))
         ):
             tok = self._tokenizer.get_last_non_whitespace_token()
             end_lineno, end_col_offset = tok.end
-            return ast . Subscript ( value = a , slice = b , ctx = Del , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset )
+            return ast . Subscript ( value = a , slice = b , ctx = Del , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset );
         self._reset(mark)
         if (
             (del_t_atom := self.del_t_atom())
         ):
-            return del_t_atom
+            return del_t_atom;
         self._reset(mark)
-        return None
+        return None;
 
     @memoize
     def del_t_atom(self) -> Optional[Any]:
@@ -5517,40 +5607,40 @@ class HGLParser(Parser):
         ):
             tok = self._tokenizer.get_last_non_whitespace_token()
             end_lineno, end_col_offset = tok.end
-            return ast . Name ( id = a . string , ctx = Del , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset )
+            return ast . Name ( id = a . string , ctx = Del , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset );
         self._reset(mark)
         if (
-            (literal := self.expect('('))
+            (self.expect('('))
             and
             (a := self.del_target())
             and
-            (literal_1 := self.expect(')'))
+            (self.expect(')'))
         ):
-            return self . set_expr_context ( a , Del )
+            return self . set_expr_context ( a , Del );
         self._reset(mark)
         if (
-            (literal := self.expect('('))
+            (self.expect('('))
             and
             (a := self.del_targets(),)
             and
-            (literal_1 := self.expect(')'))
+            (self.expect(')'))
         ):
             tok = self._tokenizer.get_last_non_whitespace_token()
             end_lineno, end_col_offset = tok.end
-            return ast . Tuple ( elts = a , ctx = Del , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset )
+            return ast . Tuple ( elts = a , ctx = Del , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset );
         self._reset(mark)
         if (
-            (literal := self.expect('['))
+            (self.expect('['))
             and
             (a := self.del_targets(),)
             and
-            (literal_1 := self.expect(']'))
+            (self.expect(']'))
         ):
             tok = self._tokenizer.get_last_non_whitespace_token()
             end_lineno, end_col_offset = tok.end
-            return ast . List ( elts = a , ctx = Del , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset )
+            return ast . List ( elts = a , ctx = Del , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset );
         self._reset(mark)
-        return None
+        return None;
 
     @memoize
     def type_expressions(self) -> Optional[list]:
@@ -5559,100 +5649,102 @@ class HGLParser(Parser):
         if (
             (a := self._gather_135())
             and
-            (literal := self.expect(','))
+            (self.expect(','))
             and
-            (literal_1 := self.expect('*'))
+            (self.expect('*'))
             and
             (b := self.expression())
             and
-            (literal_2 := self.expect(','))
+            (self.expect(','))
             and
-            (literal_3 := self.expect('**'))
+            (self.expect('**'))
             and
             (c := self.expression())
         ):
-            return a + [b , c]
+            return a + [b , c];
         self._reset(mark)
         if (
             (a := self._gather_137())
             and
-            (literal := self.expect(','))
+            (self.expect(','))
             and
-            (literal_1 := self.expect('*'))
+            (self.expect('*'))
             and
             (b := self.expression())
         ):
-            return a + [b]
+            return a + [b];
         self._reset(mark)
         if (
             (a := self._gather_139())
             and
-            (literal := self.expect(','))
+            (self.expect(','))
             and
-            (literal_1 := self.expect('**'))
-            and
-            (b := self.expression())
-        ):
-            return a + [b]
-        self._reset(mark)
-        if (
-            (literal := self.expect('*'))
-            and
-            (a := self.expression())
-            and
-            (literal_1 := self.expect(','))
-            and
-            (literal_2 := self.expect('**'))
+            (self.expect('**'))
             and
             (b := self.expression())
         ):
-            return [a , b]
+            return a + [b];
         self._reset(mark)
         if (
-            (literal := self.expect('*'))
+            (self.expect('*'))
+            and
+            (a := self.expression())
+            and
+            (self.expect(','))
+            and
+            (self.expect('**'))
+            and
+            (b := self.expression())
+        ):
+            return [a , b];
+        self._reset(mark)
+        if (
+            (self.expect('*'))
             and
             (a := self.expression())
         ):
-            return [a]
+            return [a];
         self._reset(mark)
         if (
-            (literal := self.expect('**'))
+            (self.expect('**'))
             and
             (a := self.expression())
         ):
-            return [a]
+            return [a];
         self._reset(mark)
         if (
             (a := self._gather_141())
         ):
-            return a
+            return a;
         self._reset(mark)
-        return None
+        return None;
 
     @memoize
     def func_type_comment(self) -> Optional[Any]:
         # func_type_comment: NEWLINE TYPE_COMMENT &(NEWLINE INDENT) | invalid_double_type_comments | TYPE_COMMENT
         mark = self._mark()
         if (
-            (_newline := self.expect('NEWLINE'))
+            (self.expect('NEWLINE'))
             and
             (t := self.type_comment())
             and
-            self.positive_lookahead(self._tmp_143, )
+            (self.positive_lookahead(self._tmp_143, ))
         ):
-            return t . string
+            return t . string;
         self._reset(mark)
         if (
-            (invalid_double_type_comments := self.invalid_double_type_comments())
+            self.call_invalid_rules
+            and
+            (self.invalid_double_type_comments())
         ):
-            return None  # pragma: no cover
+            return None  # pragma: no cover;
         self._reset(mark)
         if (
             (type_comment := self.type_comment())
         ):
-            return type_comment
+            return type_comment;
         self._reset(mark)
-        return None
+        return None;
 
     @memoize
     def invalid_arguments(self) -> Optional[NoReturn]:
@@ -5661,62 +5753,62 @@ class HGLParser(Parser):
         if (
             (a := self.args())
             and
-            (literal := self.expect(','))
+            (self.expect(','))
             and
-            (literal_1 := self.expect('*'))
+            (self.expect('*'))
         ):
-            return self . raise_syntax_error_known_location ( "iterable argument unpacking follows keyword argument unpacking" , a [1] [- 1] if a [1] else a [0] [- 1] , )
+            return self . raise_syntax_error_known_location ( "iterable argument unpacking follows keyword argument unpacking" , a [1] [- 1] if a [1] else a [0] [- 1] , );
         self._reset(mark)
         if (
             (a := self.expression())
             and
             (b := self.for_if_clauses())
             and
-            (literal := self.expect(','))
+            (self.expect(','))
             and
-            (opt := self._tmp_144(),)
+            (self._tmp_144(),)
         ):
-            return self . raise_syntax_error_known_range ( "Generator expression must be parenthesized" , a , ( b [- 1] . ifs [- 1] if b [- 1] . ifs else b [- 1] . iter ) )
+            return self . raise_syntax_error_known_range ( "Generator expression must be parenthesized" , a , ( b [- 1] . ifs [- 1] if b [- 1] . ifs else b [- 1] . iter ) );
         self._reset(mark)
         if (
             (a := self.name())
             and
             (b := self.expect('='))
             and
-            (expression := self.expression())
+            (self.expression())
             and
-            (for_if_clauses := self.for_if_clauses())
+            (self.for_if_clauses())
         ):
-            return self . raise_syntax_error_known_range ( "invalid syntax. Maybe you meant '==' or ':=' instead of '='?" , a , b )
+            return self . raise_syntax_error_known_range ( "invalid syntax. Maybe you meant '==' or ':=' instead of '='?" , a , b );
         self._reset(mark)
         if (
             (a := self.args())
             and
             (b := self.for_if_clauses())
         ):
-            return self . raise_syntax_error_known_range ( "Generator expression must be parenthesized" , a [0] [- 1] , ( b [- 1] . ifs [- 1] if b [- 1] . ifs else b [- 1] . iter ) , ) if len ( a [0] ) > 1 else None
+            return self . raise_syntax_error_known_range ( "Generator expression must be parenthesized" , a [0] [- 1] , ( b [- 1] . ifs [- 1] if b [- 1] . ifs else b [- 1] . iter ) , ) if len ( a [0] ) > 1 else None;
         self._reset(mark)
         if (
-            (args := self.args())
+            (self.args())
             and
-            (literal := self.expect(','))
+            (self.expect(','))
             and
             (a := self.expression())
             and
             (b := self.for_if_clauses())
         ):
-            return self . raise_syntax_error_known_range ( "Generator expression must be parenthesized" , a , ( b [- 1] . ifs [- 1] if b [- 1] . ifs else b [- 1] . iter ) , )
+            return self . raise_syntax_error_known_range ( "Generator expression must be parenthesized" , a , ( b [- 1] . ifs [- 1] if b [- 1] . ifs else b [- 1] . iter ) , );
         self._reset(mark)
         if (
             (a := self.args())
             and
-            (literal := self.expect(','))
+            (self.expect(','))
             and
-            (args := self.args())
+            (self.args())
         ):
-            return self . raise_syntax_error ( "positional argument follows keyword argument unpacking" if a [1] [- 1] . arg is None else "positional argument follows keyword argument" , )
+            return self . raise_syntax_error ( "positional argument follows keyword argument unpacking" if a [1] [- 1] . arg is None else "positional argument follows keyword argument" , );
         self._reset(mark)
-        return None
+        return None;
 
     @memoize
     def invalid_kwarg(self) -> Optional[NoReturn]:
@@ -5727,62 +5819,68 @@ class HGLParser(Parser):
             and
             (b := self.expect('='))
         ):
-            return self . raise_syntax_error_known_range ( f"cannot assign to {a.string}" , a , b )
+            return self . raise_syntax_error_known_range ( f"cannot assign to {a.string}" , a , b );
         self._reset(mark)
         if (
             (a := self.name())
             and
             (b := self.expect('='))
             and
-            (expression := self.expression())
+            (self.expression())
             and
-            (for_if_clauses := self.for_if_clauses())
+            (self.for_if_clauses())
         ):
-            return self . raise_syntax_error_known_range ( "invalid syntax. Maybe you meant '==' or ':=' instead of '='?" , a , b )
+            return self . raise_syntax_error_known_range ( "invalid syntax. Maybe you meant '==' or ':=' instead of '='?" , a , b );
         self._reset(mark)
         if (
-            self.negative_lookahead(self._tmp_146, )
+            (self.negative_lookahead(self._tmp_146, ))
             and
             (a := self.expression())
             and
             (b := self.expect('='))
         ):
-            return self . raise_syntax_error_known_range ( "expression cannot contain assignment, perhaps you meant \"==\"?" , a , b , )
+            return self . raise_syntax_error_known_range ( "expression cannot contain assignment, perhaps you meant \"==\"?" , a , b , );
         self._reset(mark)
-        return None
+        return None;
 
     @memoize
     def expression_without_invalid(self) -> Optional[ast . AST]:
         # expression_without_invalid: disjunction 'if' disjunction 'else' expression | disjunction | lambdef
+        _prev_call_invalid = self.call_invalid_rules
+        self.call_invalid_rules = False
         mark = self._mark()
         tok = self._tokenizer.peek()
         start_lineno, start_col_offset = tok.start
         if (
             (a := self.disjunction())
             and
-            (literal := self.expect('if'))
+            (self.expect('if'))
             and
             (b := self.disjunction())
             and
-            (literal_1 := self.expect('else'))
+            (self.expect('else'))
             and
             (c := self.expression())
         ):
             tok = self._tokenizer.get_last_non_whitespace_token()
             end_lineno, end_col_offset = tok.end
-            return ast . IfExp ( body = b , test = a , orelse = c , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset )
+            self.call_invalid_rules = _prev_call_invalid
+            return ast . IfExp ( body = b , test = a , orelse = c , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset );
         self._reset(mark)
         if (
             (disjunction := self.disjunction())
         ):
-            return disjunction
+            self.call_invalid_rules = _prev_call_invalid
+            return disjunction;
         self._reset(mark)
         if (
             (lambdef := self.lambdef())
         ):
-            return lambdef
+            self.call_invalid_rules = _prev_call_invalid
+            return lambdef;
         self._reset(mark)
-        return None
+        self.call_invalid_rules = _prev_call_invalid
+        return None;
 
     @memoize
     def invalid_legacy_expression(self) -> Optional[Any]:
@@ -5791,39 +5889,39 @@ class HGLParser(Parser):
         if (
             (a := self.name())
             and
-            self.negative_lookahead(self.expect, '(')
+            (self.negative_lookahead(self.expect, '('))
             and
             (b := self.expression_without_invalid())
         ):
-            return self . raise_syntax_error_known_range ( f"Missing parentheses in call to '{a.string}' . Did you mean {a.string}(...)?" , a , b , ) if a . string in ( "exec" , "print" ) else None
+            return self . raise_syntax_error_known_range ( f"Missing parentheses in call to '{a.string}' . Did you mean {a.string}(...)?" , a , b , ) if a . string in ( "exec" , "print" ) else None;
         self._reset(mark)
-        return None
+        return None;
 
     @memoize
     def invalid_expression(self) -> Optional[NoReturn]:
         # invalid_expression: !(NAME STRING | SOFT_KEYWORD) disjunction expression_without_invalid | disjunction 'if' disjunction !('else' | ':')
         mark = self._mark()
         if (
-            self.negative_lookahead(self._tmp_147, )
+            (self.negative_lookahead(self._tmp_147, ))
             and
             (a := self.disjunction())
             and
             (b := self.expression_without_invalid())
         ):
-            return ( self . raise_syntax_error_known_range ( "invalid syntax. Perhaps you forgot a comma?" , a , b ) if not isinstance ( a , ast . Name ) or a . id not in ( "print" , "exec" ) else None )
+            return ( self . raise_syntax_error_known_range ( "invalid syntax. Perhaps you forgot a comma?" , a , b ) if not isinstance ( a , ast . Name ) or a . id not in ( "print" , "exec" ) else None );
         self._reset(mark)
         if (
             (a := self.disjunction())
             and
-            (literal := self.expect('if'))
+            (self.expect('if'))
             and
             (b := self.disjunction())
             and
-            self.negative_lookahead(self._tmp_148, )
+            (self.negative_lookahead(self._tmp_148, ))
         ):
-            return self . raise_syntax_error_known_range ( "expected 'else' after 'if' expression" , a , b )
+            return self . raise_syntax_error_known_range ( "expected 'else' after 'if' expression" , a , b );
         self._reset(mark)
-        return None
+        return None;
 
     @memoize
     def invalid_named_expression(self) -> Optional[NoReturn]:
@@ -5832,101 +5930,103 @@ class HGLParser(Parser):
         if (
             (a := self.expression())
             and
-            (literal := self.expect(':='))
+            (self.expect(':='))
             and
-            (expression := self.expression())
+            (self.expression())
         ):
-            return self . raise_syntax_error_known_location ( f"cannot use assignment expressions with {self.get_expr_name(a)}" , a )
+            return self . raise_syntax_error_known_location ( f"cannot use assignment expressions with {self.get_expr_name(a)}" , a );
         self._reset(mark)
         if (
             (a := self.name())
             and
-            (literal := self.expect('='))
+            (self.expect('='))
             and
             (b := self.bitwise_or())
             and
-            self.negative_lookahead(self._tmp_149, )
+            (self.negative_lookahead(self._tmp_149, ))
         ):
-            return ( None if self . in_recursive_rule else self . raise_syntax_error_known_range ( "invalid syntax. Maybe you meant '==' or ':=' instead of '='?" , a , b ) )
+            return ( None if self . in_recursive_rule else self . raise_syntax_error_known_range ( "invalid syntax. Maybe you meant '==' or ':=' instead of '='?" , a , b ) );
         self._reset(mark)
         if (
-            self.negative_lookahead(self._tmp_150, )
+            (self.negative_lookahead(self._tmp_150, ))
             and
             (a := self.bitwise_or())
             and
-            (b := self.expect('='))
+            (self.expect('='))
             and
-            (bitwise_or := self.bitwise_or())
+            (self.bitwise_or())
             and
-            self.negative_lookahead(self._tmp_151, )
+            (self.negative_lookahead(self._tmp_151, ))
         ):
-            return ( None if self . in_recursive_rule else self . raise_syntax_error_known_location ( f"cannot assign to {self.get_expr_name(a)} here. Maybe you meant '==' instead of '='?" , a ) )
+            return ( None if self . in_recursive_rule else self . raise_syntax_error_known_location ( f"cannot assign to {self.get_expr_name(a)} here. Maybe you meant '==' instead of '='?" , a ) );
         self._reset(mark)
-        return None
+        return None;
 
     @memoize
     def invalid_assignment(self) -> Optional[NoReturn]:
         # invalid_assignment: invalid_ann_assign_target ':' expression | star_named_expression ',' star_named_expressions* ':' expression | expression ':' expression | ((star_targets '='))* star_expressions '=' | ((star_targets '='))* yield_expr '=' | star_expressions augassign (yield_expr | star_expressions)
         mark = self._mark()
         if (
+            self.call_invalid_rules
+            and
             (a := self.invalid_ann_assign_target())
             and
-            (literal := self.expect(':'))
+            (self.expect(':'))
             and
-            (expression := self.expression())
+            (self.expression())
         ):
-            return self . raise_syntax_error_known_location ( f"only single target (not {self.get_expr_name(a)}) can be annotated" , a )
+            return self . raise_syntax_error_known_location ( f"only single target (not {self.get_expr_name(a)}) can be annotated" , a );
         self._reset(mark)
         if (
             (a := self.star_named_expression())
             and
-            (literal := self.expect(','))
+            (self.expect(','))
             and
-            (_loop0_152 := self._loop0_152(),)
+            (self._loop0_152(),)
             and
-            (literal_1 := self.expect(':'))
+            (self.expect(':'))
             and
-            (expression := self.expression())
+            (self.expression())
         ):
-            return self . raise_syntax_error_known_location ( "only single target (not tuple) can be annotated" , a )
+            return self . raise_syntax_error_known_location ( "only single target (not tuple) can be annotated" , a );
         self._reset(mark)
         if (
             (a := self.expression())
             and
-            (literal := self.expect(':'))
+            (self.expect(':'))
             and
-            (expression := self.expression())
+            (self.expression())
         ):
-            return self . raise_syntax_error_known_location ( "illegal target for annotation" , a )
+            return self . raise_syntax_error_known_location ( "illegal target for annotation" , a );
         self._reset(mark)
         if (
-            (_loop0_153 := self._loop0_153(),)
+            (self._loop0_153(),)
             and
             (a := self.star_expressions())
             and
-            (literal := self.expect('='))
+            (self.expect('='))
         ):
-            return self . raise_syntax_error_invalid_target ( Target . STAR_TARGETS , a )
+            return self . raise_syntax_error_invalid_target ( Target . STAR_TARGETS , a );
         self._reset(mark)
         if (
-            (_loop0_154 := self._loop0_154(),)
+            (self._loop0_154(),)
             and
             (a := self.yield_expr())
             and
-            (literal := self.expect('='))
+            (self.expect('='))
         ):
-            return self . raise_syntax_error_known_location ( "assignment to yield expression not possible" , a )
+            return self . raise_syntax_error_known_location ( "assignment to yield expression not possible" , a );
         self._reset(mark)
         if (
             (a := self.star_expressions())
             and
-            (augassign := self.augassign())
+            (self.augassign())
             and
-            (_tmp_155 := self._tmp_155())
+            (self._tmp_155())
         ):
-            return self . raise_syntax_error_known_location ( f"'{self.get_expr_name(a)}' is an illegal expression for augmented assignment" , a )
+            return self . raise_syntax_error_known_location ( f"'{self.get_expr_name(a)}' is an illegal expression for augmented assignment" , a );
         self._reset(mark)
-        return None
+        return None;
 
     @memoize
     def invalid_ann_assign_target(self) -> Optional[ast . AST]:
@@ -5935,175 +6035,179 @@ class HGLParser(Parser):
         if (
             (a := self.list())
         ):
-            return a
+            return a;
         self._reset(mark)
         if (
             (a := self.tuple())
         ):
-            return a
+            return a;
         self._reset(mark)
         if (
-            (literal := self.expect('('))
+            self.call_invalid_rules
+            and
+            (self.expect('('))
             and
             (a := self.invalid_ann_assign_target())
             and
-            (literal_1 := self.expect(')'))
+            (self.expect(')'))
         ):
-            return a
+            return a;
         self._reset(mark)
-        return None
+        return None;
 
     @memoize
     def invalid_del_stmt(self) -> Optional[NoReturn]:
         # invalid_del_stmt: 'del' star_expressions
         mark = self._mark()
         if (
-            (literal := self.expect('del'))
+            (self.expect('del'))
             and
             (a := self.star_expressions())
         ):
-            return self . raise_syntax_error_invalid_target ( Target . DEL_TARGETS , a )
+            return self . raise_syntax_error_invalid_target ( Target . DEL_TARGETS , a );
         self._reset(mark)
-        return None
+        return None;
 
     @memoize
     def invalid_block(self) -> Optional[NoReturn]:
         # invalid_block: NEWLINE !INDENT
         mark = self._mark()
         if (
-            (_newline := self.expect('NEWLINE'))
+            (self.expect('NEWLINE'))
             and
-            self.negative_lookahead(self.expect, 'INDENT')
+            (self.negative_lookahead(self.expect, 'INDENT'))
         ):
-            return self . raise_indentation_error ( "expected an indented block" )
+            return self . raise_indentation_error ( "expected an indented block" );
         self._reset(mark)
-        return None
+        return None;
 
     @memoize
     def invalid_comprehension(self) -> Optional[NoReturn]:
         # invalid_comprehension: ('[' | '(' | '{') starred_expression for_if_clauses | ('[' | '{') star_named_expression ',' star_named_expressions for_if_clauses | ('[' | '{') star_named_expression ',' for_if_clauses
         mark = self._mark()
         if (
-            (_tmp_156 := self._tmp_156())
+            (self._tmp_156())
             and
             (a := self.starred_expression())
             and
-            (for_if_clauses := self.for_if_clauses())
+            (self.for_if_clauses())
         ):
-            return self . raise_syntax_error_known_location ( "iterable unpacking cannot be used in comprehension" , a )
+            return self . raise_syntax_error_known_location ( "iterable unpacking cannot be used in comprehension" , a );
         self._reset(mark)
         if (
-            (_tmp_157 := self._tmp_157())
+            (self._tmp_157())
             and
             (a := self.star_named_expression())
             and
-            (literal := self.expect(','))
+            (self.expect(','))
             and
             (b := self.star_named_expressions())
             and
-            (for_if_clauses := self.for_if_clauses())
+            (self.for_if_clauses())
         ):
-            return self . raise_syntax_error_known_range ( "did you forget parentheses around the comprehension target?" , a , b [- 1] )
+            return self . raise_syntax_error_known_range ( "did you forget parentheses around the comprehension target?" , a , b [- 1] );
         self._reset(mark)
         if (
-            (_tmp_158 := self._tmp_158())
+            (self._tmp_158())
             and
             (a := self.star_named_expression())
             and
             (b := self.expect(','))
             and
-            (for_if_clauses := self.for_if_clauses())
+            (self.for_if_clauses())
         ):
-            return self . raise_syntax_error_known_range ( "did you forget parentheses around the comprehension target?" , a , b )
+            return self . raise_syntax_error_known_range ( "did you forget parentheses around the comprehension target?" , a , b );
         self._reset(mark)
-        return None
+        return None;
 
     @memoize
     def invalid_dict_comprehension(self) -> Optional[NoReturn]:
         # invalid_dict_comprehension: '{' '**' bitwise_or for_if_clauses '}'
         mark = self._mark()
         if (
-            (literal := self.expect('{'))
+            (self.expect('{'))
             and
             (a := self.expect('**'))
             and
-            (bitwise_or := self.bitwise_or())
+            (self.bitwise_or())
             and
-            (for_if_clauses := self.for_if_clauses())
+            (self.for_if_clauses())
             and
-            (literal_1 := self.expect('}'))
+            (self.expect('}'))
         ):
-            return self . raise_syntax_error_known_location ( "dict unpacking cannot be used in dict comprehension" , a )
+            return self . raise_syntax_error_known_location ( "dict unpacking cannot be used in dict comprehension" , a );
         self._reset(mark)
-        return None
+        return None;
 
     @memoize
     def invalid_parameters(self) -> Optional[NoReturn]:
         # invalid_parameters: param_no_default* invalid_parameters_helper param_no_default | param_no_default* '(' param_no_default+ ','? ')' | "/" ',' | (slash_no_default | slash_with_default) param_maybe_default* '/' | [(slash_no_default | slash_with_default)] param_maybe_default* '*' (',' | param_no_default) param_maybe_default* '/' | param_maybe_default+ '/' '*'
         mark = self._mark()
         if (
-            (_loop0_159 := self._loop0_159(),)
+            self.call_invalid_rules
             and
-            (invalid_parameters_helper := self.invalid_parameters_helper())
+            (self._loop0_159(),)
+            and
+            (self.invalid_parameters_helper())
             and
             (a := self.param_no_default())
         ):
-            return self . raise_syntax_error_known_location ( "non-default argument follows default argument" , a )
+            return self . raise_syntax_error_known_location ( "non-default argument follows default argument" , a );
         self._reset(mark)
         if (
-            (_loop0_160 := self._loop0_160(),)
+            (self._loop0_160(),)
             and
             (a := self.expect('('))
             and
-            (_loop1_161 := self._loop1_161())
+            (self._loop1_161())
             and
-            (opt := self.expect(','),)
+            (self.expect(','),)
             and
             (b := self.expect(')'))
         ):
-            return self . raise_syntax_error_known_range ( "Function parameters cannot be parenthesized" , a , b )
+            return self . raise_syntax_error_known_range ( "Function parameters cannot be parenthesized" , a , b );
         self._reset(mark)
         if (
             (a := self.expect("/"))
             and
-            (literal := self.expect(','))
+            (self.expect(','))
         ):
-            return self . raise_syntax_error_known_location ( "at least one argument must precede /" , a )
+            return self . raise_syntax_error_known_location ( "at least one argument must precede /" , a );
         self._reset(mark)
         if (
-            (_tmp_162 := self._tmp_162())
+            (self._tmp_162())
             and
-            (_loop0_163 := self._loop0_163(),)
+            (self._loop0_163(),)
             and
             (a := self.expect('/'))
         ):
-            return self . raise_syntax_error_known_location ( "/ may appear only once" , a )
+            return self . raise_syntax_error_known_location ( "/ may appear only once" , a );
         self._reset(mark)
         if (
-            (opt := self._tmp_164(),)
+            (self._tmp_164(),)
             and
-            (_loop0_165 := self._loop0_165(),)
+            (self._loop0_165(),)
             and
-            (literal := self.expect('*'))
+            (self.expect('*'))
             and
-            (_tmp_166 := self._tmp_166())
+            (self._tmp_166())
             and
-            (_loop0_167 := self._loop0_167(),)
+            (self._loop0_167(),)
             and
             (a := self.expect('/'))
         ):
-            return self . raise_syntax_error_known_location ( "/ must be ahead of *" , a )
+            return self . raise_syntax_error_known_location ( "/ must be ahead of *" , a );
         self._reset(mark)
         if (
-            (_loop1_168 := self._loop1_168())
+            (self._loop1_168())
             and
-            (literal := self.expect('/'))
+            (self.expect('/'))
             and
             (a := self.expect('*'))
         ):
-            return self . raise_syntax_error_known_location ( "expected comma between / and *" , a )
+            return self . raise_syntax_error_known_location ( "expected comma between / and *" , a );
         self._reset(mark)
-        return None
+        return None;
 
     @memoize
     def invalid_default(self) -> Optional[Any]:
@@ -6112,11 +6216,11 @@ class HGLParser(Parser):
         if (
             (a := self.expect('='))
             and
-            self.positive_lookahead(self._tmp_169, )
+            (self.positive_lookahead(self._tmp_169, ))
         ):
-            return self . raise_syntax_error_known_location ( "expected default value expression" , a )
+            return self . raise_syntax_error_known_location ( "expected default value expression" , a );
         self._reset(mark)
-        return None
+        return None;
 
     @memoize
     def invalid_star_etc(self) -> Optional[Any]:
@@ -6125,79 +6229,79 @@ class HGLParser(Parser):
         if (
             (a := self.expect('*'))
             and
-            (_tmp_170 := self._tmp_170())
+            (self._tmp_170())
         ):
-            return self . raise_syntax_error_known_location ( "named arguments must follow bare *" , a )
+            return self . raise_syntax_error_known_location ( "named arguments must follow bare *" , a );
         self._reset(mark)
         if (
-            (literal := self.expect('*'))
+            (self.expect('*'))
             and
-            (literal_1 := self.expect(','))
+            (self.expect(','))
             and
-            (type_comment := self.type_comment())
+            (self.type_comment())
         ):
-            return self . raise_syntax_error ( "bare * has associated type comment" )
+            return self . raise_syntax_error ( "bare * has associated type comment" );
         self._reset(mark)
         if (
-            (literal := self.expect('*'))
+            (self.expect('*'))
             and
-            (param := self.param())
+            (self.param())
             and
             (a := self.expect('='))
         ):
-            return self . raise_syntax_error_known_location ( "var-positional argument cannot have default value" , a )
+            return self . raise_syntax_error_known_location ( "var-positional argument cannot have default value" , a );
         self._reset(mark)
         if (
-            (literal := self.expect('*'))
+            (self.expect('*'))
             and
-            (_tmp_171 := self._tmp_171())
+            (self._tmp_171())
             and
-            (_loop0_172 := self._loop0_172(),)
+            (self._loop0_172(),)
             and
             (a := self.expect('*'))
             and
-            (_tmp_173 := self._tmp_173())
+            (self._tmp_173())
         ):
-            return self . raise_syntax_error_known_location ( "* argument may appear only once" , a )
+            return self . raise_syntax_error_known_location ( "* argument may appear only once" , a );
         self._reset(mark)
-        return None
+        return None;
 
     @memoize
     def invalid_kwds(self) -> Optional[Any]:
         # invalid_kwds: '**' param '=' | '**' param ',' param | '**' param ',' ('*' | '**' | '/')
         mark = self._mark()
         if (
-            (literal := self.expect('**'))
+            (self.expect('**'))
             and
-            (param := self.param())
+            (self.param())
             and
             (a := self.expect('='))
         ):
-            return self . raise_syntax_error_known_location ( "var-keyword argument cannot have default value" , a )
+            return self . raise_syntax_error_known_location ( "var-keyword argument cannot have default value" , a );
         self._reset(mark)
         if (
-            (literal := self.expect('**'))
+            (self.expect('**'))
             and
-            (param := self.param())
+            (self.param())
             and
-            (literal_1 := self.expect(','))
+            (self.expect(','))
             and
             (a := self.param())
         ):
-            return self . raise_syntax_error_known_location ( "arguments cannot follow var-keyword argument" , a )
+            return self . raise_syntax_error_known_location ( "arguments cannot follow var-keyword argument" , a );
         self._reset(mark)
         if (
-            (literal := self.expect('**'))
+            (self.expect('**'))
             and
-            (param := self.param())
+            (self.param())
             and
-            (literal_1 := self.expect(','))
+            (self.expect(','))
             and
             (a := self._tmp_174())
         ):
-            return self . raise_syntax_error_known_location ( "arguments cannot follow var-keyword argument" , a )
+            return self . raise_syntax_error_known_location ( "arguments cannot follow var-keyword argument" , a );
         self._reset(mark)
-        return None
+        return None;
 
     @memoize
     def invalid_parameters_helper(self) -> Optional[Any]:
@@ -6206,82 +6310,84 @@ class HGLParser(Parser):
         if (
             (a := self.slash_with_default())
         ):
-            return [a]
+            return [a];
         self._reset(mark)
         if (
             (a := self._loop1_175())
         ):
-            return a
+            return a;
         self._reset(mark)
-        return None
+        return None;
 
     @memoize
     def invalid_lambda_parameters(self) -> Optional[NoReturn]:
         # invalid_lambda_parameters: lambda_param_no_default* invalid_lambda_parameters_helper lambda_param_no_default | lambda_param_no_default* '(' ','.lambda_param+ ','? ')' | "/" ',' | (lambda_slash_no_default | lambda_slash_with_default) lambda_param_maybe_default* '/' | [(lambda_slash_no_default | lambda_slash_with_default)] lambda_param_maybe_default* '*' (',' | lambda_param_no_default) lambda_param_maybe_default* '/' | lambda_param_maybe_default+ '/' '*'
         mark = self._mark()
         if (
-            (_loop0_176 := self._loop0_176(),)
+            self.call_invalid_rules
             and
-            (invalid_lambda_parameters_helper := self.invalid_lambda_parameters_helper())
+            (self._loop0_176(),)
+            and
+            (self.invalid_lambda_parameters_helper())
             and
             (a := self.lambda_param_no_default())
         ):
-            return self . raise_syntax_error_known_location ( "non-default argument follows default argument" , a )
+            return self . raise_syntax_error_known_location ( "non-default argument follows default argument" , a );
         self._reset(mark)
         if (
-            (_loop0_177 := self._loop0_177(),)
+            (self._loop0_177(),)
             and
             (a := self.expect('('))
             and
-            (_gather_178 := self._gather_178())
+            (self._gather_178())
             and
-            (opt := self.expect(','),)
+            (self.expect(','),)
             and
             (b := self.expect(')'))
         ):
-            return self . raise_syntax_error_known_range ( "Lambda expression parameters cannot be parenthesized" , a , b )
+            return self . raise_syntax_error_known_range ( "Lambda expression parameters cannot be parenthesized" , a , b );
         self._reset(mark)
         if (
             (a := self.expect("/"))
             and
-            (literal := self.expect(','))
+            (self.expect(','))
         ):
-            return self . raise_syntax_error_known_location ( "at least one argument must precede /" , a )
+            return self . raise_syntax_error_known_location ( "at least one argument must precede /" , a );
         self._reset(mark)
         if (
-            (_tmp_180 := self._tmp_180())
+            (self._tmp_180())
             and
-            (_loop0_181 := self._loop0_181(),)
+            (self._loop0_181(),)
             and
             (a := self.expect('/'))
         ):
-            return self . raise_syntax_error_known_location ( "/ may appear only once" , a )
+            return self . raise_syntax_error_known_location ( "/ may appear only once" , a );
         self._reset(mark)
         if (
-            (opt := self._tmp_182(),)
+            (self._tmp_182(),)
             and
-            (_loop0_183 := self._loop0_183(),)
+            (self._loop0_183(),)
             and
-            (literal := self.expect('*'))
+            (self.expect('*'))
             and
-            (_tmp_184 := self._tmp_184())
+            (self._tmp_184())
             and
-            (_loop0_185 := self._loop0_185(),)
+            (self._loop0_185(),)
             and
             (a := self.expect('/'))
         ):
-            return self . raise_syntax_error_known_location ( "/ must be ahead of *" , a )
+            return self . raise_syntax_error_known_location ( "/ must be ahead of *" , a );
         self._reset(mark)
         if (
-            (_loop1_186 := self._loop1_186())
+            (self._loop1_186())
             and
-            (literal := self.expect('/'))
+            (self.expect('/'))
             and
             (a := self.expect('*'))
         ):
-            return self . raise_syntax_error_known_location ( "expected comma between / and *" , a )
+            return self . raise_syntax_error_known_location ( "expected comma between / and *" , a );
         self._reset(mark)
-        return None
+        return None;
 
     @memoize
     def invalid_lambda_parameters_helper(self) -> Optional[NoReturn]:
@@ -6290,254 +6396,254 @@ class HGLParser(Parser):
         if (
             (a := self.lambda_slash_with_default())
         ):
-            return [a]
+            return [a];
         self._reset(mark)
         if (
             (a := self._loop1_187())
         ):
-            return a
+            return a;
         self._reset(mark)
-        return None
+        return None;
 
     @memoize
     def invalid_lambda_star_etc(self) -> Optional[NoReturn]:
         # invalid_lambda_star_etc: '*' (':' | ',' (':' | '**')) | '*' lambda_param '=' | '*' (lambda_param_no_default | ',') lambda_param_maybe_default* '*' (lambda_param_no_default | ',')
         mark = self._mark()
         if (
-            (literal := self.expect('*'))
+            (self.expect('*'))
             and
-            (_tmp_188 := self._tmp_188())
+            (self._tmp_188())
         ):
-            return self . raise_syntax_error ( "named arguments must follow bare *" )
+            return self . raise_syntax_error ( "named arguments must follow bare *" );
         self._reset(mark)
         if (
-            (literal := self.expect('*'))
+            (self.expect('*'))
             and
-            (lambda_param := self.lambda_param())
+            (self.lambda_param())
             and
             (a := self.expect('='))
         ):
-            return self . raise_syntax_error_known_location ( "var-positional argument cannot have default value" , a )
+            return self . raise_syntax_error_known_location ( "var-positional argument cannot have default value" , a );
         self._reset(mark)
         if (
-            (literal := self.expect('*'))
+            (self.expect('*'))
             and
-            (_tmp_189 := self._tmp_189())
+            (self._tmp_189())
             and
-            (_loop0_190 := self._loop0_190(),)
+            (self._loop0_190(),)
             and
             (a := self.expect('*'))
             and
-            (_tmp_191 := self._tmp_191())
+            (self._tmp_191())
         ):
-            return self . raise_syntax_error_known_location ( "* argument may appear only once" , a )
+            return self . raise_syntax_error_known_location ( "* argument may appear only once" , a );
         self._reset(mark)
-        return None
+        return None;
 
     @memoize
     def invalid_lambda_kwds(self) -> Optional[Any]:
         # invalid_lambda_kwds: '**' lambda_param '=' | '**' lambda_param ',' lambda_param | '**' lambda_param ',' ('*' | '**' | '/')
         mark = self._mark()
         if (
-            (literal := self.expect('**'))
+            (self.expect('**'))
             and
-            (lambda_param := self.lambda_param())
+            (self.lambda_param())
             and
             (a := self.expect('='))
         ):
-            return self . raise_syntax_error_known_location ( "var-keyword argument cannot have default value" , a )
+            return self . raise_syntax_error_known_location ( "var-keyword argument cannot have default value" , a );
         self._reset(mark)
         if (
-            (literal := self.expect('**'))
+            (self.expect('**'))
             and
-            (lambda_param := self.lambda_param())
+            (self.lambda_param())
             and
-            (literal_1 := self.expect(','))
+            (self.expect(','))
             and
             (a := self.lambda_param())
         ):
-            return self . raise_syntax_error_known_location ( "arguments cannot follow var-keyword argument" , a )
+            return self . raise_syntax_error_known_location ( "arguments cannot follow var-keyword argument" , a );
         self._reset(mark)
         if (
-            (literal := self.expect('**'))
+            (self.expect('**'))
             and
-            (lambda_param := self.lambda_param())
+            (self.lambda_param())
             and
-            (literal_1 := self.expect(','))
+            (self.expect(','))
             and
             (a := self._tmp_192())
         ):
-            return self . raise_syntax_error_known_location ( "arguments cannot follow var-keyword argument" , a )
+            return self . raise_syntax_error_known_location ( "arguments cannot follow var-keyword argument" , a );
         self._reset(mark)
-        return None
+        return None;
 
     @memoize
     def invalid_double_type_comments(self) -> Optional[NoReturn]:
         # invalid_double_type_comments: TYPE_COMMENT NEWLINE TYPE_COMMENT NEWLINE INDENT
         mark = self._mark()
         if (
-            (type_comment := self.type_comment())
+            (self.type_comment())
             and
-            (_newline := self.expect('NEWLINE'))
+            (self.expect('NEWLINE'))
             and
-            (type_comment_1 := self.type_comment())
+            (self.type_comment())
             and
-            (_newline_1 := self.expect('NEWLINE'))
+            (self.expect('NEWLINE'))
             and
-            (_indent := self.expect('INDENT'))
+            (self.expect('INDENT'))
         ):
-            return self . raise_syntax_error ( "Cannot have two type comments on def" )
+            return self . raise_syntax_error ( "Cannot have two type comments on def" );
         self._reset(mark)
-        return None
+        return None;
 
     @memoize
     def invalid_with_item(self) -> Optional[NoReturn]:
         # invalid_with_item: expression 'as' expression &(',' | ')' | ':')
         mark = self._mark()
         if (
-            (expression := self.expression())
+            (self.expression())
             and
-            (literal := self.expect('as'))
+            (self.expect('as'))
             and
             (a := self.expression())
             and
-            self.positive_lookahead(self._tmp_193, )
+            (self.positive_lookahead(self._tmp_193, ))
         ):
-            return self . raise_syntax_error_invalid_target ( Target . STAR_TARGETS , a )
+            return self . raise_syntax_error_invalid_target ( Target . STAR_TARGETS , a );
         self._reset(mark)
-        return None
+        return None;
 
     @memoize
     def invalid_for_target(self) -> Optional[NoReturn]:
         # invalid_for_target: 'async'? 'for' star_expressions
         mark = self._mark()
         if (
-            (opt := self.expect('async'),)
+            (self.expect('async'),)
             and
-            (literal := self.expect('for'))
+            (self.expect('for'))
             and
             (a := self.star_expressions())
         ):
-            return self . raise_syntax_error_invalid_target ( Target . FOR_TARGETS , a )
+            return self . raise_syntax_error_invalid_target ( Target . FOR_TARGETS , a );
         self._reset(mark)
-        return None
+        return None;
 
     @memoize
     def invalid_group(self) -> Optional[NoReturn]:
         # invalid_group: '(' starred_expression ')' | '(' '**' expression ')'
         mark = self._mark()
         if (
-            (literal := self.expect('('))
+            (self.expect('('))
             and
             (a := self.starred_expression())
             and
-            (literal_1 := self.expect(')'))
+            (self.expect(')'))
         ):
-            return self . raise_syntax_error_known_location ( "cannot use starred expression here" , a )
+            return self . raise_syntax_error_known_location ( "cannot use starred expression here" , a );
         self._reset(mark)
         if (
-            (literal := self.expect('('))
+            (self.expect('('))
             and
             (a := self.expect('**'))
             and
-            (expression := self.expression())
+            (self.expression())
             and
-            (literal_1 := self.expect(')'))
+            (self.expect(')'))
         ):
-            return self . raise_syntax_error_known_location ( "cannot use double starred expression here" , a )
+            return self . raise_syntax_error_known_location ( "cannot use double starred expression here" , a );
         self._reset(mark)
-        return None
+        return None;
 
     @memoize
     def invalid_import_from_targets(self) -> Optional[NoReturn]:
         # invalid_import_from_targets: import_from_as_names ',' NEWLINE
         mark = self._mark()
         if (
-            (import_from_as_names := self.import_from_as_names())
+            (self.import_from_as_names())
             and
-            (literal := self.expect(','))
+            (self.expect(','))
             and
-            (_newline := self.expect('NEWLINE'))
+            (self.expect('NEWLINE'))
         ):
-            return self . raise_syntax_error ( "trailing comma not allowed without surrounding parentheses" )
+            return self . raise_syntax_error ( "trailing comma not allowed without surrounding parentheses" );
         self._reset(mark)
-        return None
+        return None;
 
     @memoize
     def invalid_with_stmt(self) -> Optional[None]:
         # invalid_with_stmt: 'async'? 'with' ','.(expression ['as' star_target])+ &&':' | 'async'? 'with' '(' ','.(expressions ['as' star_target])+ ','? ')' &&':'
         mark = self._mark()
         if (
-            (opt := self.expect('async'),)
+            (self.expect('async'),)
             and
-            (literal := self.expect('with'))
+            (self.expect('with'))
             and
-            (_gather_194 := self._gather_194())
+            (self._gather_194())
             and
-            (forced := self.expect_forced(self.expect(':'), "':'"))
+            (self.expect_forced(self.expect(':'), "':'"))
         ):
-            return None  # pragma: no cover
+            return None  # pragma: no cover;
         self._reset(mark)
         if (
-            (opt := self.expect('async'),)
+            (self.expect('async'),)
             and
-            (literal := self.expect('with'))
+            (self.expect('with'))
             and
-            (literal_1 := self.expect('('))
+            (self.expect('('))
             and
-            (_gather_196 := self._gather_196())
+            (self._gather_196())
             and
-            (opt_1 := self.expect(','),)
+            (self.expect(','),)
             and
-            (literal_2 := self.expect(')'))
+            (self.expect(')'))
             and
-            (forced := self.expect_forced(self.expect(':'), "':'"))
+            (self.expect_forced(self.expect(':'), "':'"))
         ):
-            return None  # pragma: no cover
+            return None  # pragma: no cover;
         self._reset(mark)
-        return None
+        return None;
 
     @memoize
     def invalid_with_stmt_indent(self) -> Optional[NoReturn]:
         # invalid_with_stmt_indent: 'async'? 'with' ','.(expression ['as' star_target])+ ':' NEWLINE !INDENT | 'async'? 'with' '(' ','.(expressions ['as' star_target])+ ','? ')' ':' NEWLINE !INDENT
         mark = self._mark()
         if (
-            (opt := self.expect('async'),)
+            (self.expect('async'),)
             and
             (a := self.expect('with'))
             and
-            (_gather_198 := self._gather_198())
+            (self._gather_198())
             and
-            (literal := self.expect(':'))
+            (self.expect(':'))
             and
-            (_newline := self.expect('NEWLINE'))
+            (self.expect('NEWLINE'))
             and
-            self.negative_lookahead(self.expect, 'INDENT')
+            (self.negative_lookahead(self.expect, 'INDENT'))
         ):
-            return self . raise_indentation_error ( f"expected an indented block after 'with' statement on line {a.start[0]}" )
+            return self . raise_indentation_error ( f"expected an indented block after 'with' statement on line {a.start[0]}" );
         self._reset(mark)
         if (
-            (opt := self.expect('async'),)
+            (self.expect('async'),)
             and
             (a := self.expect('with'))
             and
-            (literal := self.expect('('))
+            (self.expect('('))
             and
-            (_gather_200 := self._gather_200())
+            (self._gather_200())
             and
-            (opt_1 := self.expect(','),)
+            (self.expect(','),)
             and
-            (literal_1 := self.expect(')'))
+            (self.expect(')'))
             and
-            (literal_2 := self.expect(':'))
+            (self.expect(':'))
             and
-            (_newline := self.expect('NEWLINE'))
+            (self.expect('NEWLINE'))
             and
-            self.negative_lookahead(self.expect, 'INDENT')
+            (self.negative_lookahead(self.expect, 'INDENT'))
         ):
-            return self . raise_indentation_error ( f"expected an indented block after 'with' statement on line {a.start[0]}" )
+            return self . raise_indentation_error ( f"expected an indented block after 'with' statement on line {a.start[0]}" );
         self._reset(mark)
-        return None
+        return None;
 
     @memoize
     def invalid_try_stmt(self) -> Optional[NoReturn]:
@@ -6546,65 +6652,65 @@ class HGLParser(Parser):
         if (
             (a := self.expect('try'))
             and
-            (literal := self.expect(':'))
+            (self.expect(':'))
             and
-            (_newline := self.expect('NEWLINE'))
+            (self.expect('NEWLINE'))
             and
-            self.negative_lookahead(self.expect, 'INDENT')
+            (self.negative_lookahead(self.expect, 'INDENT'))
         ):
-            return self . raise_indentation_error ( f"expected an indented block after 'try' statement on line {a.start[0]}" , )
+            return self . raise_indentation_error ( f"expected an indented block after 'try' statement on line {a.start[0]}" , );
         self._reset(mark)
         if (
-            (literal := self.expect('try'))
+            (self.expect('try'))
             and
-            (literal_1 := self.expect(':'))
+            (self.expect(':'))
             and
-            (block := self.block())
+            (self.block())
             and
-            self.negative_lookahead(self._tmp_202, )
+            (self.negative_lookahead(self._tmp_202, ))
         ):
-            return self . raise_syntax_error ( "expected 'except' or 'finally' block" )
+            return self . raise_syntax_error ( "expected 'except' or 'finally' block" );
         self._reset(mark)
-        return None
+        return None;
 
     @memoize
     def invalid_except_stmt(self) -> Optional[None]:
         # invalid_except_stmt: 'except' expression ',' expressions ['as' NAME] ':' | 'except' expression ['as' NAME] NEWLINE | 'except' NEWLINE
         mark = self._mark()
         if (
-            (literal := self.expect('except'))
+            (self.expect('except'))
             and
             (a := self.expression())
             and
-            (literal_1 := self.expect(','))
+            (self.expect(','))
             and
-            (expressions := self.expressions())
+            (self.expressions())
             and
-            (opt := self._tmp_203(),)
+            (self._tmp_203(),)
             and
-            (literal_2 := self.expect(':'))
+            (self.expect(':'))
         ):
-            return self . raise_syntax_error_starting_from ( "multiple exception types must be parenthesized" , a )
+            return self . raise_syntax_error_starting_from ( "multiple exception types must be parenthesized" , a );
         self._reset(mark)
         if (
-            (a := self.expect('except'))
+            (self.expect('except'))
             and
-            (expression := self.expression())
+            (self.expression())
             and
-            (opt := self._tmp_204(),)
+            (self._tmp_204(),)
             and
-            (_newline := self.expect('NEWLINE'))
+            (self.expect('NEWLINE'))
         ):
-            return self . raise_syntax_error ( "expected ':'" )
+            return self . raise_syntax_error ( "expected ':'" );
         self._reset(mark)
         if (
-            (a := self.expect('except'))
+            (self.expect('except'))
             and
-            (_newline := self.expect('NEWLINE'))
+            (self.expect('NEWLINE'))
         ):
-            return self . raise_syntax_error ( "expected ':'" )
+            return self . raise_syntax_error ( "expected ':'" );
         self._reset(mark)
-        return None
+        return None;
 
     @memoize
     def invalid_finally_stmt(self) -> Optional[NoReturn]:
@@ -6613,15 +6719,15 @@ class HGLParser(Parser):
         if (
             (a := self.expect('finally'))
             and
-            (literal := self.expect(':'))
+            (self.expect(':'))
             and
-            (_newline := self.expect('NEWLINE'))
+            (self.expect('NEWLINE'))
             and
-            self.negative_lookahead(self.expect, 'INDENT')
+            (self.negative_lookahead(self.expect, 'INDENT'))
         ):
-            return self . raise_indentation_error ( f"expected an indented block after 'finally' statement on line {a.start[0]}" )
+            return self . raise_indentation_error ( f"expected an indented block after 'finally' statement on line {a.start[0]}" );
         self._reset(mark)
-        return None
+        return None;
 
     @memoize
     def invalid_except_stmt_indent(self) -> Optional[NoReturn]:
@@ -6630,204 +6736,206 @@ class HGLParser(Parser):
         if (
             (a := self.expect('except'))
             and
-            (expression := self.expression())
+            (self.expression())
             and
-            (opt := self._tmp_205(),)
+            (self._tmp_205(),)
             and
-            (literal := self.expect(':'))
+            (self.expect(':'))
             and
-            (_newline := self.expect('NEWLINE'))
+            (self.expect('NEWLINE'))
             and
-            self.negative_lookahead(self.expect, 'INDENT')
+            (self.negative_lookahead(self.expect, 'INDENT'))
         ):
-            return self . raise_indentation_error ( f"expected an indented block after 'except' statement on line {a.start[0]}" )
+            return self . raise_indentation_error ( f"expected an indented block after 'except' statement on line {a.start[0]}" );
         self._reset(mark)
         if (
             (a := self.expect('except'))
             and
-            (literal := self.expect(':'))
+            (self.expect(':'))
             and
-            (_newline := self.expect('NEWLINE'))
+            (self.expect('NEWLINE'))
             and
-            self.negative_lookahead(self.expect, 'INDENT')
+            (self.negative_lookahead(self.expect, 'INDENT'))
         ):
-            return self . raise_indentation_error ( f"expected an indented block after 'except' statement on line {a.start[0]}" )
+            return self . raise_indentation_error ( f"expected an indented block after 'except' statement on line {a.start[0]}" );
         self._reset(mark)
-        return None
+        return None;
 
     @memoize
     def invalid_match_stmt(self) -> Optional[NoReturn]:
         # invalid_match_stmt: "match" subject_expr !':' | "match" subject_expr ':' NEWLINE !INDENT
         mark = self._mark()
         if (
-            (literal := self.expect("match"))
+            (self.expect("match"))
             and
-            (subject_expr := self.subject_expr())
+            (self.subject_expr())
             and
-            self.negative_lookahead(self.expect, ':')
+            (self.negative_lookahead(self.expect, ':'))
         ):
-            return self . check_version ( ( 3 , 10 ) , "Pattern matching is" , self . raise_syntax_error ( "expected ':'" ) )
+            return self . check_version ( ( 3 , 10 ) , "Pattern matching is" , self . raise_syntax_error ( "expected ':'" ) );
         self._reset(mark)
         if (
             (a := self.expect("match"))
             and
-            (subject := self.subject_expr())
+            (self.subject_expr())
             and
-            (literal := self.expect(':'))
+            (self.expect(':'))
             and
-            (_newline := self.expect('NEWLINE'))
+            (self.expect('NEWLINE'))
             and
-            self.negative_lookahead(self.expect, 'INDENT')
+            (self.negative_lookahead(self.expect, 'INDENT'))
         ):
-            return self . check_version ( ( 3 , 10 ) , "Pattern matching is" , self . raise_indentation_error ( f"expected an indented block after 'match' statement on line {a.start[0]}" ) )
+            return self . check_version ( ( 3 , 10 ) , "Pattern matching is" , self . raise_indentation_error ( f"expected an indented block after 'match' statement on line {a.start[0]}" ) );
         self._reset(mark)
-        return None
+        return None;
 
     @memoize
     def invalid_case_block(self) -> Optional[NoReturn]:
         # invalid_case_block: "case" patterns guard? !':' | "case" patterns guard? ':' NEWLINE !INDENT
         mark = self._mark()
         if (
-            (literal := self.expect("case"))
+            (self.expect("case"))
             and
-            (patterns := self.patterns())
+            (self.patterns())
             and
-            (opt := self.guard(),)
+            (self.guard(),)
             and
-            self.negative_lookahead(self.expect, ':')
+            (self.negative_lookahead(self.expect, ':'))
         ):
-            return self . raise_syntax_error ( "expected ':'" )
+            return self . raise_syntax_error ( "expected ':'" );
         self._reset(mark)
         if (
             (a := self.expect("case"))
             and
-            (patterns := self.patterns())
+            (self.patterns())
             and
-            (opt := self.guard(),)
+            (self.guard(),)
             and
-            (literal := self.expect(':'))
+            (self.expect(':'))
             and
-            (_newline := self.expect('NEWLINE'))
+            (self.expect('NEWLINE'))
             and
-            self.negative_lookahead(self.expect, 'INDENT')
+            (self.negative_lookahead(self.expect, 'INDENT'))
         ):
-            return self . raise_indentation_error ( f"expected an indented block after 'case' statement on line {a.start[0]}" )
+            return self . raise_indentation_error ( f"expected an indented block after 'case' statement on line {a.start[0]}" );
         self._reset(mark)
-        return None
+        return None;
 
     @memoize
     def invalid_as_pattern(self) -> Optional[NoReturn]:
         # invalid_as_pattern: or_pattern 'as' "_" | or_pattern 'as' !NAME expression
         mark = self._mark()
         if (
-            (or_pattern := self.or_pattern())
+            (self.or_pattern())
             and
-            (literal := self.expect('as'))
+            (self.expect('as'))
             and
             (a := self.expect("_"))
         ):
-            return self . raise_syntax_error_known_location ( "cannot use '_' as a target" , a )
+            return self . raise_syntax_error_known_location ( "cannot use '_' as a target" , a );
         self._reset(mark)
         if (
-            (or_pattern := self.or_pattern())
+            (self.or_pattern())
             and
-            (literal := self.expect('as'))
+            (self.expect('as'))
             and
-            self.negative_lookahead(self.name, )
+            (self.negative_lookahead(self.name, ))
             and
             (a := self.expression())
         ):
-            return self . raise_syntax_error_known_location ( "invalid pattern target" , a )
+            return self . raise_syntax_error_known_location ( "invalid pattern target" , a );
         self._reset(mark)
-        return None
+        return None;
 
     @memoize
     def invalid_class_pattern(self) -> Optional[NoReturn]:
         # invalid_class_pattern: name_or_attr '(' invalid_class_argument_pattern
         mark = self._mark()
         if (
-            (name_or_attr := self.name_or_attr())
+            self.call_invalid_rules
             and
-            (literal := self.expect('('))
+            (self.name_or_attr())
+            and
+            (self.expect('('))
             and
             (a := self.invalid_class_argument_pattern())
         ):
-            return self . raise_syntax_error_known_range ( "positional patterns follow keyword patterns" , a [0] , a [- 1] )
+            return self . raise_syntax_error_known_range ( "positional patterns follow keyword patterns" , a [0] , a [- 1] );
         self._reset(mark)
-        return None
+        return None;
 
     @memoize
     def invalid_class_argument_pattern(self) -> Optional[list]:
         # invalid_class_argument_pattern: [positional_patterns ','] keyword_patterns ',' positional_patterns
         mark = self._mark()
         if (
-            (opt := self._tmp_206(),)
+            (self._tmp_206(),)
             and
-            (keyword_patterns := self.keyword_patterns())
+            (self.keyword_patterns())
             and
-            (literal := self.expect(','))
+            (self.expect(','))
             and
             (a := self.positional_patterns())
         ):
-            return a
+            return a;
         self._reset(mark)
-        return None
+        return None;
 
     @memoize
     def invalid_if_stmt(self) -> Optional[NoReturn]:
         # invalid_if_stmt: 'if' named_expression NEWLINE | 'if' named_expression ':' NEWLINE !INDENT
         mark = self._mark()
         if (
-            (literal := self.expect('if'))
+            (self.expect('if'))
             and
-            (named_expression := self.named_expression())
+            (self.named_expression())
             and
-            (_newline := self.expect('NEWLINE'))
+            (self.expect('NEWLINE'))
         ):
-            return self . raise_syntax_error ( "expected ':'" )
+            return self . raise_syntax_error ( "expected ':'" );
         self._reset(mark)
         if (
             (a := self.expect('if'))
             and
             (a_1 := self.named_expression())
             and
-            (literal := self.expect(':'))
+            (self.expect(':'))
             and
-            (_newline := self.expect('NEWLINE'))
+            (self.expect('NEWLINE'))
             and
-            self.negative_lookahead(self.expect, 'INDENT')
+            (self.negative_lookahead(self.expect, 'INDENT'))
         ):
-            return self . raise_indentation_error ( f"expected an indented block after 'if' statement on line {a.start[0]}" )
+            return self . raise_indentation_error ( f"expected an indented block after 'if' statement on line {a.start[0]}" );
         self._reset(mark)
-        return None
+        return None;
 
     @memoize
     def invalid_elif_stmt(self) -> Optional[NoReturn]:
         # invalid_elif_stmt: 'elif' named_expression NEWLINE | 'elif' named_expression ':' NEWLINE !INDENT
         mark = self._mark()
         if (
-            (literal := self.expect('elif'))
+            (self.expect('elif'))
             and
-            (named_expression := self.named_expression())
+            (self.named_expression())
             and
-            (_newline := self.expect('NEWLINE'))
+            (self.expect('NEWLINE'))
         ):
-            return self . raise_syntax_error ( "expected ':'" )
+            return self . raise_syntax_error ( "expected ':'" );
         self._reset(mark)
         if (
             (a := self.expect('elif'))
             and
-            (named_expression := self.named_expression())
+            (self.named_expression())
             and
-            (literal := self.expect(':'))
+            (self.expect(':'))
             and
-            (_newline := self.expect('NEWLINE'))
+            (self.expect('NEWLINE'))
             and
-            self.negative_lookahead(self.expect, 'INDENT')
+            (self.negative_lookahead(self.expect, 'INDENT'))
         ):
-            return self . raise_indentation_error ( f"expected an indented block after 'elif' statement on line {a.start[0]}" )
+            return self . raise_indentation_error ( f"expected an indented block after 'elif' statement on line {a.start[0]}" );
         self._reset(mark)
-        return None
+        return None;
 
     @memoize
     def invalid_else_stmt(self) -> Optional[NoReturn]:
@@ -6836,97 +6944,97 @@ class HGLParser(Parser):
         if (
             (a := self.expect('else'))
             and
-            (literal := self.expect(':'))
+            (self.expect(':'))
             and
-            (_newline := self.expect('NEWLINE'))
+            (self.expect('NEWLINE'))
             and
-            self.negative_lookahead(self.expect, 'INDENT')
+            (self.negative_lookahead(self.expect, 'INDENT'))
         ):
-            return self . raise_indentation_error ( f"expected an indented block after 'else' statement on line {a.start[0]}" )
+            return self . raise_indentation_error ( f"expected an indented block after 'else' statement on line {a.start[0]}" );
         self._reset(mark)
-        return None
+        return None;
 
     @memoize
     def invalid_while_stmt(self) -> Optional[NoReturn]:
         # invalid_while_stmt: 'while' named_expression NEWLINE | 'while' named_expression ':' NEWLINE !INDENT
         mark = self._mark()
         if (
-            (literal := self.expect('while'))
+            (self.expect('while'))
             and
-            (named_expression := self.named_expression())
+            (self.named_expression())
             and
-            (_newline := self.expect('NEWLINE'))
+            (self.expect('NEWLINE'))
         ):
-            return self . raise_syntax_error ( "expected ':'" )
+            return self . raise_syntax_error ( "expected ':'" );
         self._reset(mark)
         if (
             (a := self.expect('while'))
             and
-            (named_expression := self.named_expression())
+            (self.named_expression())
             and
-            (literal := self.expect(':'))
+            (self.expect(':'))
             and
-            (_newline := self.expect('NEWLINE'))
+            (self.expect('NEWLINE'))
             and
-            self.negative_lookahead(self.expect, 'INDENT')
+            (self.negative_lookahead(self.expect, 'INDENT'))
         ):
-            return self . raise_indentation_error ( f"expected an indented block after 'while' statement on line {a.start[0]}" )
+            return self . raise_indentation_error ( f"expected an indented block after 'while' statement on line {a.start[0]}" );
         self._reset(mark)
-        return None
+        return None;
 
     @memoize
     def invalid_for_stmt(self) -> Optional[NoReturn]:
         # invalid_for_stmt: 'async'? 'for' star_targets 'in' star_expressions ':' NEWLINE !INDENT
         mark = self._mark()
         if (
-            (opt := self.expect('async'),)
+            (self.expect('async'),)
             and
             (a := self.expect('for'))
             and
-            (star_targets := self.star_targets())
+            (self.star_targets())
             and
-            (literal := self.expect('in'))
+            (self.expect('in'))
             and
-            (star_expressions := self.star_expressions())
+            (self.star_expressions())
             and
-            (literal_1 := self.expect(':'))
+            (self.expect(':'))
             and
-            (_newline := self.expect('NEWLINE'))
+            (self.expect('NEWLINE'))
             and
-            self.negative_lookahead(self.expect, 'INDENT')
+            (self.negative_lookahead(self.expect, 'INDENT'))
         ):
-            return self . raise_indentation_error ( f"expected an indented block after 'for' statement on line {a.start[0]}" )
+            return self . raise_indentation_error ( f"expected an indented block after 'for' statement on line {a.start[0]}" );
         self._reset(mark)
-        return None
+        return None;
 
     @memoize
     def invalid_def_raw(self) -> Optional[NoReturn]:
         # invalid_def_raw: 'async'? 'def' NAME '(' params? ')' ['->' expression] ':' NEWLINE !INDENT
         mark = self._mark()
         if (
-            (opt := self.expect('async'),)
+            (self.expect('async'),)
             and
             (a := self.expect('def'))
             and
-            (name := self.name())
+            (self.name())
             and
-            (literal := self.expect('('))
+            (self.expect('('))
             and
-            (opt_1 := self.params(),)
+            (self.params(),)
             and
-            (literal_1 := self.expect(')'))
+            (self.expect(')'))
             and
-            (opt_2 := self._tmp_207(),)
+            (self._tmp_207(),)
             and
-            (literal_2 := self.expect(':'))
+            (self.expect(':'))
             and
-            (_newline := self.expect('NEWLINE'))
+            (self.expect('NEWLINE'))
             and
-            self.negative_lookahead(self.expect, 'INDENT')
+            (self.negative_lookahead(self.expect, 'INDENT'))
         ):
-            return self . raise_indentation_error ( f"expected an indented block after function definition on line {a.start[0]}" )
+            return self . raise_indentation_error ( f"expected an indented block after function definition on line {a.start[0]}" );
         self._reset(mark)
-        return None
+        return None;
 
     @memoize
     def invalid_class_def_raw(self) -> Optional[NoReturn]:
@@ -6935,54 +7043,56 @@ class HGLParser(Parser):
         if (
             (a := self.expect('class'))
             and
-            (name := self.name())
+            (self.name())
             and
-            (opt := self._tmp_208(),)
+            (self._tmp_208(),)
             and
-            (literal := self.expect(':'))
+            (self.expect(':'))
             and
-            (_newline := self.expect('NEWLINE'))
+            (self.expect('NEWLINE'))
             and
-            self.negative_lookahead(self.expect, 'INDENT')
+            (self.negative_lookahead(self.expect, 'INDENT'))
         ):
-            return self . raise_indentation_error ( f"expected an indented block after class definition on line {a.start[0]}" )
+            return self . raise_indentation_error ( f"expected an indented block after class definition on line {a.start[0]}" );
         self._reset(mark)
-        return None
+        return None;
 
     @memoize
     def invalid_double_starred_kvpairs(self) -> Optional[None]:
         # invalid_double_starred_kvpairs: ','.double_starred_kvpair+ ',' invalid_kvpair | expression ':' '*' bitwise_or | expression ':' &('}' | ',')
         mark = self._mark()
         if (
-            (_gather_209 := self._gather_209())
+            self.call_invalid_rules
             and
-            (literal := self.expect(','))
+            (self._gather_209())
             and
-            (invalid_kvpair := self.invalid_kvpair())
+            (self.expect(','))
+            and
+            (self.invalid_kvpair())
         ):
-            return None  # pragma: no cover
+            return None  # pragma: no cover;
         self._reset(mark)
         if (
-            (expression := self.expression())
+            (self.expression())
             and
-            (literal := self.expect(':'))
+            (self.expect(':'))
             and
             (a := self.expect('*'))
             and
-            (bitwise_or := self.bitwise_or())
+            (self.bitwise_or())
         ):
-            return self . raise_syntax_error_starting_from ( "cannot use a starred expression in a dictionary value" , a )
+            return self . raise_syntax_error_starting_from ( "cannot use a starred expression in a dictionary value" , a );
         self._reset(mark)
         if (
-            (expression := self.expression())
+            (self.expression())
             and
             (a := self.expect(':'))
             and
-            self.positive_lookahead(self._tmp_211, )
+            (self.positive_lookahead(self._tmp_211, ))
         ):
-            return self . raise_syntax_error_known_location ( "expression expected after dictionary key and ':'" , a )
+            return self . raise_syntax_error_known_location ( "expression expected after dictionary key and ':'" , a );
         self._reset(mark)
-        return None
+        return None;
 
     @memoize
     def invalid_kvpair(self) -> Optional[None]:
@@ -6991,29 +7101,29 @@ class HGLParser(Parser):
         if (
             (a := self.expression())
             and
-            self.negative_lookahead(self.expect, ':')
+            (self.negative_lookahead(self.expect, ':'))
         ):
-            return self . raise_raw_syntax_error ( "':' expected after dictionary key" , ( a . lineno , a . col_offset ) , ( a . end_lineno , a . end_col_offset ) )
+            return self . raise_raw_syntax_error ( "':' expected after dictionary key" , ( a . lineno , a . col_offset ) , ( a . end_lineno , a . end_col_offset ) );
         self._reset(mark)
         if (
-            (expression := self.expression())
+            (self.expression())
             and
-            (literal := self.expect(':'))
+            (self.expect(':'))
             and
             (a := self.expect('*'))
             and
-            (bitwise_or := self.bitwise_or())
+            (self.bitwise_or())
         ):
-            return self . raise_syntax_error_starting_from ( "cannot use a starred expression in a dictionary value" , a )
+            return self . raise_syntax_error_starting_from ( "cannot use a starred expression in a dictionary value" , a );
         self._reset(mark)
         if (
-            (expression := self.expression())
+            (self.expression())
             and
             (a := self.expect(':'))
         ):
-            return self . raise_syntax_error_known_location ( "expression expected after dictionary key and ':'" , a )
+            return self . raise_syntax_error_known_location ( "expression expected after dictionary key and ':'" , a );
         self._reset(mark)
-        return None
+        return None;
 
     @memoize
     def _loop0_1(self) -> Optional[Any]:
@@ -7026,7 +7136,7 @@ class HGLParser(Parser):
             children.append(_newline)
             mark = self._mark()
         self._reset(mark)
-        return children
+        return children;
 
     @memoize
     def _loop0_2(self) -> Optional[Any]:
@@ -7039,7 +7149,7 @@ class HGLParser(Parser):
             children.append(_newline)
             mark = self._mark()
         self._reset(mark)
-        return children
+        return children;
 
     @memoize
     def _loop1_3(self) -> Optional[Any]:
@@ -7052,7 +7162,7 @@ class HGLParser(Parser):
             children.append(statement)
             mark = self._mark()
         self._reset(mark)
-        return children
+        return children;
 
     @memoize
     def _loop0_5(self) -> Optional[Any]:
@@ -7060,14 +7170,14 @@ class HGLParser(Parser):
         mark = self._mark()
         children = []
         while (
-            (literal := self.expect(';'))
+            (self.expect(';'))
             and
             (elem := self.simple_stmt())
         ):
             children.append(elem)
             mark = self._mark()
         self._reset(mark)
-        return children
+        return children;
 
     @memoize
     def _gather_4(self) -> Optional[Any]:
@@ -7080,9 +7190,9 @@ class HGLParser(Parser):
             (seq := self._loop0_5())
             is not None
         ):
-            return [elem] + seq
+            return [elem] + seq;
         self._reset(mark)
-        return None
+        return None;
 
     @memoize
     def _tmp_6(self) -> Optional[Any]:
@@ -7091,14 +7201,14 @@ class HGLParser(Parser):
         if (
             (literal := self.expect('import'))
         ):
-            return literal
+            return literal;
         self._reset(mark)
         if (
             (literal := self.expect('from'))
         ):
-            return literal
+            return literal;
         self._reset(mark)
-        return None
+        return None;
 
     @memoize
     def _tmp_7(self) -> Optional[Any]:
@@ -7107,19 +7217,19 @@ class HGLParser(Parser):
         if (
             (literal := self.expect('def'))
         ):
-            return literal
+            return literal;
         self._reset(mark)
         if (
             (literal := self.expect('@'))
         ):
-            return literal
+            return literal;
         self._reset(mark)
         if (
             (literal := self.expect('async'))
         ):
-            return literal
+            return literal;
         self._reset(mark)
-        return None
+        return None;
 
     @memoize
     def _tmp_8(self) -> Optional[Any]:
@@ -7128,14 +7238,14 @@ class HGLParser(Parser):
         if (
             (literal := self.expect('class'))
         ):
-            return literal
+            return literal;
         self._reset(mark)
         if (
             (literal := self.expect('@'))
         ):
-            return literal
+            return literal;
         self._reset(mark)
-        return None
+        return None;
 
     @memoize
     def _tmp_9(self) -> Optional[Any]:
@@ -7144,14 +7254,14 @@ class HGLParser(Parser):
         if (
             (literal := self.expect('with'))
         ):
-            return literal
+            return literal;
         self._reset(mark)
         if (
             (literal := self.expect('async'))
         ):
-            return literal
+            return literal;
         self._reset(mark)
-        return None
+        return None;
 
     @memoize
     def _tmp_10(self) -> Optional[Any]:
@@ -7160,60 +7270,60 @@ class HGLParser(Parser):
         if (
             (literal := self.expect('for'))
         ):
-            return literal
+            return literal;
         self._reset(mark)
         if (
             (literal := self.expect('async'))
         ):
-            return literal
+            return literal;
         self._reset(mark)
-        return None
+        return None;
 
     @memoize
     def _tmp_11(self) -> Optional[Any]:
         # _tmp_11: '=' annotated_rhs
         mark = self._mark()
         if (
-            (literal := self.expect('='))
+            (self.expect('='))
             and
             (d := self.annotated_rhs())
         ):
-            return d
+            return d;
         self._reset(mark)
-        return None
+        return None;
 
     @memoize
     def _tmp_12(self) -> Optional[Any]:
         # _tmp_12: '(' single_target ')' | single_subscript_attribute_target
         mark = self._mark()
         if (
-            (literal := self.expect('('))
+            (self.expect('('))
             and
             (b := self.single_target())
             and
-            (literal_1 := self.expect(')'))
+            (self.expect(')'))
         ):
-            return b
+            return b;
         self._reset(mark)
         if (
             (single_subscript_attribute_target := self.single_subscript_attribute_target())
         ):
-            return single_subscript_attribute_target
+            return single_subscript_attribute_target;
         self._reset(mark)
-        return None
+        return None;
 
     @memoize
     def _tmp_13(self) -> Optional[Any]:
         # _tmp_13: '=' annotated_rhs
         mark = self._mark()
         if (
-            (literal := self.expect('='))
+            (self.expect('='))
             and
             (d := self.annotated_rhs())
         ):
-            return d
+            return d;
         self._reset(mark)
-        return None
+        return None;
 
     @memoize
     def _loop1_14(self) -> Optional[Any]:
@@ -7226,7 +7336,7 @@ class HGLParser(Parser):
             children.append(_tmp_212)
             mark = self._mark()
         self._reset(mark)
-        return children
+        return children;
 
     @memoize
     def _tmp_15(self) -> Optional[Any]:
@@ -7235,14 +7345,14 @@ class HGLParser(Parser):
         if (
             (yield_expr := self.yield_expr())
         ):
-            return yield_expr
+            return yield_expr;
         self._reset(mark)
         if (
             (star_expressions := self.star_expressions())
         ):
-            return star_expressions
+            return star_expressions;
         self._reset(mark)
-        return None
+        return None;
 
     @memoize
     def _tmp_16(self) -> Optional[Any]:
@@ -7251,27 +7361,27 @@ class HGLParser(Parser):
         if (
             (yield_expr := self.yield_expr())
         ):
-            return yield_expr
+            return yield_expr;
         self._reset(mark)
         if (
             (star_expressions := self.star_expressions())
         ):
-            return star_expressions
+            return star_expressions;
         self._reset(mark)
-        return None
+        return None;
 
     @memoize
     def _tmp_17(self) -> Optional[Any]:
         # _tmp_17: 'from' expression
         mark = self._mark()
         if (
-            (literal := self.expect('from'))
+            (self.expect('from'))
             and
             (z := self.expression())
         ):
-            return z
+            return z;
         self._reset(mark)
-        return None
+        return None;
 
     @memoize
     def _loop0_19(self) -> Optional[Any]:
@@ -7279,14 +7389,14 @@ class HGLParser(Parser):
         mark = self._mark()
         children = []
         while (
-            (literal := self.expect(','))
+            (self.expect(','))
             and
             (elem := self.name())
         ):
             children.append(elem)
             mark = self._mark()
         self._reset(mark)
-        return children
+        return children;
 
     @memoize
     def _gather_18(self) -> Optional[Any]:
@@ -7299,9 +7409,9 @@ class HGLParser(Parser):
             (seq := self._loop0_19())
             is not None
         ):
-            return [elem] + seq
+            return [elem] + seq;
         self._reset(mark)
-        return None
+        return None;
 
     @memoize
     def _loop0_21(self) -> Optional[Any]:
@@ -7309,14 +7419,14 @@ class HGLParser(Parser):
         mark = self._mark()
         children = []
         while (
-            (literal := self.expect(','))
+            (self.expect(','))
             and
             (elem := self.name())
         ):
             children.append(elem)
             mark = self._mark()
         self._reset(mark)
-        return children
+        return children;
 
     @memoize
     def _gather_20(self) -> Optional[Any]:
@@ -7329,9 +7439,9 @@ class HGLParser(Parser):
             (seq := self._loop0_21())
             is not None
         ):
-            return [elem] + seq
+            return [elem] + seq;
         self._reset(mark)
-        return None
+        return None;
 
     @memoize
     def _tmp_22(self) -> Optional[Any]:
@@ -7340,27 +7450,27 @@ class HGLParser(Parser):
         if (
             (literal := self.expect(';'))
         ):
-            return literal
+            return literal;
         self._reset(mark)
         if (
             (_newline := self.expect('NEWLINE'))
         ):
-            return _newline
+            return _newline;
         self._reset(mark)
-        return None
+        return None;
 
     @memoize
     def _tmp_23(self) -> Optional[Any]:
         # _tmp_23: ',' expression
         mark = self._mark()
         if (
-            (literal := self.expect(','))
+            (self.expect(','))
             and
             (z := self.expression())
         ):
-            return z
+            return z;
         self._reset(mark)
-        return None
+        return None;
 
     @memoize
     def _loop0_24(self) -> Optional[Any]:
@@ -7373,7 +7483,7 @@ class HGLParser(Parser):
             children.append(_tmp_213)
             mark = self._mark()
         self._reset(mark)
-        return children
+        return children;
 
     @memoize
     def _loop1_25(self) -> Optional[Any]:
@@ -7386,7 +7496,7 @@ class HGLParser(Parser):
             children.append(_tmp_214)
             mark = self._mark()
         self._reset(mark)
-        return children
+        return children;
 
     @memoize
     def _loop0_27(self) -> Optional[Any]:
@@ -7394,14 +7504,14 @@ class HGLParser(Parser):
         mark = self._mark()
         children = []
         while (
-            (literal := self.expect(','))
+            (self.expect(','))
             and
             (elem := self.import_from_as_name())
         ):
             children.append(elem)
             mark = self._mark()
         self._reset(mark)
-        return children
+        return children;
 
     @memoize
     def _gather_26(self) -> Optional[Any]:
@@ -7414,22 +7524,22 @@ class HGLParser(Parser):
             (seq := self._loop0_27())
             is not None
         ):
-            return [elem] + seq
+            return [elem] + seq;
         self._reset(mark)
-        return None
+        return None;
 
     @memoize
     def _tmp_28(self) -> Optional[Any]:
         # _tmp_28: 'as' NAME
         mark = self._mark()
         if (
-            (literal := self.expect('as'))
+            (self.expect('as'))
             and
             (z := self.name())
         ):
-            return z . string
+            return z . string;
         self._reset(mark)
-        return None
+        return None;
 
     @memoize
     def _loop0_30(self) -> Optional[Any]:
@@ -7437,14 +7547,14 @@ class HGLParser(Parser):
         mark = self._mark()
         children = []
         while (
-            (literal := self.expect(','))
+            (self.expect(','))
             and
             (elem := self.dotted_as_name())
         ):
             children.append(elem)
             mark = self._mark()
         self._reset(mark)
-        return children
+        return children;
 
     @memoize
     def _gather_29(self) -> Optional[Any]:
@@ -7457,22 +7567,22 @@ class HGLParser(Parser):
             (seq := self._loop0_30())
             is not None
         ):
-            return [elem] + seq
+            return [elem] + seq;
         self._reset(mark)
-        return None
+        return None;
 
     @memoize
     def _tmp_31(self) -> Optional[Any]:
         # _tmp_31: 'as' NAME
         mark = self._mark()
         if (
-            (literal := self.expect('as'))
+            (self.expect('as'))
             and
             (z := self.name())
         ):
-            return z . string
+            return z . string;
         self._reset(mark)
-        return None
+        return None;
 
     @memoize
     def _loop1_32(self) -> Optional[Any]:
@@ -7485,93 +7595,93 @@ class HGLParser(Parser):
             children.append(decorator)
             mark = self._mark()
         self._reset(mark)
-        return children
+        return children;
 
     @memoize
     def _tmp_33(self) -> Optional[Any]:
         # _tmp_33: '@' dec_maybe_call NEWLINE
         mark = self._mark()
         if (
-            (literal := self.expect('@'))
+            (self.expect('@'))
             and
             (f := self.dec_maybe_call())
             and
-            (_newline := self.expect('NEWLINE'))
+            (self.expect('NEWLINE'))
         ):
-            return f
+            return f;
         self._reset(mark)
-        return None
+        return None;
 
     @memoize
     def _tmp_34(self) -> Optional[Any]:
         # _tmp_34: '@' named_expression NEWLINE
         mark = self._mark()
         if (
-            (literal := self.expect('@'))
+            (self.expect('@'))
             and
             (f := self.named_expression())
             and
-            (_newline := self.expect('NEWLINE'))
+            (self.expect('NEWLINE'))
         ):
-            return f
+            return f;
         self._reset(mark)
-        return None
+        return None;
 
     @memoize
     def _tmp_35(self) -> Optional[Any]:
         # _tmp_35: '(' arguments? ')'
         mark = self._mark()
         if (
-            (literal := self.expect('('))
+            (self.expect('('))
             and
             (z := self.arguments(),)
             and
-            (literal_1 := self.expect(')'))
+            (self.expect(')'))
         ):
-            return z
+            return z;
         self._reset(mark)
-        return None
+        return None;
 
     @memoize
     def _tmp_36(self) -> Optional[Any]:
         # _tmp_36: '(' params? ')'
         mark = self._mark()
         if (
-            (literal := self.expect('('))
+            (self.expect('('))
             and
             (p := self.params(),)
             and
-            (literal_1 := self.expect(')'))
+            (self.expect(')'))
         ):
-            return p
+            return p;
         self._reset(mark)
-        return None
+        return None;
 
     @memoize
     def _tmp_37(self) -> Optional[Any]:
         # _tmp_37: '->' expression
         mark = self._mark()
         if (
-            (literal := self.expect('->'))
+            (self.expect('->'))
             and
             (z := self.expression())
         ):
-            return z
+            return z;
         self._reset(mark)
-        return None
+        return None;
 
     @memoize
     def _tmp_38(self) -> Optional[Any]:
         # _tmp_38: '->' expression
         mark = self._mark()
         if (
-            (literal := self.expect('->'))
+            (self.expect('->'))
             and
             (z := self.expression())
         ):
-            return z
+            return z;
         self._reset(mark)
-        return None
+        return None;
 
     @memoize
     def _loop0_39(self) -> Optional[Any]:
@@ -7584,7 +7694,7 @@ class HGLParser(Parser):
             children.append(param_no_default)
             mark = self._mark()
         self._reset(mark)
-        return children
+        return children;
 
     @memoize
     def _loop0_40(self) -> Optional[Any]:
@@ -7597,7 +7707,7 @@ class HGLParser(Parser):
             children.append(param_with_default)
             mark = self._mark()
         self._reset(mark)
-        return children
+        return children;
 
     @memoize
     def _loop0_41(self) -> Optional[Any]:
@@ -7610,7 +7720,7 @@ class HGLParser(Parser):
             children.append(param_with_default)
             mark = self._mark()
         self._reset(mark)
-        return children
+        return children;
 
     @memoize
     def _loop1_42(self) -> Optional[Any]:
@@ -7623,7 +7733,7 @@ class HGLParser(Parser):
             children.append(param_no_default)
             mark = self._mark()
         self._reset(mark)
-        return children
+        return children;
 
     @memoize
     def _loop0_43(self) -> Optional[Any]:
@@ -7636,7 +7746,7 @@ class HGLParser(Parser):
             children.append(param_with_default)
             mark = self._mark()
         self._reset(mark)
-        return children
+        return children;
 
     @memoize
     def _loop1_44(self) -> Optional[Any]:
@@ -7649,7 +7759,7 @@ class HGLParser(Parser):
             children.append(param_with_default)
             mark = self._mark()
         self._reset(mark)
-        return children
+        return children;
 
     @memoize
     def _loop1_45(self) -> Optional[Any]:
@@ -7662,7 +7772,7 @@ class HGLParser(Parser):
             children.append(param_no_default)
             mark = self._mark()
         self._reset(mark)
-        return children
+        return children;
 
     @memoize
     def _loop1_46(self) -> Optional[Any]:
@@ -7675,7 +7785,7 @@ class HGLParser(Parser):
             children.append(param_no_default)
             mark = self._mark()
         self._reset(mark)
-        return children
+        return children;
 
     @memoize
     def _loop0_47(self) -> Optional[Any]:
@@ -7688,7 +7798,7 @@ class HGLParser(Parser):
             children.append(param_no_default)
             mark = self._mark()
         self._reset(mark)
-        return children
+        return children;
 
     @memoize
     def _loop1_48(self) -> Optional[Any]:
@@ -7701,7 +7811,7 @@ class HGLParser(Parser):
             children.append(param_with_default)
             mark = self._mark()
         self._reset(mark)
-        return children
+        return children;
 
     @memoize
     def _loop0_49(self) -> Optional[Any]:
@@ -7714,7 +7824,7 @@ class HGLParser(Parser):
             children.append(param_no_default)
             mark = self._mark()
         self._reset(mark)
-        return children
+        return children;
 
     @memoize
     def _loop1_50(self) -> Optional[Any]:
@@ -7727,7 +7837,7 @@ class HGLParser(Parser):
             children.append(param_with_default)
             mark = self._mark()
         self._reset(mark)
-        return children
+        return children;
 
     @memoize
     def _loop0_51(self) -> Optional[Any]:
@@ -7740,7 +7850,7 @@ class HGLParser(Parser):
             children.append(param_maybe_default)
             mark = self._mark()
         self._reset(mark)
-        return children
+        return children;
 
     @memoize
     def _loop1_52(self) -> Optional[Any]:
@@ -7753,7 +7863,7 @@ class HGLParser(Parser):
             children.append(param_maybe_default)
             mark = self._mark()
         self._reset(mark)
-        return children
+        return children;
 
     @memoize
     def _loop0_54(self) -> Optional[Any]:
@@ -7761,14 +7871,14 @@ class HGLParser(Parser):
         mark = self._mark()
         children = []
         while (
-            (literal := self.expect(','))
+            (self.expect(','))
             and
             (elem := self.with_item())
         ):
             children.append(elem)
             mark = self._mark()
         self._reset(mark)
-        return children
+        return children;
 
     @memoize
     def _gather_53(self) -> Optional[Any]:
@@ -7781,9 +7891,9 @@ class HGLParser(Parser):
             (seq := self._loop0_54())
             is not None
         ):
-            return [elem] + seq
+            return [elem] + seq;
         self._reset(mark)
-        return None
+        return None;
 
     @memoize
     def _loop0_56(self) -> Optional[Any]:
@@ -7791,14 +7901,14 @@ class HGLParser(Parser):
         mark = self._mark()
         children = []
         while (
-            (literal := self.expect(','))
+            (self.expect(','))
             and
             (elem := self.with_item())
         ):
             children.append(elem)
             mark = self._mark()
         self._reset(mark)
-        return children
+        return children;
 
     @memoize
     def _gather_55(self) -> Optional[Any]:
@@ -7811,9 +7921,9 @@ class HGLParser(Parser):
             (seq := self._loop0_56())
             is not None
         ):
-            return [elem] + seq
+            return [elem] + seq;
         self._reset(mark)
-        return None
+        return None;
 
     @memoize
     def _loop0_58(self) -> Optional[Any]:
@@ -7821,14 +7931,14 @@ class HGLParser(Parser):
         mark = self._mark()
         children = []
         while (
-            (literal := self.expect(','))
+            (self.expect(','))
             and
             (elem := self.with_item())
         ):
             children.append(elem)
             mark = self._mark()
         self._reset(mark)
-        return children
+        return children;
 
     @memoize
     def _gather_57(self) -> Optional[Any]:
@@ -7841,9 +7951,9 @@ class HGLParser(Parser):
             (seq := self._loop0_58())
             is not None
         ):
-            return [elem] + seq
+            return [elem] + seq;
         self._reset(mark)
-        return None
+        return None;
 
     @memoize
     def _loop0_60(self) -> Optional[Any]:
@@ -7851,14 +7961,14 @@ class HGLParser(Parser):
         mark = self._mark()
         children = []
         while (
-            (literal := self.expect(','))
+            (self.expect(','))
             and
             (elem := self.with_item())
         ):
             children.append(elem)
             mark = self._mark()
         self._reset(mark)
-        return children
+        return children;
 
     @memoize
     def _gather_59(self) -> Optional[Any]:
@@ -7871,9 +7981,9 @@ class HGLParser(Parser):
             (seq := self._loop0_60())
             is not None
         ):
-            return [elem] + seq
+            return [elem] + seq;
         self._reset(mark)
-        return None
+        return None;
 
     @memoize
     def _tmp_61(self) -> Optional[Any]:
@@ -7882,19 +7992,19 @@ class HGLParser(Parser):
         if (
             (literal := self.expect(','))
         ):
-            return literal
+            return literal;
         self._reset(mark)
         if (
             (literal := self.expect(')'))
         ):
-            return literal
+            return literal;
         self._reset(mark)
         if (
             (literal := self.expect(':'))
         ):
-            return literal
+            return literal;
         self._reset(mark)
-        return None
+        return None;
 
     @memoize
     def _loop1_62(self) -> Optional[Any]:
@@ -7907,7 +8017,7 @@ class HGLParser(Parser):
             children.append(switch_block)
             mark = self._mark()
         self._reset(mark)
-        return children
+        return children;
 
     @memoize
     def _loop1_63(self) -> Optional[Any]:
@@ -7920,20 +8030,20 @@ class HGLParser(Parser):
             children.append(except_block)
             mark = self._mark()
         self._reset(mark)
-        return children
+        return children;
 
     @memoize
     def _tmp_64(self) -> Optional[Any]:
         # _tmp_64: 'as' NAME
         mark = self._mark()
         if (
-            (literal := self.expect('as'))
+            (self.expect('as'))
             and
             (z := self.name())
         ):
-            return z . string
+            return z . string;
         self._reset(mark)
-        return None
+        return None;
 
     @memoize
     def _loop1_65(self) -> Optional[Any]:
@@ -7946,7 +8056,7 @@ class HGLParser(Parser):
             children.append(case_block)
             mark = self._mark()
         self._reset(mark)
-        return children
+        return children;
 
     @memoize
     def _loop0_67(self) -> Optional[Any]:
@@ -7954,14 +8064,14 @@ class HGLParser(Parser):
         mark = self._mark()
         children = []
         while (
-            (literal := self.expect('|'))
+            (self.expect('|'))
             and
             (elem := self.closed_pattern())
         ):
             children.append(elem)
             mark = self._mark()
         self._reset(mark)
-        return children
+        return children;
 
     @memoize
     def _gather_66(self) -> Optional[Any]:
@@ -7974,9 +8084,9 @@ class HGLParser(Parser):
             (seq := self._loop0_67())
             is not None
         ):
-            return [elem] + seq
+            return [elem] + seq;
         self._reset(mark)
-        return None
+        return None;
 
     @memoize
     def _tmp_68(self) -> Optional[Any]:
@@ -7985,14 +8095,14 @@ class HGLParser(Parser):
         if (
             (literal := self.expect('+'))
         ):
-            return literal
+            return literal;
         self._reset(mark)
         if (
             (literal := self.expect('-'))
         ):
-            return literal
+            return literal;
         self._reset(mark)
-        return None
+        return None;
 
     @memoize
     def _tmp_69(self) -> Optional[Any]:
@@ -8001,14 +8111,14 @@ class HGLParser(Parser):
         if (
             (literal := self.expect('+'))
         ):
-            return literal
+            return literal;
         self._reset(mark)
         if (
             (literal := self.expect('-'))
         ):
-            return literal
+            return literal;
         self._reset(mark)
-        return None
+        return None;
 
     @memoize
     def _tmp_70(self) -> Optional[Any]:
@@ -8017,19 +8127,19 @@ class HGLParser(Parser):
         if (
             (literal := self.expect('.'))
         ):
-            return literal
+            return literal;
         self._reset(mark)
         if (
             (literal := self.expect('('))
         ):
-            return literal
+            return literal;
         self._reset(mark)
         if (
             (literal := self.expect('='))
         ):
-            return literal
+            return literal;
         self._reset(mark)
-        return None
+        return None;
 
     @memoize
     def _tmp_71(self) -> Optional[Any]:
@@ -8038,19 +8148,19 @@ class HGLParser(Parser):
         if (
             (literal := self.expect('.'))
         ):
-            return literal
+            return literal;
         self._reset(mark)
         if (
             (literal := self.expect('('))
         ):
-            return literal
+            return literal;
         self._reset(mark)
         if (
             (literal := self.expect('='))
         ):
-            return literal
+            return literal;
         self._reset(mark)
-        return None
+        return None;
 
     @memoize
     def _loop0_73(self) -> Optional[Any]:
@@ -8058,14 +8168,14 @@ class HGLParser(Parser):
         mark = self._mark()
         children = []
         while (
-            (literal := self.expect(','))
+            (self.expect(','))
             and
             (elem := self.maybe_star_pattern())
         ):
             children.append(elem)
             mark = self._mark()
         self._reset(mark)
-        return children
+        return children;
 
     @memoize
     def _gather_72(self) -> Optional[Any]:
@@ -8078,9 +8188,9 @@ class HGLParser(Parser):
             (seq := self._loop0_73())
             is not None
         ):
-            return [elem] + seq
+            return [elem] + seq;
         self._reset(mark)
-        return None
+        return None;
 
     @memoize
     def _loop0_75(self) -> Optional[Any]:
@@ -8088,14 +8198,14 @@ class HGLParser(Parser):
         mark = self._mark()
         children = []
         while (
-            (literal := self.expect(','))
+            (self.expect(','))
             and
             (elem := self.key_value_pattern())
         ):
             children.append(elem)
             mark = self._mark()
         self._reset(mark)
-        return children
+        return children;
 
     @memoize
     def _gather_74(self) -> Optional[Any]:
@@ -8108,9 +8218,9 @@ class HGLParser(Parser):
             (seq := self._loop0_75())
             is not None
         ):
-            return [elem] + seq
+            return [elem] + seq;
         self._reset(mark)
-        return None
+        return None;
 
     @memoize
     def _tmp_76(self) -> Optional[Any]:
@@ -8119,14 +8229,14 @@ class HGLParser(Parser):
         if (
             (literal_expr := self.literal_expr())
         ):
-            return literal_expr
+            return literal_expr;
         self._reset(mark)
         if (
             (attr := self.attr())
         ):
-            return attr
+            return attr;
         self._reset(mark)
-        return None
+        return None;
 
     @memoize
     def _loop0_78(self) -> Optional[Any]:
@@ -8134,14 +8244,14 @@ class HGLParser(Parser):
         mark = self._mark()
         children = []
         while (
-            (literal := self.expect(','))
+            (self.expect(','))
             and
             (elem := self.pattern())
         ):
             children.append(elem)
             mark = self._mark()
         self._reset(mark)
-        return children
+        return children;
 
     @memoize
     def _gather_77(self) -> Optional[Any]:
@@ -8154,9 +8264,9 @@ class HGLParser(Parser):
             (seq := self._loop0_78())
             is not None
         ):
-            return [elem] + seq
+            return [elem] + seq;
         self._reset(mark)
-        return None
+        return None;
 
     @memoize
     def _loop0_80(self) -> Optional[Any]:
@@ -8164,14 +8274,14 @@ class HGLParser(Parser):
         mark = self._mark()
         children = []
         while (
-            (literal := self.expect(','))
+            (self.expect(','))
             and
             (elem := self.keyword_pattern())
         ):
             children.append(elem)
             mark = self._mark()
         self._reset(mark)
-        return children
+        return children;
 
     @memoize
     def _gather_79(self) -> Optional[Any]:
@@ -8184,9 +8294,9 @@ class HGLParser(Parser):
             (seq := self._loop0_80())
             is not None
         ):
-            return [elem] + seq
+            return [elem] + seq;
         self._reset(mark)
-        return None
+        return None;
 
     @memoize
     def _loop1_81(self) -> Optional[Any]:
@@ -8199,7 +8309,7 @@ class HGLParser(Parser):
             children.append(_tmp_215)
             mark = self._mark()
         self._reset(mark)
-        return children
+        return children;
 
     @memoize
     def _loop1_82(self) -> Optional[Any]:
@@ -8212,7 +8322,7 @@ class HGLParser(Parser):
             children.append(_tmp_216)
             mark = self._mark()
         self._reset(mark)
-        return children
+        return children;
 
     @memoize
     def _loop0_84(self) -> Optional[Any]:
@@ -8220,14 +8330,14 @@ class HGLParser(Parser):
         mark = self._mark()
         children = []
         while (
-            (literal := self.expect(','))
+            (self.expect(','))
             and
             (elem := self.star_named_expression())
         ):
             children.append(elem)
             mark = self._mark()
         self._reset(mark)
-        return children
+        return children;
 
     @memoize
     def _gather_83(self) -> Optional[Any]:
@@ -8240,9 +8350,9 @@ class HGLParser(Parser):
             (seq := self._loop0_84())
             is not None
         ):
-            return [elem] + seq
+            return [elem] + seq;
         self._reset(mark)
-        return None
+        return None;
 
     @memoize
     def _loop1_85(self) -> Optional[Any]:
@@ -8255,7 +8365,7 @@ class HGLParser(Parser):
             children.append(_tmp_217)
             mark = self._mark()
         self._reset(mark)
-        return children
+        return children;
 
     @memoize
     def _loop1_86(self) -> Optional[Any]:
@@ -8268,7 +8378,7 @@ class HGLParser(Parser):
             children.append(_tmp_218)
             mark = self._mark()
         self._reset(mark)
-        return children
+        return children;
 
     @memoize
     def _loop1_87(self) -> Optional[Any]:
@@ -8281,7 +8391,7 @@ class HGLParser(Parser):
             children.append(compare_op_bitwise_or_pair)
             mark = self._mark()
         self._reset(mark)
-        return children
+        return children;
 
     @memoize
     def _loop0_89(self) -> Optional[Any]:
@@ -8289,14 +8399,14 @@ class HGLParser(Parser):
         mark = self._mark()
         children = []
         while (
-            (literal := self.expect(','))
+            (self.expect(','))
             and
             (elem := self.slice())
         ):
             children.append(elem)
             mark = self._mark()
         self._reset(mark)
-        return children
+        return children;
 
     @memoize
     def _gather_88(self) -> Optional[Any]:
@@ -8309,22 +8419,22 @@ class HGLParser(Parser):
             (seq := self._loop0_89())
             is not None
         ):
-            return [elem] + seq
+            return [elem] + seq;
         self._reset(mark)
-        return None
+        return None;
 
     @memoize
     def _tmp_90(self) -> Optional[Any]:
         # _tmp_90: ':' expression?
         mark = self._mark()
         if (
-            (literal := self.expect(':'))
+            (self.expect(':'))
             and
             (d := self.expression(),)
         ):
-            return d
+            return d;
         self._reset(mark)
-        return None
+        return None;
 
     @memoize
     def _tmp_91(self) -> Optional[Any]:
@@ -8333,19 +8443,19 @@ class HGLParser(Parser):
         if (
             (tuple := self.tuple())
         ):
-            return tuple
+            return tuple;
         self._reset(mark)
         if (
             (group := self.group())
         ):
-            return group
+            return group;
         self._reset(mark)
         if (
             (genexp := self.genexp())
         ):
-            return genexp
+            return genexp;
         self._reset(mark)
-        return None
+        return None;
 
     @memoize
     def _tmp_92(self) -> Optional[Any]:
@@ -8354,14 +8464,14 @@ class HGLParser(Parser):
         if (
             (list := self.list())
         ):
-            return list
+            return list;
         self._reset(mark)
         if (
             (listcomp := self.listcomp())
         ):
-            return listcomp
+            return listcomp;
         self._reset(mark)
-        return None
+        return None;
 
     @memoize
     def _tmp_93(self) -> Optional[Any]:
@@ -8370,24 +8480,24 @@ class HGLParser(Parser):
         if (
             (dict := self.dict())
         ):
-            return dict
+            return dict;
         self._reset(mark)
         if (
             (set := self.set())
         ):
-            return set
+            return set;
         self._reset(mark)
         if (
             (dictcomp := self.dictcomp())
         ):
-            return dictcomp
+            return dictcomp;
         self._reset(mark)
         if (
             (setcomp := self.setcomp())
         ):
-            return setcomp
+            return setcomp;
         self._reset(mark)
-        return None
+        return None;
 
     @memoize
     def _tmp_94(self) -> Optional[Any]:
@@ -8396,14 +8506,14 @@ class HGLParser(Parser):
         if (
             (yield_expr := self.yield_expr())
         ):
-            return yield_expr
+            return yield_expr;
         self._reset(mark)
         if (
             (named_expression := self.named_expression())
         ):
-            return named_expression
+            return named_expression;
         self._reset(mark)
-        return None
+        return None;
 
     @memoize
     def _loop0_95(self) -> Optional[Any]:
@@ -8416,7 +8526,7 @@ class HGLParser(Parser):
             children.append(lambda_param_no_default)
             mark = self._mark()
         self._reset(mark)
-        return children
+        return children;
 
     @memoize
     def _loop0_96(self) -> Optional[Any]:
@@ -8429,7 +8539,7 @@ class HGLParser(Parser):
             children.append(lambda_param_with_default)
             mark = self._mark()
         self._reset(mark)
-        return children
+        return children;
 
     @memoize
     def _loop0_97(self) -> Optional[Any]:
@@ -8442,7 +8552,7 @@ class HGLParser(Parser):
             children.append(lambda_param_with_default)
             mark = self._mark()
         self._reset(mark)
-        return children
+        return children;
 
     @memoize
     def _loop1_98(self) -> Optional[Any]:
@@ -8455,7 +8565,7 @@ class HGLParser(Parser):
             children.append(lambda_param_no_default)
             mark = self._mark()
         self._reset(mark)
-        return children
+        return children;
 
     @memoize
     def _loop0_99(self) -> Optional[Any]:
@@ -8468,7 +8578,7 @@ class HGLParser(Parser):
             children.append(lambda_param_with_default)
             mark = self._mark()
         self._reset(mark)
-        return children
+        return children;
 
     @memoize
     def _loop1_100(self) -> Optional[Any]:
@@ -8481,7 +8591,7 @@ class HGLParser(Parser):
             children.append(lambda_param_with_default)
             mark = self._mark()
         self._reset(mark)
-        return children
+        return children;
 
     @memoize
     def _loop1_101(self) -> Optional[Any]:
@@ -8494,7 +8604,7 @@ class HGLParser(Parser):
             children.append(lambda_param_no_default)
             mark = self._mark()
         self._reset(mark)
-        return children
+        return children;
 
     @memoize
     def _loop1_102(self) -> Optional[Any]:
@@ -8507,7 +8617,7 @@ class HGLParser(Parser):
             children.append(lambda_param_no_default)
             mark = self._mark()
         self._reset(mark)
-        return children
+        return children;
 
     @memoize
     def _loop0_103(self) -> Optional[Any]:
@@ -8520,7 +8630,7 @@ class HGLParser(Parser):
             children.append(lambda_param_no_default)
             mark = self._mark()
         self._reset(mark)
-        return children
+        return children;
 
     @memoize
     def _loop1_104(self) -> Optional[Any]:
@@ -8533,7 +8643,7 @@ class HGLParser(Parser):
             children.append(lambda_param_with_default)
             mark = self._mark()
         self._reset(mark)
-        return children
+        return children;
 
     @memoize
     def _loop0_105(self) -> Optional[Any]:
@@ -8546,7 +8656,7 @@ class HGLParser(Parser):
             children.append(lambda_param_no_default)
             mark = self._mark()
         self._reset(mark)
-        return children
+        return children;
 
     @memoize
     def _loop1_106(self) -> Optional[Any]:
@@ -8559,7 +8669,7 @@ class HGLParser(Parser):
             children.append(lambda_param_with_default)
             mark = self._mark()
         self._reset(mark)
-        return children
+        return children;
 
     @memoize
     def _loop0_107(self) -> Optional[Any]:
@@ -8572,7 +8682,7 @@ class HGLParser(Parser):
             children.append(lambda_param_maybe_default)
             mark = self._mark()
         self._reset(mark)
-        return children
+        return children;
 
     @memoize
     def _loop1_108(self) -> Optional[Any]:
@@ -8585,7 +8695,7 @@ class HGLParser(Parser):
             children.append(lambda_param_maybe_default)
             mark = self._mark()
         self._reset(mark)
-        return children
+        return children;
 
     @memoize
     def _loop1_109(self) -> Optional[Any]:
@@ -8598,7 +8708,7 @@ class HGLParser(Parser):
             children.append(string)
             mark = self._mark()
         self._reset(mark)
-        return children
+        return children;
 
     @memoize
     def _tmp_110(self) -> Optional[Any]:
@@ -8607,13 +8717,13 @@ class HGLParser(Parser):
         if (
             (y := self.star_named_expression())
             and
-            (literal := self.expect(','))
+            (self.expect(','))
             and
             (z := self.star_named_expressions(),)
         ):
-            return [y] + ( z or [] )
+            return [y] + ( z or [] );
         self._reset(mark)
-        return None
+        return None;
 
     @memoize
     def _loop0_112(self) -> Optional[Any]:
@@ -8621,14 +8731,14 @@ class HGLParser(Parser):
         mark = self._mark()
         children = []
         while (
-            (literal := self.expect(','))
+            (self.expect(','))
             and
             (elem := self.double_starred_kvpair())
         ):
             children.append(elem)
             mark = self._mark()
         self._reset(mark)
-        return children
+        return children;
 
     @memoize
     def _gather_111(self) -> Optional[Any]:
@@ -8641,9 +8751,9 @@ class HGLParser(Parser):
             (seq := self._loop0_112())
             is not None
         ):
-            return [elem] + seq
+            return [elem] + seq;
         self._reset(mark)
-        return None
+        return None;
 
     @memoize
     def _loop1_113(self) -> Optional[Any]:
@@ -8656,7 +8766,7 @@ class HGLParser(Parser):
             children.append(for_if_clause)
             mark = self._mark()
         self._reset(mark)
-        return children
+        return children;
 
     @memoize
     def _loop0_114(self) -> Optional[Any]:
@@ -8669,7 +8779,7 @@ class HGLParser(Parser):
             children.append(_tmp_219)
             mark = self._mark()
         self._reset(mark)
-        return children
+        return children;
 
     @memoize
     def _loop0_115(self) -> Optional[Any]:
@@ -8682,7 +8792,7 @@ class HGLParser(Parser):
             children.append(_tmp_220)
             mark = self._mark()
         self._reset(mark)
-        return children
+        return children;
 
     @memoize
     def _tmp_116(self) -> Optional[Any]:
@@ -8691,16 +8801,16 @@ class HGLParser(Parser):
         if (
             (assignment_expression := self.assignment_expression())
         ):
-            return assignment_expression
+            return assignment_expression;
         self._reset(mark)
         if (
             (expression := self.expression())
             and
-            self.negative_lookahead(self.expect, ':=')
+            (self.negative_lookahead(self.expect, ':='))
         ):
-            return expression
+            return expression;
         self._reset(mark)
-        return None
+        return None;
 
     @memoize
     def _loop0_118(self) -> Optional[Any]:
@@ -8708,14 +8818,14 @@ class HGLParser(Parser):
         mark = self._mark()
         children = []
         while (
-            (literal := self.expect(','))
+            (self.expect(','))
             and
             (elem := self._tmp_221())
         ):
             children.append(elem)
             mark = self._mark()
         self._reset(mark)
-        return children
+        return children;
 
     @memoize
     def _gather_117(self) -> Optional[Any]:
@@ -8728,22 +8838,22 @@ class HGLParser(Parser):
             (seq := self._loop0_118())
             is not None
         ):
-            return [elem] + seq
+            return [elem] + seq;
         self._reset(mark)
-        return None
+        return None;
 
     @memoize
     def _tmp_119(self) -> Optional[Any]:
         # _tmp_119: ',' kwargs
         mark = self._mark()
         if (
-            (literal := self.expect(','))
+            (self.expect(','))
             and
             (k := self.kwargs())
         ):
-            return k
+            return k;
         self._reset(mark)
-        return None
+        return None;
 
     @memoize
     def _loop0_121(self) -> Optional[Any]:
@@ -8751,14 +8861,14 @@ class HGLParser(Parser):
         mark = self._mark()
         children = []
         while (
-            (literal := self.expect(','))
+            (self.expect(','))
             and
             (elem := self.kwarg_or_starred())
         ):
             children.append(elem)
             mark = self._mark()
         self._reset(mark)
-        return children
+        return children;
 
     @memoize
     def _gather_120(self) -> Optional[Any]:
@@ -8771,9 +8881,9 @@ class HGLParser(Parser):
             (seq := self._loop0_121())
             is not None
         ):
-            return [elem] + seq
+            return [elem] + seq;
         self._reset(mark)
-        return None
+        return None;
 
     @memoize
     def _loop0_123(self) -> Optional[Any]:
@@ -8781,14 +8891,14 @@ class HGLParser(Parser):
         mark = self._mark()
         children = []
         while (
-            (literal := self.expect(','))
+            (self.expect(','))
             and
             (elem := self.kwarg_or_double_starred())
         ):
             children.append(elem)
             mark = self._mark()
         self._reset(mark)
-        return children
+        return children;
 
     @memoize
     def _gather_122(self) -> Optional[Any]:
@@ -8801,9 +8911,9 @@ class HGLParser(Parser):
             (seq := self._loop0_123())
             is not None
         ):
-            return [elem] + seq
+            return [elem] + seq;
         self._reset(mark)
-        return None
+        return None;
 
     @memoize
     def _loop0_125(self) -> Optional[Any]:
@@ -8811,14 +8921,14 @@ class HGLParser(Parser):
         mark = self._mark()
         children = []
         while (
-            (literal := self.expect(','))
+            (self.expect(','))
             and
             (elem := self.kwarg_or_starred())
         ):
             children.append(elem)
             mark = self._mark()
         self._reset(mark)
-        return children
+        return children;
 
     @memoize
     def _gather_124(self) -> Optional[Any]:
@@ -8831,9 +8941,9 @@ class HGLParser(Parser):
             (seq := self._loop0_125())
             is not None
         ):
-            return [elem] + seq
+            return [elem] + seq;
         self._reset(mark)
-        return None
+        return None;
 
     @memoize
     def _loop0_127(self) -> Optional[Any]:
@@ -8841,14 +8951,14 @@ class HGLParser(Parser):
         mark = self._mark()
         children = []
         while (
-            (literal := self.expect(','))
+            (self.expect(','))
             and
             (elem := self.kwarg_or_double_starred())
         ):
             children.append(elem)
             mark = self._mark()
         self._reset(mark)
-        return children
+        return children;
 
     @memoize
     def _gather_126(self) -> Optional[Any]:
@@ -8861,9 +8971,9 @@ class HGLParser(Parser):
             (seq := self._loop0_127())
             is not None
         ):
-            return [elem] + seq
+            return [elem] + seq;
         self._reset(mark)
-        return None
+        return None;
 
     @memoize
     def _loop0_128(self) -> Optional[Any]:
@@ -8876,7 +8986,7 @@ class HGLParser(Parser):
             children.append(_tmp_222)
             mark = self._mark()
         self._reset(mark)
-        return children
+        return children;
 
     @memoize
     def _loop0_130(self) -> Optional[Any]:
@@ -8884,14 +8994,14 @@ class HGLParser(Parser):
         mark = self._mark()
         children = []
         while (
-            (literal := self.expect(','))
+            (self.expect(','))
             and
             (elem := self.star_target())
         ):
             children.append(elem)
             mark = self._mark()
         self._reset(mark)
-        return children
+        return children;
 
     @memoize
     def _gather_129(self) -> Optional[Any]:
@@ -8904,9 +9014,9 @@ class HGLParser(Parser):
             (seq := self._loop0_130())
             is not None
         ):
-            return [elem] + seq
+            return [elem] + seq;
         self._reset(mark)
-        return None
+        return None;
 
     @memoize
     def _loop1_131(self) -> Optional[Any]:
@@ -8919,20 +9029,20 @@ class HGLParser(Parser):
             children.append(_tmp_223)
             mark = self._mark()
         self._reset(mark)
-        return children
+        return children;
 
     @memoize
     def _tmp_132(self) -> Optional[Any]:
         # _tmp_132: !'*' star_target
         mark = self._mark()
         if (
-            self.negative_lookahead(self.expect, '*')
+            (self.negative_lookahead(self.expect, '*'))
             and
             (star_target := self.star_target())
         ):
-            return star_target
+            return star_target;
         self._reset(mark)
-        return None
+        return None;
 
     @memoize
     def _loop0_134(self) -> Optional[Any]:
@@ -8940,14 +9050,14 @@ class HGLParser(Parser):
         mark = self._mark()
         children = []
         while (
-            (literal := self.expect(','))
+            (self.expect(','))
             and
             (elem := self.del_target())
         ):
             children.append(elem)
             mark = self._mark()
         self._reset(mark)
-        return children
+        return children;
 
     @memoize
     def _gather_133(self) -> Optional[Any]:
@@ -8960,9 +9070,9 @@ class HGLParser(Parser):
             (seq := self._loop0_134())
             is not None
         ):
-            return [elem] + seq
+            return [elem] + seq;
         self._reset(mark)
-        return None
+        return None;
 
     @memoize
     def _loop0_136(self) -> Optional[Any]:
@@ -8970,14 +9080,14 @@ class HGLParser(Parser):
         mark = self._mark()
         children = []
         while (
-            (literal := self.expect(','))
+            (self.expect(','))
             and
             (elem := self.expression())
         ):
             children.append(elem)
             mark = self._mark()
         self._reset(mark)
-        return children
+        return children;
 
     @memoize
     def _gather_135(self) -> Optional[Any]:
@@ -8990,9 +9100,9 @@ class HGLParser(Parser):
             (seq := self._loop0_136())
             is not None
         ):
-            return [elem] + seq
+            return [elem] + seq;
         self._reset(mark)
-        return None
+        return None;
 
     @memoize
     def _loop0_138(self) -> Optional[Any]:
@@ -9000,14 +9110,14 @@ class HGLParser(Parser):
         mark = self._mark()
         children = []
         while (
-            (literal := self.expect(','))
+            (self.expect(','))
             and
             (elem := self.expression())
         ):
             children.append(elem)
             mark = self._mark()
         self._reset(mark)
-        return children
+        return children;
 
     @memoize
     def _gather_137(self) -> Optional[Any]:
@@ -9020,9 +9130,9 @@ class HGLParser(Parser):
             (seq := self._loop0_138())
             is not None
         ):
-            return [elem] + seq
+            return [elem] + seq;
         self._reset(mark)
-        return None
+        return None;
 
     @memoize
     def _loop0_140(self) -> Optional[Any]:
@@ -9030,14 +9140,14 @@ class HGLParser(Parser):
         mark = self._mark()
         children = []
         while (
-            (literal := self.expect(','))
+            (self.expect(','))
             and
             (elem := self.expression())
         ):
             children.append(elem)
             mark = self._mark()
         self._reset(mark)
-        return children
+        return children;
 
     @memoize
     def _gather_139(self) -> Optional[Any]:
@@ -9050,9 +9160,9 @@ class HGLParser(Parser):
             (seq := self._loop0_140())
             is not None
         ):
-            return [elem] + seq
+            return [elem] + seq;
         self._reset(mark)
-        return None
+        return None;
 
     @memoize
     def _loop0_142(self) -> Optional[Any]:
@@ -9060,14 +9170,14 @@ class HGLParser(Parser):
         mark = self._mark()
         children = []
         while (
-            (literal := self.expect(','))
+            (self.expect(','))
             and
             (elem := self.expression())
         ):
             children.append(elem)
             mark = self._mark()
         self._reset(mark)
-        return children
+        return children;
 
     @memoize
     def _gather_141(self) -> Optional[Any]:
@@ -9080,9 +9190,9 @@ class HGLParser(Parser):
             (seq := self._loop0_142())
             is not None
         ):
-            return [elem] + seq
+            return [elem] + seq;
         self._reset(mark)
-        return None
+        return None;
 
     @memoize
     def _tmp_143(self) -> Optional[Any]:
@@ -9093,9 +9203,9 @@ class HGLParser(Parser):
             and
             (_indent := self.expect('INDENT'))
         ):
-            return [_newline, _indent]
+            return [_newline, _indent];
         self._reset(mark)
-        return None
+        return None;
 
     @memoize
     def _tmp_144(self) -> Optional[Any]:
@@ -9104,16 +9214,16 @@ class HGLParser(Parser):
         if (
             (args := self.args())
         ):
-            return args
+            return args;
         self._reset(mark)
         if (
             (expression := self.expression())
             and
             (for_if_clauses := self.for_if_clauses())
         ):
-            return [expression, for_if_clauses]
+            return [expression, for_if_clauses];
         self._reset(mark)
-        return None
+        return None;
 
     @memoize
     def _tmp_145(self) -> Optional[Any]:
@@ -9122,19 +9232,19 @@ class HGLParser(Parser):
         if (
             (literal := self.expect('True'))
         ):
-            return literal
+            return literal;
         self._reset(mark)
         if (
             (literal := self.expect('False'))
         ):
-            return literal
+            return literal;
         self._reset(mark)
         if (
             (literal := self.expect('None'))
         ):
-            return literal
+            return literal;
         self._reset(mark)
-        return None
+        return None;
 
     @memoize
     def _tmp_146(self) -> Optional[Any]:
@@ -9145,9 +9255,9 @@ class HGLParser(Parser):
             and
             (literal := self.expect('='))
         ):
-            return [name, literal]
+            return [name, literal];
         self._reset(mark)
-        return None
+        return None;
 
     @memoize
     def _tmp_147(self) -> Optional[Any]:
@@ -9158,14 +9268,14 @@ class HGLParser(Parser):
             and
             (string := self.string())
         ):
-            return [name, string]
+            return [name, string];
         self._reset(mark)
         if (
             (soft_keyword := self.soft_keyword())
         ):
-            return soft_keyword
+            return soft_keyword;
         self._reset(mark)
-        return None
+        return None;
 
     @memoize
     def _tmp_148(self) -> Optional[Any]:
@@ -9174,14 +9284,14 @@ class HGLParser(Parser):
         if (
             (literal := self.expect('else'))
         ):
-            return literal
+            return literal;
         self._reset(mark)
         if (
             (literal := self.expect(':'))
         ):
-            return literal
+            return literal;
         self._reset(mark)
-        return None
+        return None;
 
     @memoize
     def _tmp_149(self) -> Optional[Any]:
@@ -9190,14 +9300,14 @@ class HGLParser(Parser):
         if (
             (literal := self.expect('='))
         ):
-            return literal
+            return literal;
         self._reset(mark)
         if (
             (literal := self.expect(':='))
         ):
-            return literal
+            return literal;
         self._reset(mark)
-        return None
+        return None;
 
     @memoize
     def _tmp_150(self) -> Optional[Any]:
@@ -9206,34 +9316,34 @@ class HGLParser(Parser):
         if (
             (list := self.list())
         ):
-            return list
+            return list;
         self._reset(mark)
         if (
             (tuple := self.tuple())
         ):
-            return tuple
+            return tuple;
         self._reset(mark)
         if (
             (genexp := self.genexp())
         ):
-            return genexp
+            return genexp;
         self._reset(mark)
         if (
             (literal := self.expect('True'))
         ):
-            return literal
+            return literal;
         self._reset(mark)
         if (
             (literal := self.expect('None'))
         ):
-            return literal
+            return literal;
         self._reset(mark)
         if (
             (literal := self.expect('False'))
         ):
-            return literal
+            return literal;
         self._reset(mark)
-        return None
+        return None;
 
     @memoize
     def _tmp_151(self) -> Optional[Any]:
@@ -9242,14 +9352,14 @@ class HGLParser(Parser):
         if (
             (literal := self.expect('='))
         ):
-            return literal
+            return literal;
         self._reset(mark)
         if (
             (literal := self.expect(':='))
         ):
-            return literal
+            return literal;
         self._reset(mark)
-        return None
+        return None;
 
     @memoize
     def _loop0_152(self) -> Optional[Any]:
@@ -9262,7 +9372,7 @@ class HGLParser(Parser):
             children.append(star_named_expressions)
             mark = self._mark()
         self._reset(mark)
-        return children
+        return children;
 
     @memoize
     def _loop0_153(self) -> Optional[Any]:
@@ -9275,7 +9385,7 @@ class HGLParser(Parser):
             children.append(_tmp_224)
             mark = self._mark()
         self._reset(mark)
-        return children
+        return children;
 
     @memoize
     def _loop0_154(self) -> Optional[Any]:
@@ -9288,7 +9398,7 @@ class HGLParser(Parser):
             children.append(_tmp_225)
             mark = self._mark()
         self._reset(mark)
-        return children
+        return children;
 
     @memoize
     def _tmp_155(self) -> Optional[Any]:
@@ -9297,14 +9407,14 @@ class HGLParser(Parser):
         if (
             (yield_expr := self.yield_expr())
         ):
-            return yield_expr
+            return yield_expr;
         self._reset(mark)
         if (
             (star_expressions := self.star_expressions())
         ):
-            return star_expressions
+            return star_expressions;
         self._reset(mark)
-        return None
+        return None;
 
     @memoize
     def _tmp_156(self) -> Optional[Any]:
@@ -9313,19 +9423,19 @@ class HGLParser(Parser):
         if (
             (literal := self.expect('['))
         ):
-            return literal
+            return literal;
         self._reset(mark)
         if (
             (literal := self.expect('('))
         ):
-            return literal
+            return literal;
         self._reset(mark)
         if (
             (literal := self.expect('{'))
         ):
-            return literal
+            return literal;
         self._reset(mark)
-        return None
+        return None;
 
     @memoize
     def _tmp_157(self) -> Optional[Any]:
@@ -9334,14 +9444,14 @@ class HGLParser(Parser):
         if (
             (literal := self.expect('['))
         ):
-            return literal
+            return literal;
         self._reset(mark)
         if (
             (literal := self.expect('{'))
         ):
-            return literal
+            return literal;
         self._reset(mark)
-        return None
+        return None;
 
     @memoize
     def _tmp_158(self) -> Optional[Any]:
@@ -9350,14 +9460,14 @@ class HGLParser(Parser):
         if (
             (literal := self.expect('['))
         ):
-            return literal
+            return literal;
         self._reset(mark)
         if (
             (literal := self.expect('{'))
         ):
-            return literal
+            return literal;
         self._reset(mark)
-        return None
+        return None;
 
     @memoize
     def _loop0_159(self) -> Optional[Any]:
@@ -9370,7 +9480,7 @@ class HGLParser(Parser):
             children.append(param_no_default)
             mark = self._mark()
         self._reset(mark)
-        return children
+        return children;
 
     @memoize
     def _loop0_160(self) -> Optional[Any]:
@@ -9383,7 +9493,7 @@ class HGLParser(Parser):
             children.append(param_no_default)
             mark = self._mark()
         self._reset(mark)
-        return children
+        return children;
 
     @memoize
     def _loop1_161(self) -> Optional[Any]:
@@ -9396,7 +9506,7 @@ class HGLParser(Parser):
             children.append(param_no_default)
             mark = self._mark()
         self._reset(mark)
-        return children
+        return children;
 
     @memoize
     def _tmp_162(self) -> Optional[Any]:
@@ -9405,14 +9515,14 @@ class HGLParser(Parser):
         if (
             (slash_no_default := self.slash_no_default())
         ):
-            return slash_no_default
+            return slash_no_default;
         self._reset(mark)
         if (
             (slash_with_default := self.slash_with_default())
         ):
-            return slash_with_default
+            return slash_with_default;
         self._reset(mark)
-        return None
+        return None;
 
     @memoize
     def _loop0_163(self) -> Optional[Any]:
@@ -9425,7 +9535,7 @@ class HGLParser(Parser):
             children.append(param_maybe_default)
             mark = self._mark()
         self._reset(mark)
-        return children
+        return children;
 
     @memoize
     def _tmp_164(self) -> Optional[Any]:
@@ -9434,14 +9544,14 @@ class HGLParser(Parser):
         if (
             (slash_no_default := self.slash_no_default())
         ):
-            return slash_no_default
+            return slash_no_default;
         self._reset(mark)
         if (
             (slash_with_default := self.slash_with_default())
         ):
-            return slash_with_default
+            return slash_with_default;
         self._reset(mark)
-        return None
+        return None;
 
     @memoize
     def _loop0_165(self) -> Optional[Any]:
@@ -9454,7 +9564,7 @@ class HGLParser(Parser):
             children.append(param_maybe_default)
             mark = self._mark()
         self._reset(mark)
-        return children
+        return children;
 
     @memoize
     def _tmp_166(self) -> Optional[Any]:
@@ -9463,14 +9573,14 @@ class HGLParser(Parser):
         if (
             (literal := self.expect(','))
         ):
-            return literal
+            return literal;
         self._reset(mark)
         if (
             (param_no_default := self.param_no_default())
         ):
-            return param_no_default
+            return param_no_default;
         self._reset(mark)
-        return None
+        return None;
 
     @memoize
     def _loop0_167(self) -> Optional[Any]:
@@ -9483,7 +9593,7 @@ class HGLParser(Parser):
             children.append(param_maybe_default)
             mark = self._mark()
         self._reset(mark)
-        return children
+        return children;
 
     @memoize
     def _loop1_168(self) -> Optional[Any]:
@@ -9496,7 +9606,7 @@ class HGLParser(Parser):
             children.append(param_maybe_default)
             mark = self._mark()
         self._reset(mark)
-        return children
+        return children;
 
     @memoize
     def _tmp_169(self) -> Optional[Any]:
@@ -9505,14 +9615,14 @@ class HGLParser(Parser):
         if (
             (literal := self.expect(')'))
         ):
-            return literal
+            return literal;
         self._reset(mark)
         if (
             (literal := self.expect(','))
         ):
-            return literal
+            return literal;
         self._reset(mark)
-        return None
+        return None;
 
     @memoize
     def _tmp_170(self) -> Optional[Any]:
@@ -9521,16 +9631,16 @@ class HGLParser(Parser):
         if (
             (literal := self.expect(')'))
         ):
-            return literal
+            return literal;
         self._reset(mark)
         if (
             (literal := self.expect(','))
             and
             (_tmp_226 := self._tmp_226())
         ):
-            return [literal, _tmp_226]
+            return [literal, _tmp_226];
         self._reset(mark)
-        return None
+        return None;
 
     @memoize
     def _tmp_171(self) -> Optional[Any]:
@@ -9539,14 +9649,14 @@ class HGLParser(Parser):
         if (
             (param_no_default := self.param_no_default())
         ):
-            return param_no_default
+            return param_no_default;
         self._reset(mark)
         if (
             (literal := self.expect(','))
         ):
-            return literal
+            return literal;
         self._reset(mark)
-        return None
+        return None;
 
     @memoize
     def _loop0_172(self) -> Optional[Any]:
@@ -9559,7 +9669,7 @@ class HGLParser(Parser):
             children.append(param_maybe_default)
             mark = self._mark()
         self._reset(mark)
-        return children
+        return children;
 
     @memoize
     def _tmp_173(self) -> Optional[Any]:
@@ -9568,14 +9678,14 @@ class HGLParser(Parser):
         if (
             (param_no_default := self.param_no_default())
         ):
-            return param_no_default
+            return param_no_default;
         self._reset(mark)
         if (
             (literal := self.expect(','))
         ):
-            return literal
+            return literal;
         self._reset(mark)
-        return None
+        return None;
 
     @memoize
     def _tmp_174(self) -> Optional[Any]:
@@ -9584,19 +9694,19 @@ class HGLParser(Parser):
         if (
             (literal := self.expect('*'))
         ):
-            return literal
+            return literal;
         self._reset(mark)
         if (
             (literal := self.expect('**'))
         ):
-            return literal
+            return literal;
         self._reset(mark)
         if (
             (literal := self.expect('/'))
         ):
-            return literal
+            return literal;
         self._reset(mark)
-        return None
+        return None;
 
     @memoize
     def _loop1_175(self) -> Optional[Any]:
@@ -9609,7 +9719,7 @@ class HGLParser(Parser):
             children.append(param_with_default)
             mark = self._mark()
         self._reset(mark)
-        return children
+        return children;
 
     @memoize
     def _loop0_176(self) -> Optional[Any]:
@@ -9622,7 +9732,7 @@ class HGLParser(Parser):
             children.append(lambda_param_no_default)
             mark = self._mark()
         self._reset(mark)
-        return children
+        return children;
 
     @memoize
     def _loop0_177(self) -> Optional[Any]:
@@ -9635,7 +9745,7 @@ class HGLParser(Parser):
             children.append(lambda_param_no_default)
             mark = self._mark()
         self._reset(mark)
-        return children
+        return children;
 
     @memoize
     def _loop0_179(self) -> Optional[Any]:
@@ -9643,14 +9753,14 @@ class HGLParser(Parser):
         mark = self._mark()
         children = []
         while (
-            (literal := self.expect(','))
+            (self.expect(','))
             and
             (elem := self.lambda_param())
         ):
             children.append(elem)
             mark = self._mark()
         self._reset(mark)
-        return children
+        return children;
 
     @memoize
     def _gather_178(self) -> Optional[Any]:
@@ -9663,9 +9773,9 @@ class HGLParser(Parser):
             (seq := self._loop0_179())
             is not None
         ):
-            return [elem] + seq
+            return [elem] + seq;
         self._reset(mark)
-        return None
+        return None;
 
     @memoize
     def _tmp_180(self) -> Optional[Any]:
@@ -9674,14 +9784,14 @@ class HGLParser(Parser):
         if (
             (lambda_slash_no_default := self.lambda_slash_no_default())
         ):
-            return lambda_slash_no_default
+            return lambda_slash_no_default;
         self._reset(mark)
         if (
             (lambda_slash_with_default := self.lambda_slash_with_default())
         ):
-            return lambda_slash_with_default
+            return lambda_slash_with_default;
         self._reset(mark)
-        return None
+        return None;
 
     @memoize
     def _loop0_181(self) -> Optional[Any]:
@@ -9694,7 +9804,7 @@ class HGLParser(Parser):
             children.append(lambda_param_maybe_default)
             mark = self._mark()
         self._reset(mark)
-        return children
+        return children;
 
     @memoize
     def _tmp_182(self) -> Optional[Any]:
@@ -9703,14 +9813,14 @@ class HGLParser(Parser):
         if (
             (lambda_slash_no_default := self.lambda_slash_no_default())
         ):
-            return lambda_slash_no_default
+            return lambda_slash_no_default;
         self._reset(mark)
         if (
             (lambda_slash_with_default := self.lambda_slash_with_default())
         ):
-            return lambda_slash_with_default
+            return lambda_slash_with_default;
         self._reset(mark)
-        return None
+        return None;
 
     @memoize
     def _loop0_183(self) -> Optional[Any]:
@@ -9723,7 +9833,7 @@ class HGLParser(Parser):
             children.append(lambda_param_maybe_default)
             mark = self._mark()
         self._reset(mark)
-        return children
+        return children;
 
     @memoize
     def _tmp_184(self) -> Optional[Any]:
@@ -9732,14 +9842,14 @@ class HGLParser(Parser):
         if (
             (literal := self.expect(','))
         ):
-            return literal
+            return literal;
         self._reset(mark)
         if (
             (lambda_param_no_default := self.lambda_param_no_default())
         ):
-            return lambda_param_no_default
+            return lambda_param_no_default;
         self._reset(mark)
-        return None
+        return None;
 
     @memoize
     def _loop0_185(self) -> Optional[Any]:
@@ -9752,7 +9862,7 @@ class HGLParser(Parser):
             children.append(lambda_param_maybe_default)
             mark = self._mark()
         self._reset(mark)
-        return children
+        return children;
 
     @memoize
     def _loop1_186(self) -> Optional[Any]:
@@ -9765,7 +9875,7 @@ class HGLParser(Parser):
             children.append(lambda_param_maybe_default)
             mark = self._mark()
         self._reset(mark)
-        return children
+        return children;
 
     @memoize
     def _loop1_187(self) -> Optional[Any]:
@@ -9778,7 +9888,7 @@ class HGLParser(Parser):
             children.append(lambda_param_with_default)
             mark = self._mark()
         self._reset(mark)
-        return children
+        return children;
 
     @memoize
     def _tmp_188(self) -> Optional[Any]:
@@ -9787,16 +9897,16 @@ class HGLParser(Parser):
         if (
             (literal := self.expect(':'))
         ):
-            return literal
+            return literal;
         self._reset(mark)
         if (
             (literal := self.expect(','))
             and
             (_tmp_227 := self._tmp_227())
         ):
-            return [literal, _tmp_227]
+            return [literal, _tmp_227];
         self._reset(mark)
-        return None
+        return None;
 
     @memoize
     def _tmp_189(self) -> Optional[Any]:
@@ -9805,14 +9915,14 @@ class HGLParser(Parser):
         if (
             (lambda_param_no_default := self.lambda_param_no_default())
         ):
-            return lambda_param_no_default
+            return lambda_param_no_default;
         self._reset(mark)
         if (
             (literal := self.expect(','))
         ):
-            return literal
+            return literal;
         self._reset(mark)
-        return None
+        return None;
 
     @memoize
     def _loop0_190(self) -> Optional[Any]:
@@ -9825,7 +9935,7 @@ class HGLParser(Parser):
             children.append(lambda_param_maybe_default)
             mark = self._mark()
         self._reset(mark)
-        return children
+        return children;
 
     @memoize
     def _tmp_191(self) -> Optional[Any]:
@@ -9834,14 +9944,14 @@ class HGLParser(Parser):
         if (
             (lambda_param_no_default := self.lambda_param_no_default())
         ):
-            return lambda_param_no_default
+            return lambda_param_no_default;
         self._reset(mark)
         if (
             (literal := self.expect(','))
         ):
-            return literal
+            return literal;
         self._reset(mark)
-        return None
+        return None;
 
     @memoize
     def _tmp_192(self) -> Optional[Any]:
@@ -9850,19 +9960,19 @@ class HGLParser(Parser):
         if (
             (literal := self.expect('*'))
         ):
-            return literal
+            return literal;
         self._reset(mark)
         if (
             (literal := self.expect('**'))
         ):
-            return literal
+            return literal;
         self._reset(mark)
         if (
             (literal := self.expect('/'))
         ):
-            return literal
+            return literal;
         self._reset(mark)
-        return None
+        return None;
 
     @memoize
     def _tmp_193(self) -> Optional[Any]:
@@ -9871,19 +9981,19 @@ class HGLParser(Parser):
         if (
             (literal := self.expect(','))
         ):
-            return literal
+            return literal;
         self._reset(mark)
         if (
             (literal := self.expect(')'))
         ):
-            return literal
+            return literal;
         self._reset(mark)
         if (
             (literal := self.expect(':'))
         ):
-            return literal
+            return literal;
         self._reset(mark)
-        return None
+        return None;
 
     @memoize
     def _loop0_195(self) -> Optional[Any]:
@@ -9891,14 +10001,14 @@ class HGLParser(Parser):
         mark = self._mark()
         children = []
         while (
-            (literal := self.expect(','))
+            (self.expect(','))
             and
             (elem := self._tmp_228())
         ):
             children.append(elem)
             mark = self._mark()
         self._reset(mark)
-        return children
+        return children;
 
     @memoize
     def _gather_194(self) -> Optional[Any]:
@@ -9911,9 +10021,9 @@ class HGLParser(Parser):
             (seq := self._loop0_195())
             is not None
         ):
-            return [elem] + seq
+            return [elem] + seq;
         self._reset(mark)
-        return None
+        return None;
 
     @memoize
     def _loop0_197(self) -> Optional[Any]:
@@ -9921,14 +10031,14 @@ class HGLParser(Parser):
         mark = self._mark()
         children = []
         while (
-            (literal := self.expect(','))
+            (self.expect(','))
             and
             (elem := self._tmp_229())
         ):
             children.append(elem)
             mark = self._mark()
         self._reset(mark)
-        return children
+        return children;
 
     @memoize
     def _gather_196(self) -> Optional[Any]:
@@ -9941,9 +10051,9 @@ class HGLParser(Parser):
             (seq := self._loop0_197())
             is not None
         ):
-            return [elem] + seq
+            return [elem] + seq;
         self._reset(mark)
-        return None
+        return None;
 
     @memoize
     def _loop0_199(self) -> Optional[Any]:
@@ -9951,14 +10061,14 @@ class HGLParser(Parser):
         mark = self._mark()
         children = []
         while (
-            (literal := self.expect(','))
+            (self.expect(','))
             and
             (elem := self._tmp_230())
         ):
             children.append(elem)
             mark = self._mark()
         self._reset(mark)
-        return children
+        return children;
 
     @memoize
     def _gather_198(self) -> Optional[Any]:
@@ -9971,9 +10081,9 @@ class HGLParser(Parser):
             (seq := self._loop0_199())
             is not None
         ):
-            return [elem] + seq
+            return [elem] + seq;
         self._reset(mark)
-        return None
+        return None;
 
     @memoize
     def _loop0_201(self) -> Optional[Any]:
@@ -9981,14 +10091,14 @@ class HGLParser(Parser):
         mark = self._mark()
         children = []
         while (
-            (literal := self.expect(','))
+            (self.expect(','))
             and
             (elem := self._tmp_231())
         ):
             children.append(elem)
             mark = self._mark()
         self._reset(mark)
-        return children
+        return children;
 
     @memoize
     def _gather_200(self) -> Optional[Any]:
@@ -10001,9 +10111,9 @@ class HGLParser(Parser):
             (seq := self._loop0_201())
             is not None
         ):
-            return [elem] + seq
+            return [elem] + seq;
         self._reset(mark)
-        return None
+        return None;
 
     @memoize
     def _tmp_202(self) -> Optional[Any]:
@@ -10012,14 +10122,14 @@ class HGLParser(Parser):
         if (
             (literal := self.expect('except'))
         ):
-            return literal
+            return literal;
         self._reset(mark)
         if (
             (literal := self.expect('finally'))
         ):
-            return literal
+            return literal;
         self._reset(mark)
-        return None
+        return None;
 
     @memoize
     def _tmp_203(self) -> Optional[Any]:
@@ -10030,9 +10140,9 @@ class HGLParser(Parser):
             and
             (name := self.name())
         ):
-            return [literal, name]
+            return [literal, name];
         self._reset(mark)
-        return None
+        return None;
 
     @memoize
     def _tmp_204(self) -> Optional[Any]:
@@ -10043,9 +10153,9 @@ class HGLParser(Parser):
             and
             (name := self.name())
         ):
-            return [literal, name]
+            return [literal, name];
         self._reset(mark)
-        return None
+        return None;
 
     @memoize
     def _tmp_205(self) -> Optional[Any]:
@@ -10056,9 +10166,9 @@ class HGLParser(Parser):
             and
             (name := self.name())
         ):
-            return [literal, name]
+            return [literal, name];
         self._reset(mark)
-        return None
+        return None;
 
     @memoize
     def _tmp_206(self) -> Optional[Any]:
@@ -10069,9 +10179,9 @@ class HGLParser(Parser):
             and
             (literal := self.expect(','))
         ):
-            return [positional_patterns, literal]
+            return [positional_patterns, literal];
         self._reset(mark)
-        return None
+        return None;
 
     @memoize
     def _tmp_207(self) -> Optional[Any]:
@@ -10082,9 +10192,9 @@ class HGLParser(Parser):
             and
             (expression := self.expression())
         ):
-            return [literal, expression]
+            return [literal, expression];
         self._reset(mark)
-        return None
+        return None;
 
     @memoize
     def _tmp_208(self) -> Optional[Any]:
@@ -10097,9 +10207,9 @@ class HGLParser(Parser):
             and
             (literal_1 := self.expect(')'))
         ):
-            return [literal, opt, literal_1]
+            return [literal, opt, literal_1];
         self._reset(mark)
-        return None
+        return None;
 
     @memoize
     def _loop0_210(self) -> Optional[Any]:
@@ -10107,14 +10217,14 @@ class HGLParser(Parser):
         mark = self._mark()
         children = []
         while (
-            (literal := self.expect(','))
+            (self.expect(','))
             and
             (elem := self.double_starred_kvpair())
         ):
             children.append(elem)
             mark = self._mark()
         self._reset(mark)
-        return children
+        return children;
 
     @memoize
     def _gather_209(self) -> Optional[Any]:
@@ -10127,9 +10237,9 @@ class HGLParser(Parser):
             (seq := self._loop0_210())
             is not None
         ):
-            return [elem] + seq
+            return [elem] + seq;
         self._reset(mark)
-        return None
+        return None;
 
     @memoize
     def _tmp_211(self) -> Optional[Any]:
@@ -10138,14 +10248,14 @@ class HGLParser(Parser):
         if (
             (literal := self.expect('}'))
         ):
-            return literal
+            return literal;
         self._reset(mark)
         if (
             (literal := self.expect(','))
         ):
-            return literal
+            return literal;
         self._reset(mark)
-        return None
+        return None;
 
     @memoize
     def _tmp_212(self) -> Optional[Any]:
@@ -10154,11 +10264,11 @@ class HGLParser(Parser):
         if (
             (z := self.star_targets())
             and
-            (literal := self.expect('='))
+            (self.expect('='))
         ):
-            return z
+            return z;
         self._reset(mark)
-        return None
+        return None;
 
     @memoize
     def _tmp_213(self) -> Optional[Any]:
@@ -10167,14 +10277,14 @@ class HGLParser(Parser):
         if (
             (literal := self.expect('.'))
         ):
-            return literal
+            return literal;
         self._reset(mark)
         if (
             (literal := self.expect('...'))
         ):
-            return literal
+            return literal;
         self._reset(mark)
-        return None
+        return None;
 
     @memoize
     def _tmp_214(self) -> Optional[Any]:
@@ -10183,92 +10293,92 @@ class HGLParser(Parser):
         if (
             (literal := self.expect('.'))
         ):
-            return literal
+            return literal;
         self._reset(mark)
         if (
             (literal := self.expect('...'))
         ):
-            return literal
+            return literal;
         self._reset(mark)
-        return None
+        return None;
 
     @memoize
     def _tmp_215(self) -> Optional[Any]:
         # _tmp_215: ',' expression
         mark = self._mark()
         if (
-            (literal := self.expect(','))
+            (self.expect(','))
             and
             (c := self.expression())
         ):
-            return c
+            return c;
         self._reset(mark)
-        return None
+        return None;
 
     @memoize
     def _tmp_216(self) -> Optional[Any]:
         # _tmp_216: ',' star_expression
         mark = self._mark()
         if (
-            (literal := self.expect(','))
+            (self.expect(','))
             and
             (c := self.star_expression())
         ):
-            return c
+            return c;
         self._reset(mark)
-        return None
+        return None;
 
     @memoize
     def _tmp_217(self) -> Optional[Any]:
         # _tmp_217: 'or' conjunction
         mark = self._mark()
         if (
-            (literal := self.expect('or'))
+            (self.expect('or'))
             and
             (c := self.conjunction())
         ):
-            return c
+            return c;
         self._reset(mark)
-        return None
+        return None;
 
     @memoize
     def _tmp_218(self) -> Optional[Any]:
         # _tmp_218: 'and' inversion
         mark = self._mark()
         if (
-            (literal := self.expect('and'))
+            (self.expect('and'))
             and
             (c := self.inversion())
         ):
-            return c
+            return c;
         self._reset(mark)
-        return None
+        return None;
 
     @memoize
     def _tmp_219(self) -> Optional[Any]:
         # _tmp_219: 'if' disjunction
         mark = self._mark()
         if (
-            (literal := self.expect('if'))
+            (self.expect('if'))
             and
             (z := self.disjunction())
         ):
-            return z
+            return z;
         self._reset(mark)
-        return None
+        return None;
 
     @memoize
     def _tmp_220(self) -> Optional[Any]:
         # _tmp_220: 'if' disjunction
         mark = self._mark()
         if (
-            (literal := self.expect('if'))
+            (self.expect('if'))
             and
             (z := self.disjunction())
         ):
-            return z
+            return z;
         self._reset(mark)
-        return None
+        return None;
 
     @memoize
     def _tmp_221(self) -> Optional[Any]:
@@ -10277,42 +10387,42 @@ class HGLParser(Parser):
         if (
             (starred_expression := self.starred_expression())
         ):
-            return starred_expression
+            return starred_expression;
         self._reset(mark)
         if (
             (_tmp_232 := self._tmp_232())
             and
-            self.negative_lookahead(self.expect, '=')
+            (self.negative_lookahead(self.expect, '='))
         ):
-            return _tmp_232
+            return _tmp_232;
         self._reset(mark)
-        return None
+        return None;
 
     @memoize
     def _tmp_222(self) -> Optional[Any]:
         # _tmp_222: ',' star_target
         mark = self._mark()
         if (
-            (literal := self.expect(','))
+            (self.expect(','))
             and
             (c := self.star_target())
         ):
-            return c
+            return c;
         self._reset(mark)
-        return None
+        return None;
 
     @memoize
     def _tmp_223(self) -> Optional[Any]:
         # _tmp_223: ',' star_target
         mark = self._mark()
         if (
-            (literal := self.expect(','))
+            (self.expect(','))
             and
             (c := self.star_target())
         ):
-            return c
+            return c;
         self._reset(mark)
-        return None
+        return None;
 
     @memoize
     def _tmp_224(self) -> Optional[Any]:
@@ -10323,9 +10433,9 @@ class HGLParser(Parser):
             and
             (literal := self.expect('='))
         ):
-            return [star_targets, literal]
+            return [star_targets, literal];
         self._reset(mark)
-        return None
+        return None;
 
     @memoize
     def _tmp_225(self) -> Optional[Any]:
@@ -10336,9 +10446,9 @@ class HGLParser(Parser):
             and
             (literal := self.expect('='))
         ):
-            return [star_targets, literal]
+            return [star_targets, literal];
         self._reset(mark)
-        return None
+        return None;
 
     @memoize
     def _tmp_226(self) -> Optional[Any]:
@@ -10347,14 +10457,14 @@ class HGLParser(Parser):
         if (
             (literal := self.expect(')'))
         ):
-            return literal
+            return literal;
         self._reset(mark)
         if (
             (literal := self.expect('**'))
         ):
-            return literal
+            return literal;
         self._reset(mark)
-        return None
+        return None;
 
     @memoize
     def _tmp_227(self) -> Optional[Any]:
@@ -10363,14 +10473,14 @@ class HGLParser(Parser):
         if (
             (literal := self.expect(':'))
         ):
-            return literal
+            return literal;
         self._reset(mark)
         if (
             (literal := self.expect('**'))
         ):
-            return literal
+            return literal;
         self._reset(mark)
-        return None
+        return None;
 
     @memoize
     def _tmp_228(self) -> Optional[Any]:
@@ -10381,9 +10491,9 @@ class HGLParser(Parser):
             and
             (opt := self._tmp_233(),)
         ):
-            return [expression, opt]
+            return [expression, opt];
         self._reset(mark)
-        return None
+        return None;
 
     @memoize
     def _tmp_229(self) -> Optional[Any]:
@@ -10394,9 +10504,9 @@ class HGLParser(Parser):
             and
             (opt := self._tmp_234(),)
         ):
-            return [expressions, opt]
+            return [expressions, opt];
         self._reset(mark)
-        return None
+        return None;
 
     @memoize
     def _tmp_230(self) -> Optional[Any]:
@@ -10407,9 +10517,9 @@ class HGLParser(Parser):
             and
             (opt := self._tmp_235(),)
         ):
-            return [expression, opt]
+            return [expression, opt];
         self._reset(mark)
-        return None
+        return None;
 
     @memoize
     def _tmp_231(self) -> Optional[Any]:
@@ -10420,9 +10530,9 @@ class HGLParser(Parser):
             and
             (opt := self._tmp_236(),)
         ):
-            return [expressions, opt]
+            return [expressions, opt];
         self._reset(mark)
-        return None
+        return None;
 
     @memoize
     def _tmp_232(self) -> Optional[Any]:
@@ -10431,16 +10541,16 @@ class HGLParser(Parser):
         if (
             (assignment_expression := self.assignment_expression())
         ):
-            return assignment_expression
+            return assignment_expression;
         self._reset(mark)
         if (
             (expression := self.expression())
             and
-            self.negative_lookahead(self.expect, ':=')
+            (self.negative_lookahead(self.expect, ':='))
         ):
-            return expression
+            return expression;
         self._reset(mark)
-        return None
+        return None;
 
     @memoize
     def _tmp_233(self) -> Optional[Any]:
@@ -10451,9 +10561,9 @@ class HGLParser(Parser):
             and
             (star_target := self.star_target())
         ):
-            return [literal, star_target]
+            return [literal, star_target];
         self._reset(mark)
-        return None
+        return None;
 
     @memoize
     def _tmp_234(self) -> Optional[Any]:
@@ -10464,9 +10574,9 @@ class HGLParser(Parser):
             and
             (star_target := self.star_target())
         ):
-            return [literal, star_target]
+            return [literal, star_target];
         self._reset(mark)
-        return None
+        return None;
 
     @memoize
     def _tmp_235(self) -> Optional[Any]:
@@ -10477,9 +10587,9 @@ class HGLParser(Parser):
             and
             (star_target := self.star_target())
         ):
-            return [literal, star_target]
+            return [literal, star_target];
         self._reset(mark)
-        return None
+        return None;
 
     @memoize
     def _tmp_236(self) -> Optional[Any]:
@@ -10490,12 +10600,12 @@ class HGLParser(Parser):
             and
             (star_target := self.star_target())
         ):
-            return [literal, star_target]
+            return [literal, star_target];
         self._reset(mark)
-        return None
+        return None;
 
-    KEYWORDS = ('False', 'await', 'except', 'else', 'None', 'is', 'True', 'in', 'yield', 'global', 'assert', 'nonlocal', 'def', 'or', 'if', 'as', 'del', 'and', 'for', 'return', 'while', 'from', 'with', 'break', 'elif', 'class', 'lambda', 'continue', 'try', 'raise', 'not', 'finally', 'pass', 'async', 'import')
-    SOFT_KEYWORDS = ('_', 'match', 'when', 'once', 'switch', 'otherwise', 'case', 'elsewhen')
+    KEYWORDS = ('False', 'None', 'True', 'and', 'as', 'assert', 'async', 'await', 'break', 'class', 'continue', 'def', 'del', 'elif', 'else', 'except', 'finally', 'for', 'from', 'global', 'if', 'import', 'in', 'is', 'lambda', 'nonlocal', 'not', 'or', 'pass', 'raise', 'return', 'try', 'while', 'with', 'yield')
+    SOFT_KEYWORDS = ('_', 'case', 'elsewhen', 'match', 'once', 'otherwise', 'switch', 'when')
 
 
 if __name__ == '__main__':

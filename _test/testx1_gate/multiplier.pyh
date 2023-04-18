@@ -49,7 +49,7 @@ def compressN(column: list, sums: list, couts: list):
 #--------------------------------- test ----------------------------------------
 
 
-@tester test_multiplier:
+@tester test_multiplier(self):
     sess = Session()
     sess.enter()
     W1, W2, N = 4, 6, 100
@@ -68,7 +68,7 @@ def compressN(column: list, sums: list, couts: list):
         setv(dut.io.x, test_x[i])
         setv(dut.io.y, test_y[i])
         sess.run(50)
-        tester.EQ += getv(dut.io.out), test_x[i]*test_y[i]
+        self.EQ += getv(dut.io.out), test_x[i]*test_y[i]
     print('pyhgl simulation cost:', time.time()-t)
     sess.dumpVCD('Multiplier.vcd')
 

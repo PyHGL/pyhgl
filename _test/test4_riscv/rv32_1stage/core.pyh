@@ -527,7 +527,7 @@ ffff0000
 """)
 
 
-@tester test_mem(): 
+@tester test_mem(self): 
     with Session() as sess:
         dut = Memory((0,40), 32, test_dmem) 
         sess.track(dut.io, dut) 
@@ -553,7 +553,7 @@ ffff0000
         sess.dumpVCD('build/mem.vcd')
 
 
-@tester test_core(): 
+@tester test_core(self): 
     with Session(conf = Global(test_imem, test_dmem), timing=TimingConfig()) as sess:
 
         dut = Core()

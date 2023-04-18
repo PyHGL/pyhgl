@@ -1,0 +1,313 @@
+from pyhgl.logic import *
+from pyhgl.tester import * 
+
+
+
+@module FullAdder:
+    a, b, cin = UInt('0'), UInt('0'), UInt('0')
+    s = a ^ b ^ cin 
+    cout = a & b | (a ^ b) & cin 
+
+@module Adder(n):
+    io = Bundle(
+        A = UInt[n](0)      @ Input,
+        B = UInt[n](0)      @ Input, 
+        Cin = UInt('0')     @ Input,
+        Sum = UInt[n](0)    @ Output,
+        Cout = UInt('0')    @ Output,
+    )
+    FAs = Array(FullAdder() for _ in range(n))  # Array of n fulladders
+    FAs[:,'a'], FAs[:,'b'] <== Split(io[['A','B']])
+    FAs[:, 'cin'] <== io.Cin, *FAs[0:-1,'cout']
+    io.Sum, io.Cout <== Cat(*FAs[:,'s']), FAs[-1,'cout']
+    
+
+@module ByteSelector:
+    io = Bundle(
+        data = UInt('32:b0')    @ Input,
+        offset = UInt('2:b0')   @ Input,
+        out = UInt('8:b0')      @ Output,
+    )  
+    vec_t = UInt[8]*4
+    io.out <== vec_t(io.data)[io.offset]
+
+@module EnableShiftRegister:
+    io = Bundle(
+        data = UInt('4:b0')     @ Input,
+        shift = UInt('0')       @ Input, 
+        out = UInt('4:b0')      @ Output,
+    )
+    r0, r1, r2, r3 = Reg(UInt('4:b0') for _ in range(4))
+    when io.shift:
+        r0, r1, r2, r3 <== io.data, r0, r1, r2 
+
+@module Functionality:
+    io = Bundle(
+        x = UInt('16:b0')       @ Input,
+        y = UInt('16:b0')       @ Input,
+        z = UInt('16:b0')       @ Output,
+    )
+    def clb(a,b,c,d):
+        return (a&b)|(~c&d)
+    io.z <== clb(io.x, io.y, io.x, io.y)
+    
+@module GCD:
+    io = Bundle(
+        a = UInt('16:b0')       @ Input,
+        b = UInt('16:b0')       @ Input,
+        load = UInt('0')        @ Input,
+        out = UInt('16:b0')     @ Output,
+        valid = UInt('0')       @ Output,
+    )
+    x, y = Reg(UInt('16:b0') for _ in range(2))
+    when io.load:
+        x, b <== io.a, io.b
+    otherwise:
+        when x > y: 
+            x <== x-y
+        elsewhen x <= y:
+            y <== y-x 
+    io.out <== x 
+    io.valid <== y == 0
+
+@module HiLoMultiplier:
+    io = Bundle(
+        A = UInt('16:b0')       @ Input,
+        B = UInt('16:b0')       @ Input,
+        Hi = UInt('16:b0')      @ Output,
+        Lo = UInt('16:b0')      @ Output,
+    )
+    mult = io.A.zext(32) * io.B.zext(32)
+    io.Lo, io.Hi <== mult[:16], mult[16:]
+
+@module LogShifter:
+    data = UInt('16:b0')    @ Input
+    shamt = UInt('4:b0')    @ Input
+
+    s0 = RegNext(io.data)
+    s1 = RegNext(s0)
+    s2 = RegNext(s1)
+    out = RegNext(s2)       @ Output
+    
+    switch 1:
+        once shamt[3]: s0 <== io.data << 8
+        once shamt[2]: s1 <== s0 << 4
+        once shamt[1]: s2 <== s0 << 2 
+        once shamt[0]: out <== s2 << 1
+
+
+@module Parity:
+    io = Bundle(
+        data = UInt('0')    @ Input,
+        out = UInt('0')     @ Output,
+    )
+    switch state:=Reg(Enum()):
+        once 's_even':
+            when io.data: state <== 's_odd'
+        once 's_odd':
+            when io.data: state <== 's_even'
+            io.out <== 1
+
+
+@module Risc:
+    io = Bundle(
+        isWr = UInt(0)          @ Input,
+        wrAddr = UInt('8:b0')   @ Input,
+        wrData = UInt('32:b0')  @ Input,
+        boot = UInt(0)          @ Input,
+        valid = UInt(0)         @ Output,
+        out = UInt('32:b0')     @ Output,
+    )
+    file = Reg(MemType[256,32](0))
+    code = Reg(MemType[256,32](0)) 
+    pc = Reg('8:b0')
+
+    inst = code[pc]
+    rbi, rai, rci, op = inst.split(8)
+    
+    ra = Mux(rai==0, 0, file[rai])
+    rb = Mux(rbi==0, 0, file[rbi])
+    rc = UInt('32:b0')
+    
+    when io.isWr:
+        code[io.wrAddr] <== io.wrData
+    elsewhen io.boot:
+        pc <== 0
+    otherwise:
+        switch op:
+            once 0: rc <== ra + rb 
+            once 1: rc <== (rai << 8) | rbi
+        io.out <== rc 
+        when rci == 255:
+            io.valid <== 1 
+        otherwise:
+            file[rci] <== rc 
+        pc <== pc + 1
+    
+
+@module BasicALU:
+    io = Bundle(
+        a = UInt('4:b0')        @ Input,
+        b = UInt('4:b0')        @ Input,
+        opcode = UInt('4:b0')   @ Input,
+        out = UInt('4:b0')      @ Output,
+    )
+    switch io.opcode:
+        once 0: io.out <== io.a
+        once 1: io.out <== io.b
+        once 2: io.out <== io.a + 1
+        once 3: io.out <== io.a - 1
+        once 4: io.out <== io.a + 4
+        once 5: io.out <== io.a - 4
+        once 6: io.out <== io.a + io.b
+        once 7: io.out <== io.a - io.b
+        once 8: io.out <== io.a < io.b 
+        once ...: io.out <== io.a == io.b
+
+
+@module Stack(depth):
+    io = Bundle(
+        push = UInt()           @ Input,
+        pop = UInt()            @ Input,
+        en  = UInt()            @ Input,
+        dataIn = UInt('32:b0')  @ Input,
+        dataOut = UInt('32:b0') @ Output,
+    )
+    stack_mem = Reg(MemType[depth, 32](0))
+    sp = Reg(UInt[depth.bit_length()](0))
+    out = Reg(io.dataOut)
+    
+    when io.en:
+        when io.push && sp < depth:
+            stack_mem[sp] <== io.dataIn 
+            sp <== sp + 1 
+        elsewhen io.pop && sp > 0:
+            sp <== sp - 1 
+        when sp > 0:    
+            out <== stack_mem[sp-1]
+
+@module VecSearch:
+    index = Reg('000')
+    index <== index + 1 
+    elts = MemType[7,4]([0,4,15,14,2,5,13]) 
+    out = elts[index]
+
+
+
+@module Life(rows, cols):
+    
+    _state = UInt(Array.full((rows+2, cols+2), 0)) 
+    state = Reg(_state[1:-2,1:-2])          @ Output
+    running = UInt('0')                     @ Input 
+    writeValue = UInt('0')                  @ Input 
+    writeRowAddress = UInt(rows)            @ Input 
+    writeColAddress = UInt(cols)            @ Input 
+
+    def make_ceil(row, col):
+        array3x3 = _state[row:row+3, col:col+3]
+        array3x3[1,1] = UInt('3:b0')      # 3-bit adder
+        count_neighbors = Add(array3x3, axis=None) 
+        isAlive = state[row, col]
+        when !running:  
+            when writeRowAddress == row && writeColAddress == col:
+                isAlive <== writeValue 
+        otherwise:
+            when isAlive:
+                when count_neighbors < 2:
+                    isAlive <== 0 
+                elsewhen count_neighbors < 4:
+                    isAlive <== 1 
+                otherwise:
+                    isAlive <== 0 
+            otherwise:
+                when !isAlive && count_neighbors == 3:
+                    isAlive <== 1 
+                otherwise:
+                    isAlive <== 0 
+
+    for i in range(rows):
+        for j in range(cols):
+            make_ceil(i,j)
+
+
+
+@module Router(
+    addr_width=32, 
+    data_width=64, 
+    header_width=8, 
+    route_table_size=15, 
+    num_outputs=4): 
+
+    def Packet():
+        return Bundle(
+            header = UInt[header_width]()   @ Input,
+            body = UInt[data_width]()       @ Input,
+            ready = UInt()                  @ Output,
+            valid = UInt()                  @ Input,)
+
+    io = Bundle(
+        read_table_req = Bundle(
+            addr = UInt[addr_width]()       @ Input,
+            ready = UInt()                  @ Output,
+            valid = UInt()                  @ Input,), 
+        read_table_resp = Bundle(
+            data = UInt[addr_width]()       @ Output,
+            ready = UInt()                  @ Input,
+            valid = UInt()                  @ Output,),
+        write_table_req = Bundle(
+            data = UInt[addr_width]()       @ Input,
+            addr = UInt[addr_width]()       @ Input,
+            ready = UInt()                  @ Output,
+            valid = UInt()                  @ Input,), 
+        iport = Packet(),
+        oports = Array(FlipIO(Packet()) for _ in range(num_outputs)),
+    )
+    entry_size = max((num_outputs - 1).bit_length(), 1) 
+    tbl = Reg(MemArray[route_table_size, entry_size](0))
+    read_resp_valid = io.read_table_req.valid && io.read_table_resp.ready 
+
+    # read tbl
+    tbl_read_addr = Mux(read_resp_valid, io.iport.header, io.read_table_req.addr) 
+    tbl_read_data =  tbl[tbl_read_addr] 
+    io.read_table_resp.valid <== read_resp_valid 
+    io.read_table_resp.data <== tbl_read_data
+
+    # write tbl
+    when !read_resp_valid && io.write_table_req.valid:
+        tbl[io.write_table_req.addr] <== io.write_table_req.data
+        io.write_table_req.ready <== 1 
+    
+    io.iport.ready <== !read_resp_valid && !io.write_table_req.valid && Cat(*io.oports[:,'ready'])[tbl_read_data] 
+    
+    for i in range(num_outputs):
+        io.oports[i].valid <== (tbl_read_data == i) && io.iport.ready && io.iport.valid 
+        io.oports[i,['header', 'body']] <== io.oports[['header', 'body']]
+
+    
+
+
+
+@tester test_examples(self): 
+    sess = Session()
+    sess.enter()
+
+    # parameter
+    N = 4
+    dut_adder = Adder(N)
+    sess.track(dut_adder)  
+
+    for i in range(100):
+        A, B, C = setr(dut_adder.io[['A','B','Cin']]) 
+        sess.run(100)
+        self.EQ += getv(dut_adder.io.Sum) | getv(dut_adder.io.Cout) << Logic(N,0) , A + B + C
+
+
+
+
+
+
+    sess.dumpVCD('ex.vcd') 
+    sess.dumpGraph('ex.gv')
+    sess.dumpVerilog('ex.sv', delay=True, top = False) 
+    print(sess)
+    sess.exit()

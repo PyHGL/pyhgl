@@ -427,6 +427,25 @@ def split_uint(v: int, w_in: int, w_out: int) -> List[int]:
         ret.append(v[idx*w_out:(idx+1)*w_out]) 
     return ret
     
+def split_mem(v: int, shape: Tuple[int,...]) -> List:
+    """ TODO nd array
+    """
+    ret = []
+    v = gmpy2.mpz(v)
+    n, width = shape 
+    for idx in range(n):
+        ret.append(v[idx*width:(idx+1)*width])
+    return ret
+        
+def mem2str(v: int, x: int, shape: Tuple[int]):
+    """ ex. [8'b0, 8'b1, 8'b2]
+    """
+    v = split_mem(v, shape)
+    x = split_mem(x, shape)
+    ret = []
+    for vi, xi in zip(v,x):
+        ret.append(logic2str(vi, xi, width=shape[-1]))
+    return ret
 
 
 _number = re.compile(r'\s*([0-9a-zA-Z]+).*')

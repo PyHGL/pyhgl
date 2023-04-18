@@ -478,7 +478,7 @@ class _Cat(Gate):
         self.inputs: List[Reader] = [self.read(i) for i in args]    # read 
         self.widths: List[int] = [len(i) for i in args]
         ret: Reader = UInt[sum(self.widths)](0, name=name)
-        self.output: Writer = self.write(ret)                       # write 
+        self.output: Writer = self.write(ret)                       # write  
         return ret
         
     def forward(self):
@@ -497,7 +497,7 @@ class _Cat(Gate):
     def dump_cpp(self):
         raise NotImplementedError(self)
 
-    def dump_sv(self, builder: sv.ModuleSV):
+    def dump_sv(self, builder: sv.ModuleSV): 
         x = [builder.get_name(i) for i in reversed(self.inputs)]
         y = builder.get_name(self.output) 
         x = f"{{{','.join(x)}}}"

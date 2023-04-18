@@ -46,7 +46,7 @@ AdderIO = lambda w: Bundle(
     io.out <== Cat(0, *G) ^ P_odd
 
 
-@tester test_adder: 
+@tester test_adder(self): 
     with Session(conf=Global(), verbose_sim=False) as sess:
 
         xxx = UInt('xx1100')
@@ -59,8 +59,8 @@ AdderIO = lambda w: Bundle(
             x1, y1 = setr(adder1.io[['x','y']])
             x2, y2 = setr(adder2.io[['x','y']]) 
             sess.run(100)
-            tester.EQ += getv(adder1.io.out), x1+y1 
-            tester.EQ += getv(adder2.io.out), x2+y2 
+            self.EQ += getv(adder1.io.out), x1+y1 
+            self.EQ += getv(adder2.io.out), x2+y2 
         sess.dumpVCD('Adder.vcd') 
         sess.dumpGraph('Adder.gv')
         print(sess)

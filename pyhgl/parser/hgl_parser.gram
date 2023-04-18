@@ -586,7 +586,7 @@ assignment:
 # @hgl assignment <==
     | hgl_assignment { ast.Expr(value=hgl_assignment, LOCATIONS)}
 # @hgl connect <=> 
-    | a=expression '<=>' b=expression{
+    | a=star_expressions '<=>' b=star_expressions{
         ast.Expr(
             value = ast.Call(
                 func=ast.Name(id='__hgl_connect__', ctx=Load, LOCATIONS), 
@@ -600,7 +600,7 @@ assignment:
     | invalid_assignment
 
 hgl_assignment:
-    | a=t_primary '[' b=slices ']' !t_lookahead '<==' c=expression{ 
+    | a=t_primary '[' b=slices ']' !t_lookahead '<==' c=star_expressions{ 
         ast.Call(
             func=ast.Name(id='__hgl_partial_assign__', ctx=Load, LOCATIONS), 
             args=[a, c, b], 
@@ -608,7 +608,7 @@ hgl_assignment:
             LOCATIONS
         ) 
     } 
-    | a=expression '<==' b=expression{
+    | a=star_expressions '<==' b=star_expressions{
         ast.Call(
             func=ast.Name(id='__hgl_partial_assign__', ctx=Load, LOCATIONS), 
             args=[a, b], 
@@ -1804,7 +1804,7 @@ target_with_star_atom (memo):
     | a=t_primary '.' b=NAME !t_lookahead { ast.Attribute(value=a, attr=b.string, ctx=Store, LOCATIONS) }
     | a=t_primary '[' b=slices ']' !t_lookahead { ast.Subscript(value=a, slice=b, ctx=Store, LOCATIONS) }
     | star_atom
-
+# (a[0],b,c.d) = 1,2,3
 star_atom:
     | a=NAME { ast.Name(id=a.string, ctx=Store, LOCATIONS) }
     | '(' a=target_with_star_atom ')' { self.set_expr_context(a, Store) }

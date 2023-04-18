@@ -51,12 +51,12 @@ import random
         setv(DUT.x, x)
         setv(DUT.y, y)
         yield 200
-        tester.EQ += x+y, getv(DUT.out)
+        self.EQ += x+y, getv(DUT.out)
 
 
 
 
-@tester test_adder:
+@tester test_adder(self):
 
     import time
     import os

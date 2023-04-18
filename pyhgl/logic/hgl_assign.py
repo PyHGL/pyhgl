@@ -127,6 +127,8 @@ class CaseGate(hgl_core.Gate):
             Union[Tuple, None],     # case item
             hgl_core.Reader,        # branch active signal
         ]] = []  
+        # for inout type 
+        self.inout_active = None
         return self 
     
     def _to_signal(self, s) -> hgl_core.Reader:
@@ -145,8 +147,13 @@ class CaseGate(hgl_core.Gate):
         self.branches.append((
             (self.read(signal),), 
             self.write(ret),
-        )) 
-        return ret 
+        ))  
+        self.inout_active = signal
+        return ret  
+    
+    def get_inout_active(self):
+        # check something
+        return self.inout_active
     
     def elsewhen(self, signal: Union[hgl_core.Reader, int, str]) -> hgl_core.Reader:
         assert len(self.branches) > 0, 'no `when` statement before `elsewhen`'

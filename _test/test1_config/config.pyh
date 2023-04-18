@@ -6,7 +6,9 @@ from pyhgl.tester import *
     conf.timing = Bundle(
         Wire = {'delay': 2},
         And = {'delay': 2},
-    )
+    ) 
+    clk1 = 'clk1'
+    clk2 = 'clk2'
     @conf('.*') RippleCarry:
         w = 6
     @conf FA:
@@ -14,15 +16,22 @@ from pyhgl.tester import *
         @conf Sub:
             y = 'a'
 
+_tester = None
+
 @module FASub:
-    tester.Assert(conf.p.y == 'a')
+    _tester.Assert(conf.p.y == 'a')
 
 @module FA: 
-    tester.Assert(conf.p.x == 12)
-    tester.Assert(conf.p.w == 6 )
-    fasub = FASub['Sub']()
+    _tester.Assert(conf.p.x == 12)
+    _tester.Assert(conf.p.w == 6 ) 
+    _tester.Assert(conf.p.clk1 == 'clk1')
+    _tester.Assert(conf.p.clk2 == 'clk2')
+    fasub = FASub['Sub']() 
 
-@tester test_config:
-    with Session(conf=Global(3)) as sess:
+@tester test_config(self): 
+    global _tester 
+    _tester = self
+    with Session(Global(3)) as sess:
         fa = FA()
+
 

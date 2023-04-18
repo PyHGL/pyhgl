@@ -59,7 +59,7 @@ import itertools
 
 
 
-@tester test_divider:
+@tester test_divider(self):
 
     clock_period = 50
     W, N = 8, 50
@@ -96,8 +96,8 @@ import itertools
             setv(dut.io.valid, 0)
             yield W*100 
             if test_y[i] != 0:
-                tester.EQ += getv(dut.io.q), test_x[i] // test_y[i]
-                tester.EQ += getv(dut.io.r), test_x[i] % test_y[i]
+                self.EQ += getv(dut.io.q), test_x[i] // test_y[i]
+                self.EQ += getv(dut.io.r), test_x[i] % test_y[i]
 
 
     sess.task(Task()) 

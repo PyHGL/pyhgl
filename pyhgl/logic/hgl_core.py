@@ -27,6 +27,7 @@ import random
 
 from pyhgl.array import *
 import pyhgl.logic.module_hgl as module_hgl
+import pyhgl.logic._config as _config
 import pyhgl.logic.module_cpp as cpp
 import pyhgl.logic._session as _session  
 import pyhgl.logic.module_sv as sv
@@ -186,7 +187,6 @@ class Logic(HGL):
         )
 
     def __lshift__(self, l: Logic) -> Logic: 
-        # TODO minimize x
         if l.x:
             return Logic(0, -1)
         else:
@@ -196,7 +196,6 @@ class Logic(HGL):
             )
     
     def __rshift__(self, l: Logic) -> Logic: 
-        # TODO minimize x
         if l.x:
             return Logic(0, -1)
         else:
@@ -390,6 +389,8 @@ class SignalData(HGL):
         - reader: Dict[Reader]
             - Reader: in-edge of Gate 
             - arbitrary number of readers
+    TODO marked as sensitive
+    TODO copy with data
     """
 
     _sess: _session.Session
@@ -411,9 +412,6 @@ class SignalData(HGL):
         # prefered name 
         self._name: str = 'temp'
         # position, None means constant value 
-        # if len(self._sess.module._position) == 1: # top level 
-        #     self._module: module_hgl.Module = self._sess.module 
-        # else:
         self._module: Optional[module_hgl.Module] = None
 
 
@@ -428,17 +426,22 @@ class SignalData(HGL):
             return True
         
     def _dump_sv(self, builder: sv.ModuleSV):
-        """ dump declaration to builder. if necessary, also dump constant assignment
+        """ dump declaration to builder. if necessary, also dump assignment/initial block
 
         ex. logic [7:0] a; assign a = '1;
         """
         raise NotImplementedError() 
     
-    def _dump_sv_slice(self, low_key: Tuple, builder: sv.ModuleSV) -> str: 
-        """ ex. x[idx +: 2]
+    def _dump_sv_assign(
+            self, 
+            low_key: Optional[Tuple], 
+            value: Union[Reader, int, Logic], 
+            builder: sv.ModuleSV
+        ) -> Tuple[str, str]:
+        """ ex. mem = '{1,2,3}; x[idx +: 8] <= x_next; 
+        return (left,right)
         """
         raise NotImplementedError()  
-
 
     def _getval_py(self, low_key: Optional[Tuple] = None) -> Logic:
         """ return current value, called by Gate or testbench 
@@ -450,7 +453,7 @@ class SignalData(HGL):
     def _setval_py(
         self, 
         value: Union[Logic, List], 
-        multiple: bool = False,
+        need_merge: bool = False,
         dt: int = 1, 
         trace: Union[None, Gate, str] = None,
     ):
@@ -479,6 +482,7 @@ class SignalData(HGL):
         """ accept multiple assignments, mainly for wire
         """
         raise NotImplementedError() 
+    
 
 
 
@@ -530,20 +534,28 @@ class LogicData(SignalData):
             _builder = self._module._module
             if self not in _builder.gates:
                 _builder.Block(self, f'assign {_builder.get_name(self)} = {_builder._sv_immd(self)};')
-
-    def _dump_sv_slice(self, low_key: Tuple, builder: sv.ModuleSV) -> str: 
-        """ ex. x[idx +: 2]
-        """ 
-        ret = builder.get_name(self)
+        
+    def _dump_sv_assign(
+            self, 
+            low_key: Optional[Tuple],
+            value: Union[Reader, int, Logic], 
+            builder: sv.ModuleSV
+        ) -> Tuple[str, str]:
+        """ ex. mem = '{1,2,3}; x[idx +: 8] <= x_next; 
+        return (left,right)
+        """
+        left = builder.get_name(self)
+        right = builder.get_name(value) 
         if low_key is None:
-            return ret 
+            return left, right 
         else:
             start, length = low_key 
             if length == 1:
                 key_str = f'[{builder.get_name(start)}]'
             else:
                 key_str = f'[{builder.get_name(start)}+:{length}]' 
-            return f'{ret}{key_str}'
+            return f'{left}{key_str}', right
+        
         
     def _getval_py(self, low_key: Optional[Tuple] = None) -> Logic:
         """ 
@@ -565,23 +577,23 @@ class LogicData(SignalData):
             if isinstance(start, Reader):       # dynamic part select
                 start = start._data._getval_py() 
                 if start.x:                     # unknown key, return unknown
-                    return Logic(0, gmpy2.bit_length(length)) 
+                    return Logic(0, gmpy2.bit_mask(length)) 
                 else:
                     start = start.v 
             end = start + length
             max_width = len(self)
             if start >= max_width:
-                return Logic(0, gmpy2.bit_length(length)) # out of range, return unknown 
+                return Logic(0, gmpy2.bit_mask(length)) # out of range, return unknown 
             elif end <= max_width:
                 return Logic(v[start:end], x[start:end])  # in range 
             else:                                             # partly in range
-                mask =  gmpy2.bit_length(end - max_width) << (max_width-start)
+                mask =  gmpy2.bit_mask(end - max_width) << (max_width-start)
                 return Logic(v[start:end], x[start:end] | mask)
 
     def _setval_py(
         self, 
         value: Union[Logic, List], 
-        multiple: bool = False,
+        need_merge: bool = False,
         dt: int = 1, 
         trace: Union[None, Gate, str] = None,
     ):
@@ -589,11 +601,11 @@ class LogicData(SignalData):
 
         value:
             Logic | List[(cond, key, value)]
-        multiple:
+        need_merge:
             true when there are multiple assignments
         dt: delay
         """ 
-        if not multiple: 
+        if not need_merge: 
             data: Logic = value
         else:
             data = Logic(0,0)  
@@ -613,7 +625,7 @@ class LogicData(SignalData):
 
                 if key is None:
                     mask_curr = mask_full
-                    new = Logic(new.v & mask_full, new.x & mask_full) 
+                    new = Logic(new.v & mask_full, new.x & mask_full)  # bit truncation
                 else:
                     start, width = key 
                     if isinstance(start, Reader):
@@ -632,18 +644,7 @@ class LogicData(SignalData):
                             (new.x << start) & mask_curr,
                         ) 
                 data = data._merge(unknown, mask_curr, new)
-        # TODO
-        if self._v: 
-            w = len(self._v) * 64
-            # new_v = utils.split64(new.v, w) 
-            # new_x = utils.split64(new.x, w)
-            # masks = utils.split64(mask, w)
-            # for _target, _mask, _new in zip(self._v, masks, new_v):
-            #     cpp.setval(_target, _mask, _new, dt) 
-            # for _target, _mask, _new in zip(self._x, masks, new_x):
-            #     cpp.setval(_target, _mask, _new, dt) 
-        else:
-            self._sess.sim_py.insert_signal_event(dt, self, data, trace) 
+        self._sess.sim_py.insert_signal_event(dt, self, data, trace) 
 
     def _getval_cpp(self, part: Literal['v', 'x']) -> List[cpp.TData]:
         """ dump cpp. return list of value & unknown
@@ -678,6 +679,9 @@ class MemData(SignalData):
     - does not support bitwise operator, does not support comparation
     - support part select and partial assign
 
+    TODO 
+    better performance: simulator update memdata by (key,value)
+    special slice gate for memtype
     """
 
     __slots__ = 'shape', 'length'
@@ -689,9 +693,11 @@ class MemData(SignalData):
         shape: Tuple[int,...]
     ) -> None:
         super().__init__(v, x)
-        # shape 
-        assert len(shape) >= 2 and all(int(i)>0 for i in shape), f'error shape {shape}'
+        # TODO currently only support 2d array, cannot used as module io
+        assert len(shape) == 2 and all(int(i)>0 for i in shape), f'error shape {shape}'
         self.shape: Tuple[int,...] = shape  
+        self._module = self._sess.module
+        # total bits
         self.length: int = 1 
         for i in self.shape:
             self.length *= i 
@@ -700,75 +706,127 @@ class MemData(SignalData):
         return self.length
 
     def __str__(self):
-        ret = hex(self.v)[2:] 
-        if len(ret) > 35:
-            return f'mem{self.shape}{ret[-32:]}'
+        ret = utils.logic2str(self.v, self.x, self.length)
+        if len(ret) > 400:
+            return f'MemData{self.shape}({ret[:400]})'
         else:
-            return f'mem{self.shape}{ret}'
+            return f'MemData{self.shape}({ret})'
         
     def _dump_sv(self, builder: sv.ModuleSV):
         """ dump declaration to builder. if necessary, also dump constant assignment
         """
-        if self._module is None:  # constant
-            return 
         if self not in builder.signals:
-            if self.writer is not None:
-                netlist = self.writer._driver._netlist 
-            else:
-                netlist = 'logic'
-            bit_length = self.shape[-1] - 1
-            shape = ''.join(f'[0:{w-1}]' for w in self.shape[:-1]) 
-            builder.signals[self] = f'{netlist} [{bit_length}:0] {{}} {shape}' 
+            n_unpacked, n_packed = self.shape
+            builder.signals[self] = f'logic [{n_packed-1}:0] {{}} [0:{n_unpacked-1}]'
 
-        if self.writer is None:    # constant assignment 
+        if self.writer is None:         # initial rom/ram
             _builder = self._module._module 
             if self not in _builder.gates:
-                _builder.gates[self] = f'assign {_builder.get_name(self)} = {_builder._sv_immd(self)};'
+                name = _builder.get_name(self)
+                ret = ['initial begin']
+                for i, v in enumerate(utils.mem2str(self.v, self.x, self.shape)):
+                    ret.append(f'  {name}[{i}] = {v};')
+                ret.append('end')
+                _builder.gates[self] = '\n'.join(ret)
 
-
-    def _getval_py(self, low_key: tuple) -> Logic:
-        """ low_key: idxes   idx: int | signal
+    def _dump_sv_assign(
+            self, 
+            low_key: Optional[Tuple],
+            value: Union[Reader, int, Logic], 
+            builder: sv.ModuleSV
+        ) -> Tuple[str, str]:
+        """ ex. mem = '{1,2,3}; x[idx +: 8] <= x_next; 
+        return (left,right)
         """
-        assert len(low_key) == len(self.shape) - 1 
-        valid_keys: List[int] = []
-        for key, max_width in zip(low_key, self.shape):
-            if isinstance(key, Reader):
-                key: Logic = key._data._getval_py()
-            if key.x:
-                return Logic(0, gmpy2.bit_length(self.shape[-1])) 
-            else:
-                idx = key.v 
-                if idx >= max_width:
-                    return Logic(0, gmpy2.bit_length(self.shape[-1]))
-                else:
-                    valid_keys.append(idx) 
+        left = builder.get_name(self)
 
-        if self._v:
-            _v = self._v 
-            _x = self._x 
-            for i in valid_keys:
-                _v = _v[i]
-                _x = _x[i]
-            return Logic(cpp.getval(_v), cpp.getval(_x))
+        if isinstance(value, Reader):
+            right = builder.get_name(value) 
+        elif isinstance(value, Logic):
+            l = utils.mem2str(value.v, value.x, self.shape)
+            right = f"'{{{','.join(l)}}}"
         else:
-            ret_width = self.shape[-1] 
-            shift_width = ret_width 
-            start: int = 0
-            for width_n, key_n in zip(reversed(self.shape[:-1]),reversed(valid_keys)):
-                start += key_n * shift_width 
-                shift_width *= width_n  
-            end = start + ret_width 
-            return Logic(self.v[start, end], self.x[start, end])
+            raise TypeError(value)
+
+        if low_key is None:
+            return left, right 
+        else:
+            assert len(low_key) == 1
+            return f'{left}[{builder.get_name(low_key[0])}]', right
+
+    def _getval_py(self, low_key: tuple = None) -> Logic:
+        """ low_key: (idx,)
+        """
+        if low_key is None:
+            return Logic(self.v, self.x)
+        else:
+            idx = low_key[0]
+
+        if isinstance(idx, Reader):
+            idx = idx._data._getval_py()
+        if idx.x or idx.v >= self.shape[0]:
+            return Logic(0, gmpy2.bit_mask(self.shape[-1])) 
+        else:
+            start = idx.v * self.shape[-1] 
+            end = start + self.shape[-1]
+            return Logic(self.v[start:end], self.x[start:end])
+
             
     def _setval_py(
         self, 
         value: Union[Logic, List], 
-        multiple: bool = False,
+        need_merge: bool = False,
         dt: int = 1, 
         trace: Union[None, Gate, str] = None,
     ):
-        valid_keys: List[int] = []
-        # TODO x in key?
+        """ key is always required, so value is a list
+
+        value: List[(cond, key, value)]
+        """
+        if not need_merge:
+            self._sess.sim_py.insert_signal_event(dt, self, value, trace)
+            return 
+        unknown = False 
+        data = Logic(0,0) 
+        mask_full = gmpy2.bit_mask(self.length) 
+        mask_curr = mask_full
+        for cond, key, new in value:
+            if isinstance(new, Reader):
+                new: Logic = new._data._getval_py()
+            if cond is not None:
+                cond: Logic = cond._data._getval_py()
+                if cond.v == 0 and cond.x == 0:
+                    continue
+                elif cond.x:
+                    unknown = True 
+                else:
+                    unknown = False
+        
+            if key is None:
+                new = new 
+            else:
+                idx = key[0]
+                if isinstance(idx, Reader):
+                    idx = idx._data._getval_py()
+                else:   # int 
+                    idx = Logic(idx, 0) 
+                
+                if idx.x:
+                    mask_curr = mask_full 
+                    new = Logic(0, mask_full)
+                else:
+                    lshift = idx.v * self.shape[-1]
+                    mask_curr = (gmpy2.bit_mask(self.shape[-1]) << lshift) & mask_full
+                    new = Logic(
+                        (new.v << lshift) & mask_curr, 
+                        (new.x << lshift) & mask_curr,
+                    ) 
+            data = data._merge(unknown, mask_curr, new)
+        self._sess.sim_py.insert_signal_event(dt, self, data, trace)
+            
+                
+
+                
         
 
     def _getval_cpp(self, part: Literal['v', 'x']) -> List[cpp.TData]:
@@ -784,6 +842,19 @@ class MemData(SignalData):
         else:
             raise ValueError()
 
+
+    def _setval_cpp(
+        self, 
+        values: List[List[cpp.TData]],
+        low_keys: List[Optional[Tuple]], 
+        dt: int,
+        part: Literal['v', 'x'],
+        builder: cpp.Node,
+    ) -> None:
+        """ accept multiple assignments, mainly for wire
+        """
+        raise NotImplementedError() 
+
 #-----------------------------------------
 # Signal: in/out edge of SignalData
 #-----------------------------------------
@@ -792,6 +863,8 @@ class MemData(SignalData):
 class Writer(HGL):
     """ a writer is an outedge of specific gate 
     """
+
+    _sess: _session.Session
 
     __slots__ = '_data', '_type', '_driver'
     
@@ -809,9 +882,11 @@ class Writer(HGL):
         if new_data.writer is not None:
             raise Exception('cannot drive data already has driver')
         # new data
-        new_data.writer = self 
+        new_data.writer = self  
+        new_data._module = self._data._module
         # odd data
         self._data.writer = None  
+        self._data._module = None
         
         ret, self._data = self._data, new_data
         return ret  
@@ -824,9 +899,11 @@ class Writer(HGL):
         self._driver = None
         self._type = None
         
-        
     def __len__(self):
         return len(self._type)
+    
+    def __str__(self):
+        return f'{self._driver}.Writer({self._data._module}.{self._data._name})'
     
 
 
@@ -1362,6 +1439,7 @@ class UInt(HGLFunction):
         return UInt[_w](v, name=name)
 
 
+@vectorize
 def Split(signal: Reader, n: int = 1) -> Array:
     assert signal._type._storage == 'packed' 
     ret = []
@@ -1369,7 +1447,7 @@ def Split(signal: Reader, n: int = 1) -> Array:
         ret.append(signal[idx*n:(idx+1)*n]) 
     return Array(ret)
 
-
+@vectorize
 def Zext(signal: Reader, w: int) -> Reader:
     assert signal._type._storage == 'packed'
     _w = len(signal)
@@ -1380,7 +1458,7 @@ def Zext(signal: Reader, w: int) -> Reader:
     else:
         return Cat(signal, UInt[w-_w](0))
 
-
+@vectorize
 def Oext(signal: Reader, w: int) -> Reader:
     assert signal._type._storage == 'packed'
     _w = len(signal)
@@ -1391,7 +1469,7 @@ def Oext(signal: Reader, w: int) -> Reader:
     else:
         return Cat(signal, UInt[w-_w]((1<<(w-_w))-1)) 
 
-
+@vectorize
 def Sext(signal: Reader, w: int) -> Reader:
     assert signal._type._storage == 'packed'
     _w = len(signal)
@@ -1642,104 +1720,61 @@ def _full_mul(x, y):
         
 
 class MemType(SignalType):
-    def __init__(self, shape: Tuple[int,...],  T: LogicType):
+
+    _storage = 'unpacked'
+
+    def __init__(self, *shapes):
         """ 
         ex. shape=(1024,), T = UInt[8] --> self._shape = (1024,8)
         """
-        super().__init__()
-        assert isinstance(T, LogicType) 
-        assert shape 
+        super().__init__() 
+        for i in shapes:
+            assert i > 0
 
-        self._T = T 
-        self._shape = (*shape, len(T)) 
-        self._width = len(T) 
-        self._idxes: List[int] = []
-        for i in reversed(shape):
-            self._idxes.insert(0, self._width)
-            self._width *= i  
-        self._storage = 'unpacked'
+        self._shape = tuple(shapes)
+        self._length = 1 
+        for i in self._shape:
+            self._length *= i  
         
-
     def __len__(self) -> int:
-        return self._width 
+        return self._length 
 
-    # def _getval_py(self, data: MemData, immd_key: Optional[Tuple[int]]) -> Logic:
-    #     """ get integer value. out of range bits are 0 
-        
-    #     return: gmpy2.mpz 
-    #     """
-    #     if immd_key is None: 
-    #         return data.v[0:self._width] 
-    #     else:
-    #         start = 0
-    #         for x, w in zip(immd_key, self._idxes):
-    #             start += x * w  
-    #         return data.v[start:start+self._shape[-1]]
-
-    # def _setval_py(self, data: MemData, immd_key: Optional[Tuple[int]], v: Logic) -> bool: 
-    #     """ set some bits, reutrn True if value changes 
-
-    #     immd_key: maybe mpz, turn into int
-    #     """ 
-    #     target: gmpy2.xmpz = data.v 
-    #     if immd_key is None:
-    #         odd = target.copy()
-    #         target[0:self._width] = v  
-    #         return target != odd
-
-    #     v = v & gmpy2.bit_mask(self._shape[-1]) 
-    #     start = 0
-    #     for idx, max_idx, w in zip(immd_key, self._shape, self._idxes):
-    #         if idx >= max_idx:
-    #             return False  
-    #         start += idx * w  
-    #     stop = start + self._shape[-1] 
-
-    #     start = int(start)
-    #     stop = int(stop) 
-    #     print(immd_key, v, self._sess.sim_py.t)
-    #     if target[start:stop] == v:
-    #         return False 
-    #     else:
-    #         target[start:stop] = v 
-    #         return True
-
-
-    
-    def _slice(self, high_key) -> Tuple[Tuple[Union[int, Reader], int], SignalType]:
-        if not isinstance(high_key, tuple):
-            high_key = (high_key,)
-        
-        assert len(high_key) == len(self._idxes)
-        for idx, max_idx in zip(high_key, self._shape):
-            if isinstance(idx, int): 
-                assert idx < max_idx
-            else:
-                assert isinstance(idx, Reader) 
-        
-        return high_key, self._T
-
-    
-    def _eval(self, v: Union[int, str, Iterable]) -> Logic:
+    def _eval(self, v: Union[int, str, Iterable, Logic]) -> Logic:
         v = ToArray(v)
-        ret = gmpy2.xmpz(0)
-        if isinstance(v, Array):
-            assert v._shape == self._shape 
-            w = self._shape[-1]
-            start = 0
-            temp = UInt[w]
-            for i in v._flat:
-                x = temp._eval(i)
-                if x != 0:
-                    ret[start:start+w] = x 
-                start += w 
-            return gmpy2.mpz(ret)
+        if isinstance(v, Array): 
+            assert len(v) == self._shape[0], 'shape mismatch' 
+            _v = gmpy2.mpz(0) 
+            _x = gmpy2.mpz(0)
+            _w = self._shape[-1]
+            _T: UIntType = UInt[_w]
+            for i, x in enumerate(v): 
+                temp: Logic = _T._eval(x)
+                _v |= (temp.v) << (i*_w) 
+                _x |= (temp.x) << (i*_w)
+            return Logic(_v, _x)
+        # regard as UInt
         else:
-            return UInt[len(self)]._eval(v)
+            return UInt[len(self)]._eval(v) 
+ 
+        
+    def _slice(self, high_key) -> Tuple[Tuple[int], SignalType]:
+        if high_key is None:
+            raise TypeError('key required for MemType') 
+        elif isinstance(high_key, int):
+            if high_key < 0:
+                high_key += self._shape[0]
+            assert 0 <= high_key < self._shape[0], 'index overflow'
+            return (high_key, ), UInt[self._shape[-1]]
+        elif isinstance(high_key, Reader):
+            return (high_key, ), UInt[self._shape[-1]]
+        else:
+            raise KeyError(high_key)
 
-    def __call__(self, v: int = 0, *, name: str = 'mem') -> Reader:
+
+    def __call__(self, v: Union[int, Array, list] = 0, *, name: str = 'mem') -> Reader:
         _v = self._eval(v)
-        return Reader(data=MemData(_v, self._shape), type=self, name=name)
+        return Reader(data=MemData(_v.v, _v.x, self._shape), type=self, name=name)
+    
 
     def __str__(self, data: LogicData = None):
         T = f"Mem({self._shape})"
@@ -1748,45 +1783,13 @@ class MemType(SignalType):
         else:
             return f"{T}({data})" 
 
-    def _verilog_name(self, x: Union[Reader, SignalData], m: sv.sv) -> str: 
-        return
-        if self._shape[-1] == 1:
-            verilog_width = ''
-        else:
-            verilog_width = f'[{self._shape[-1]-1}:0]'
+@singleton 
+class MemArray(HGLFunction):
+    def __getitem__(self, key: tuple):
+        assert len(key) == 2, 'only support 2-D unpacked array'
+        return MemType(*key)
+        
 
-        array_shape = ''
-        for i in self._shape[:-1]:
-            array_shape = f'[0:{i-1}]' + array_shape 
-
-        if isinstance(x, SignalData):
-            ret = m.new_name(x, x._name)  
-            m.new_signal(x, f'{x.writer._driver._netlist} {verilog_width} {ret} {array_shape}') 
-            return ret
-        elif isinstance(x, Reader):  
-            data = x._data 
-            assert isinstance(data, MemData)
-            origin = m.get_name(data) 
-            assert origin
-            # same bit width 
-            assert data.writer._type._shape == self._shape 
-            m.update_name(x, origin)
-            return origin
-
-    def _verilog_key(self, low_key: Optional[tuple], gate: Gate) -> str:
-        return 
-        if low_key is None:
-            return ''
-        else:
-            assert len(low_key) == len(self._idxes)
-            ret = ''
-            for i in low_key:
-                if isinstance(i, Reader):
-                    i = gate.get_name(i)
-                else:
-                    i = str(i)
-                ret += f'[{i}]'
-            return ret
 
 #----------------------------------
 # Gate
@@ -2030,8 +2033,7 @@ class CondTreeNode:
         ret = []
         for i in self.frames:   # no cond
             if isinstance(i, _Assignment): 
-                left = target._data._dump_sv_slice(i.key, builder=builder) 
-                right = builder.get_name(i.value)
+                left, right = target._data._dump_sv_assign(i.key, i.value, builder=builder) 
                 ret.append(f'{left} {op} {right};')  # x[idx +: 2] = y;
             else:       # case frame
                 ret.append(f'case({builder.get_name(i.sel)})') 
@@ -2051,9 +2053,6 @@ class CondTreeNode:
         return '\n'.join(ret)
         
         
-        
-
-# TODO memtype
 @dispatch('Slice', Any) 
 class _Slice(Gate):
     
@@ -2084,7 +2083,42 @@ class _Slice(Gate):
         raise NotImplementedError(self)
 
     def dump_sv(self, builder: sv.ModuleSV): 
-        x =self.input._data._dump_sv_slice(self.low_key, builder)
+        x, _ = self.input._data._dump_sv_assign(self.low_key, Logic(0,0), builder)
+        y = builder.get_name(self.output) 
+        builder.Assign(self, y, x, delay=self.delay) 
+
+
+@dispatch('Slice', MemType) 
+class _Slice(Gate):
+    
+    id = 'Slice'
+    
+    def __head__(self, signal: Reader, key: Any = None, id='') -> Reader:
+        assert isinstance(signal._data, MemData)
+        self.id = id or self.id
+        self.input = self.read(signal) 
+        if self.input._data._module is None:
+            self.input._data._module = self._sess.module
+
+        low_key, T = signal._type._slice(key)
+        self.low_key = low_key  
+        if low_key is not None:
+            for i in low_key: 
+                if isinstance(i, Reader):
+                    self.read(i)   # sensitive
+        ret = T()
+        self.output = self.write(ret)
+        return ret 
+    
+    def forward(self):
+        out = self.input._data._getval_py(self.low_key)
+        self.output._data._setval_py(out, dt = self.delay, trace=self)
+
+    def dump_cpp(self):
+        raise NotImplementedError(self)
+
+    def dump_sv(self, builder: sv.ModuleSV): 
+        x, _ = self.input._data._dump_sv_assign(self.low_key, Logic(0,0), builder)
         y = builder.get_name(self.output) 
         builder.Assign(self, y, x, delay=self.delay) 
 
@@ -2164,21 +2198,21 @@ class Assignable(Gate):
         self.branches.append((acitve_signals[-1], low_key, value))  
         self.condtree.insert(cond_stacks, low_key, value)
 
-    def _sv_assignment(self, assignment: Tuple, builder: sv.ModuleSV, op='=') -> str:
-        """ conditioanl dynamic partial assignment  
-        assignment:
-            (cond, key, value)
-        return: 
-            if (cond) begin
-                x[idx +: 2] = y;
-            end
-        """
-        cond, key, value = assignment  
-        target = self.output._data._dump_sv_slice(key, builder=builder) 
-        if cond is None:
-            return f'{target} {op} {builder.get_name(value)};'  
-        else:
-            return f'if({builder.get_name(cond)}) {target}{op} {builder.get_name(value)};'
+    # def _sv_assignment(self, assignment: Tuple, builder: sv.ModuleSV, op='=') -> str:
+    #     """ conditioanl dynamic partial assignment  
+    #     assignment:
+    #         (cond, key, value)
+    #     return: 
+    #         if (cond) begin
+    #             x[idx +: 2] = y;
+    #         end
+    #     """
+    #     cond, key, value = assignment  
+    #     target = self.output._data._dump_sv_assign(key, builder=builder) 
+    #     if cond is None:
+    #         return f'{target} {op} {builder.get_name(value)};'  
+    #     else:
+    #         return f'if({builder.get_name(cond)}) {target}{op} {builder.get_name(value)};'
 
     def __merge__(self, other: Assignable):
         # for analog
@@ -2250,7 +2284,7 @@ class _Wire(Assignable):
                 data = data._data._getval_py()
             self.output._data._setval_py(data, dt = self.delay, trace=self)
         else:
-            self.output._data._setval_py(self.branches, multiple=True, dt=self.delay, trace=self)
+            self.output._data._setval_py(self.branches, need_merge=True, dt=self.delay, trace=self)
         # active == 1: cover; active == x: merge; mask: merge
         # mask = gmpy2.mpz(0)
         # v = Logic(0,0)
@@ -2355,8 +2389,8 @@ class _Reg(Assignable):
         self.neg_rst: Reader = None
         self.reset_value: Logic = x._data._getval_py()
         
-        if clock is ...:   clock = self._sess.module.clock 
-        if reset is ...:   reset = self._sess.module.reset
+        if clock is ...:   clock = _config.conf.clock 
+        if reset is ...:   reset = _config.conf.reset
 
         # record initial value of clock 
         clk_init = clock[0]._data._getval_py() 
@@ -2382,8 +2416,9 @@ class _Reg(Assignable):
             if x._data.writer is not None:
                 raise ValueError('Reg(signal) requires constant signal')
             self.output = self.write(x) 
+            # XXX self connect not necessary
             self.branches.append((None, None, x)) 
-            self.condtree.insert([], None, x)
+            # self.condtree.insert([], None, x)
             return x  
         # reg next
         else:
@@ -2441,7 +2476,7 @@ class _Reg(Assignable):
                 data = data._data._getval_py()
             self.output._data._setval_py(data, dt = self.delay, trace=self)
         else:
-            self.output._data._setval_py(self.branches, multiple=True, dt=self.delay, trace=self)
+            self.output._data._setval_py(self.branches, need_merge=True, dt=self.delay, trace=self)
 
     def dump_cpp(self):
         raise NotImplementedError(self)
@@ -2504,15 +2539,13 @@ class _Reg(Assignable):
             triggers.append(f'negedge {builder.get_name(self.negedge_clk[0])}')
         triggers = ' or '.join(triggers)
         
-        out = builder.get_name(self.output)
         body = self.condtree._dump_sv(self.output, builder=builder, op='<=')
         body = '    ' + '    '.join(body.splitlines(keepends=True))
         if has_reset:
-            body = f'  if ({reset}) {out} <= {builder.get_name(self.reset_value)}; else begin\n{body}\n  end'
+            left, right = self.output._data._dump_sv_assign(None, self.reset_value, builder=builder)
+            body = f'  if ({reset}) {left} <= {right}; else begin\n{body}\n  end'
 
         ret = '\n'.join([
-            # FIXME modelsim error
-            # f'initial begin {out} = {self.reset_value}; end',
             f'always_ff @({triggers}) begin',
             body, 
             'end'
@@ -2599,7 +2632,7 @@ class Mem(Assignable):
         self.posedge_clk: List[Reader, gmpy2.mpz] = []
         self.negedge_clk: List[Reader, gmpy2.mpz] = [] 
 
-        if clock is ...:   clock = self._sess.module.clock 
+        if clock is ...:   clock = _config.conf.clock 
         if clock[1]:
             self.posedge_clk = [self.read(clock[0]), clock[0]._getval_py()] 
         else:
@@ -2850,9 +2883,9 @@ class ClockDomain(HGL):
     
     def __init__(self, clock = ..., reset = ...):
         if clock is ...:
-            clock = self._sess.module.clock 
+            clock = _config.conf.clock 
         if reset is ...:
-            reset = self._sess.module.reset 
+            reset = _config.conf.reset 
             
         clk, edge = clock 
         assert isinstance(clk, Reader) and isinstance(edge, (int, bool))
@@ -2864,14 +2897,14 @@ class ClockDomain(HGL):
         self._rst_restore = []
         
     def __enter__(self):
-        self._clk_restore.append(self._sess.module.clock)
-        self._rst_restore.append(self._sess.module.reset)
-        self._sess.module.clock = self.clock 
-        self._sess.module.reset = self.reset
+        self._clk_restore.append(_config.conf.clock)
+        self._rst_restore.append(_config.conf.reset)
+        _config.conf.clock = self.clock 
+        _config.conf.reset = self.reset
 
     def __exit__(self, exc_type, exc_value, traceback) -> None:
-        self._sess.module.reset = self._clk_restore.pop()
-        self._sess.module.clock = self._rst_restore.pop()
+        _config.conf.reset = self._clk_restore.pop()
+        _config.conf.clock = self._rst_restore.pop()
     
     
 class BlackBox(Gate):
@@ -2954,7 +2987,7 @@ def setv(left: Reader, right: Any, *, key = None, dt=0) -> None:
     if low_key is None:
         left._data._setval_py(immd, dt=dt, trace=trace)
     else:
-        left._data._setval_py(branches=[(None, low_key, immd)],dt=dt, trace=trace)
+        left._data._setval_py([(None, low_key, immd)], need_merge=True, dt=dt, trace=trace)
     
     
     

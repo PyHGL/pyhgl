@@ -53,6 +53,10 @@ def relative_path(path: str, level: int = 1, check_exist: bool = False) -> str:
         assert os.path.exists(ret) 
     return re.sub(r'\\', '/', ret) 
 
+def caller_filename(level: int = 1):
+    ret = inspect.stack()[level+1].filename
+    return re.sub(r'\\', '/', ret) 
+
 
 def run_python(cmd: str):
     python = sys.executable

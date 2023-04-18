@@ -27,7 +27,7 @@ def make_doc():
         import linkify_it as _ 
         import sphinx_multiversion as _
     except:
-        raise Exception('python -m pip install -U sphinx, sphinx_multiversion, myst_parser, linkify-it-py')
+        raise Exception('python -m pip install -U sphinx, sphinx_rtd_theme, sphinx_multiversion, myst_parser, linkify-it-py')
     
     source = utils.relative_path('../documents', check_exist=True)
     target = utils.relative_path('../docs', check_exist=True)

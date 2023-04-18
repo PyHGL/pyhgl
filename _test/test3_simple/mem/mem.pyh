@@ -1,0 +1,59 @@
+from pyhgl.logic import * 
+from pyhgl.tester import * 
+
+
+@module memory(N):
+    w_en = UInt('0')        @ Input 
+    w_addr = UInt('8:b0')   @ Input 
+    w_data1 = UInt('8:b0')  @ Input 
+    w_data2 = UInt('8:b0')  @ Input 
+    r_addr = UInt('8:b0')   @ Input
+    r_mem = UInt('8:b0')    @ Output 
+    r_rom = UInt('8:b0')    @ Output
+
+    mem_t = MemArray[N,8]
+    mem = Reg(mem_t(0), reset=None)
+    rom = mem_t(i for i in range(N))
+
+    when w_en:
+        mem[w_addr] <== w_data1 
+    
+    r_mem <== mem[r_addr]
+    r_rom <== rom[r_addr]
+    
+
+
+@task task1(self, dut):
+    setv(dut.w_en,1)
+    setv(dut.w_addr, 2)
+    setv(dut.w_data1, 3)
+    yield 100 
+    setv(dut.w_en, 0)
+    
+
+
+@tester test_mem(self):
+    sess = Session()
+    sess.enter()
+    
+    dut = memory(100)
+    sess.track(dut)
+    sess.add_task(task1(dut))
+    sess.run(1000)
+
+
+
+    @blackbox testbench(builder):
+        builder.append('initial begin\n$dumpfile("mem_iverilog.vcd");$dumpvars(0);') 
+        builder.append('$finish;\nend')
+    sess.dumpVCD('mem.vcd')
+    sess.dumpGraph('mem.gv') 
+    sess.dumpVerilog('mem.sv', delay=True, top=True)
+    sess.test_iverilog()
+    print(sess)
+    sess.exit()
+
+
+
+
+

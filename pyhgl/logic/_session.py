@@ -65,7 +65,10 @@ class Session(HGL):
         self.verbose_trace      = verbose_trace
         self.enable_assert = False 
         self.backend = backend 
-        self.build_dir = tester_utils.relative_path(build_dir, 2)
+        self.build_dir = tester_utils.relative_path(build_dir, 2) 
+        # caller's filename
+        self.filename = tester_utils.caller_filename() 
+        print(tester_utils._green(tester_utils._fill_terminal(f' {self.filename} ', '─')))
 
         self._intend = 0    
         self._prev_sess = []
@@ -93,27 +96,28 @@ class Session(HGL):
             # a dummy module before the real toplevel module 
             m = object.__new__(module_hgl.Module) 
             m.__head__()  
+            m._conf = type("Conf_Global", (config.ModuleConf,), {})
             self.module = m 
-            m.dispatcher = default_dispatcher.copy # default dispatcher
-            
+
+            m._conf.dispatcher = default_dispatcher.copy # default dispatcher
+
             if conf is None:
                 conf_ret = ({},{})       # parameter, subconfig
             else: 
                 conf_ret = conf.exec()
 
-            self.timing.update({})      # default timescale 
+            # update timing, default timescale
+            self.timing.update({})       
             
             new_paras: Dict[str, Any] = conf_ret[0]
             subconfigs: Dict[config.HGLConf, None] = conf_ret[1]
-            # default clock and reset
-            # clock: (clk, 0|1)  reset: (rst, 0|1)  
-            if self.module.clock is None:
-                self.module.clock = (hgl_core.Clock(), 1)  
-            if self.module.reset is None:
-                self.module.reset = (hgl_core.Wire(hgl_core.UInt(0, name='reset')), 1)  
 
-            self.module._subconfigs.update(subconfigs)        
-            self.module._conf = type("Conf_Global", (config.ModuleConf,), new_paras)
+            self.module._subconfigs.update(subconfigs)  
+            for k,v in new_paras.items():
+                setattr(self.module._conf, k, v)
+            # generate default clk & rst
+            config.conf.clock
+            config.conf.reset
 
     
     def _new_module(self, m: module_hgl.Module) -> List[module_hgl.Module]:
@@ -243,6 +247,14 @@ class Session(HGL):
         for g in args:
             assert inspect.isgenerator(g)
             self.sim_py.insert_coroutine_event(0, g) 
+        self.exit() 
+
+    def add_task(self, *args: simulator_py._Task):
+        self.enter()
+        for i in args:
+            assert isinstance(i, simulator_py._Task) and i.args is not None, 'uninitialized task'
+            i._init(father=self)
+            self.sim_py.insert_coroutine_event(0, iter(i))
         self.exit()
 
     def test_iverilog(self):

@@ -97,7 +97,7 @@ def read_fifo(dut):
             yield from clk
 
 
-@tester test_fifo:
+@tester test_fifo(self):
     sess = Session(timing=Timing())
     sess.enter()
 
@@ -114,7 +114,7 @@ def read_fifo(dut):
     sess.run(N * 100) 
 
     for i, o in zip(write_data, read_data):
-        tester.EQ += i, o
+        self.EQ += i, o
 
 
     @inline_verilog Verilog(self):

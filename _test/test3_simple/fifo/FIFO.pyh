@@ -98,7 +98,7 @@ def read_fifo(dut):
             yield from clk
 
 
-@tester test_fifo:
+@tester test_fifo(self):
     sess = Session(Global())
     sess.enter()
 
@@ -115,7 +115,7 @@ def read_fifo(dut):
     sess.run(N * 100) 
 
     for i, o in zip(write_data, read_data):
-        tester.EQ += i, o
+        self.EQ += i, o
 
 
     @blackbox testbench(builder):

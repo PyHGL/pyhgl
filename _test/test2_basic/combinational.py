@@ -10,30 +10,29 @@ sess.enter()
 
 
 @tester 
-def test_logic():
+def test_logic(self):
     x = Logic('0011xx')
     y = Logic('1x0x10')
     
-    tester.EQ += x & y, '000xx0'
-    tester.EQ += x | y, '1x111x'
-    tester.EQ += x ^ y, '1x1xxx'
-    tester.EQ += ~x, Logic('1100xx') | Logic(~0b111111) 
+    self.EQ += x & y, '000xx0'
+    self.EQ += x | y, '1x111x'
+    self.EQ += x ^ y, '1x1xxx'
+    self.EQ += ~x, Logic('1100xx') | Logic(~0b111111) 
 
 
 @tester
-def test_single_input():
+def test_single_input(self):
     a = UInt(0, w=6, name='a') 
     b = UInt('11xx00', name='b')
     result_not = Not(a, name='result_not') 
     result_and: Reader = And(b, name='result_and') 
-    print(result_and._data.writer._driver.trace)
     sess.run(10)
     for _ in range(10):
         a_in = setx(a)
         b_in = setx(b)
         sess.run(10)
-        tester.EQ += getv(result_not), (~a_in) & Logic('111111')
-        tester.EQ += getv(result_and), b_in
+        self.EQ += getv(result_not), (~a_in) & Logic('111111')
+        self.EQ += getv(result_and), b_in
 
 
 # sess.dumpGraph()
@@ -44,7 +43,7 @@ def test_single_input():
 
 
 @tester
-def test_boolean_shift_cmp_arith():
+def test_boolean_shift_cmp_arith(self):
     # 4 input signals
     inputs = Array(UInt[5](0, name=f'input_{i}') for i in range(4))
     # bitwise and/or/xor...
@@ -96,73 +95,73 @@ def test_boolean_shift_cmp_arith():
         mask = Logic(0b11111)
         sess.run(10)  
         
-        tester.EQ += getv(out_and), v[0] & v[1] & v[2] & v[3] 
-        tester.EQ += getv(out_nand), ~(v[0] & v[1] & v[2] & v[3]) & mask 
-        tester.EQ += getv(out_or), v[0] | v[1] | v[2] | v[3] 
-        tester.EQ += getv(out_nor), ~(v[0] | v[1] | v[2] | v[3]) & mask 
-        tester.EQ += getv(out_xor), v[0] ^ v[1] ^ v[2] ^ v[3]
-        tester.EQ += getv(out_nxor), ~(v[0] ^ v[1] ^ v[2] ^ v[3]) & mask 
+        self.EQ += getv(out_and), v[0] & v[1] & v[2] & v[3] 
+        self.EQ += getv(out_nand), ~(v[0] & v[1] & v[2] & v[3]) & mask 
+        self.EQ += getv(out_or), v[0] | v[1] | v[2] | v[3] 
+        self.EQ += getv(out_nor), ~(v[0] | v[1] | v[2] | v[3]) & mask 
+        self.EQ += getv(out_xor), v[0] ^ v[1] ^ v[2] ^ v[3]
+        self.EQ += getv(out_nxor), ~(v[0] ^ v[1] ^ v[2] ^ v[3]) & mask 
         
-        tester.EQ += list(getv(out_not)), [~i & mask for i in v]
-        tester.EQ += list(getv(out_andr)), [(i | ~mask)._andr() for i in v] 
-        tester.EQ += list(getv(out_orr)), [i._orr() for i in v] 
-        tester.EQ += list(getv(out_xorr)), [i._xorr() for i in v] 
+        self.EQ += list(getv(out_not)), [~i & mask for i in v]
+        self.EQ += list(getv(out_andr)), [(i | ~mask)._andr() for i in v] 
+        self.EQ += list(getv(out_orr)), [i._orr() for i in v] 
+        self.EQ += list(getv(out_xorr)), [i._xorr() for i in v] 
         
-        tester.EQ += getv(out_cat), (
+        self.EQ += getv(out_cat), (
             v[0] 
             | v[1] << Logic(5) 
             | v[2] << Logic(10) 
             | v[3] << Logic(15) 
         )
-        tester.EQ += list(getv(out_duplicated)), [
+        self.EQ += list(getv(out_duplicated)), [
             v[0],
             v[1] << Logic(5)  | v[1],
             v[2] << Logic(10) | v[2] << Logic(5)  | v[2],
             v[3] << Logic(15) | v[3] << Logic(10) | v[3] << Logic(5)  | v[3],
         ]
-        tester.EQ += getv(out_logicand), v[0]._orr() & v[1]._orr() & v[2]._orr() & v[3]._orr()
-        tester.EQ += getv(out_logicor), v[0]._orr() | v[1]._orr() | v[2]._orr() | v[3]._orr()
-        tester.EQ += getv(out_logicnot), [
+        self.EQ += getv(out_logicand), v[0]._orr() & v[1]._orr() & v[2]._orr() & v[3]._orr()
+        self.EQ += getv(out_logicor), v[0]._orr() | v[1]._orr() | v[2]._orr() | v[3]._orr()
+        self.EQ += getv(out_logicnot), [
             ~v[0]._orr() & Logic(1), 
             ~v[1]._orr() & Logic(1),
             ~v[2]._orr() & Logic(1),
             ~v[3]._orr() & Logic(1),
         ]
         
-        tester.EQ += list(getv(out_lshift)), [
+        self.EQ += list(getv(out_lshift)), [
             v[0] << Logic(1) & mask,
             v[1] << Logic(2) & mask,
             v[2] << Logic(3) & mask,
             v[3] << Logic(4) & mask,
         ]
-        tester.EQ += list(getv(out_rshift)), [
+        self.EQ += list(getv(out_rshift)), [
             v[0] >> Logic(1),
             v[1] >> Logic(2),
             v[2] >> Logic(3),
             v[3] >> Logic(4),
         ]
         
-        tester.EQ += getv(out_eq), v[0]._eq(v[1])  
-        tester.EQ += getv(out_ne), v[0]._ne(v[1]) 
-        tester.EQ += getv(out_lt), v[0]._lt(v[1]) 
-        tester.EQ += getv(out_le), v[0]._le(v[1])
-        tester.EQ += getv(out_gt), v[0]._gt(v[1])
-        tester.EQ += getv(out_ge), v[0]._ge(v[1])
+        self.EQ += getv(out_eq), v[0]._eq(v[1])  
+        self.EQ += getv(out_ne), v[0]._ne(v[1]) 
+        self.EQ += getv(out_lt), v[0]._lt(v[1]) 
+        self.EQ += getv(out_le), v[0]._le(v[1])
+        self.EQ += getv(out_gt), v[0]._gt(v[1])
+        self.EQ += getv(out_ge), v[0]._ge(v[1])
         
-        tester.EQ += list(getv(out_pos)), list(v)
-        tester.EQ += list(getv(out_neg)), [
+        self.EQ += list(getv(out_pos)), list(v)
+        self.EQ += list(getv(out_neg)), [
             -v[0] & mask,
             -v[1] & mask, 
             -v[2] & mask,
             -v[3] & mask
         ]
-        tester.EQ += getv(out_add), (v[0] + v[1] + v[2] + v[3]) & mask 
-        tester.EQ += getv(out_sub), (v[0] - v[1] - v[2] - v[3]) & mask 
-        tester.EQ += getv(out_mul), (v[0] * v[1] * v[2] * v[3]) & mask 
-        tester.EQ += getv(out_floordiv), (v[0] // v[1]) & mask
-        tester.EQ += getv(out_mod), (v[0] % v[1]) & mask
+        self.EQ += getv(out_add), (v[0] + v[1] + v[2] + v[3]) & mask 
+        self.EQ += getv(out_sub), (v[0] - v[1] - v[2] - v[3]) & mask 
+        self.EQ += getv(out_mul), (v[0] * v[1] * v[2] * v[3]) & mask 
+        self.EQ += getv(out_floordiv), (v[0] // v[1]) & mask
+        self.EQ += getv(out_mod), (v[0] % v[1]) & mask
 
-        tester.EQ += list(getv(out_sliced)), [
+        self.EQ += list(getv(out_sliced)), [
             v[0] >> Logic(2) & Logic(7),
             v[1] >> Logic(2) & Logic(7),
             v[2] >> Logic(2) & Logic(7),
@@ -175,7 +174,7 @@ def test_boolean_shift_cmp_arith():
             _out_mux = v[1]
         else:
             _out_mux = v[2]
-        tester.EQ += getv(out_mux), _out_mux
+        self.EQ += getv(out_mux), _out_mux
 
 
 sess.exit()

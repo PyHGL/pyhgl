@@ -47,51 +47,51 @@ def Nand(*args, **kwargs):
     """ args: Signal or Immd
     """
     args = (Signal(i) for i in args)
-    return HGL._sess.module.dispatcher.call('Nand', *args, **kwargs)  
+    return HGL._sess.module._conf.dispatcher.call('Nand', *args, **kwargs)  
 
 @vectorize_axis
 def Nor(*args, **kwargs):
     """ args: Signal or Immd
     """
     args = (Signal(i) for i in args)
-    return HGL._sess.module.dispatcher.call('Nor', *args, **kwargs) 
+    return HGL._sess.module._conf.dispatcher.call('Nor', *args, **kwargs) 
 
 @vectorize_axis
 def Nxor(*args, **kwargs):
     """ args: Signal or Immd
     """
     args = (Signal(i) for i in args)
-    return HGL._sess.module.dispatcher.call('Nxor', *args, **kwargs) 
+    return HGL._sess.module._conf.dispatcher.call('Nxor', *args, **kwargs) 
 
 @vectorize 
 def AndR(a, **kwargs):
     """ a: Signal or Immd
     """
-    return HGL._sess.module.dispatcher.call('AndR', Signal(a), **kwargs) 
+    return HGL._sess.module._conf.dispatcher.call('AndR', Signal(a), **kwargs) 
 
 @vectorize 
 def OrR(a, **kwargs):
     """ a: Signal or Immd
     """
-    return HGL._sess.module.dispatcher.call('OrR', Signal(a), **kwargs) 
+    return HGL._sess.module._conf.dispatcher.call('OrR', Signal(a), **kwargs) 
 
 @vectorize 
 def XorR(a, **kwargs):
     """ a: Signal or Immd
     """
-    return HGL._sess.module.dispatcher.call('XorR', Signal(a), **kwargs) 
+    return HGL._sess.module._conf.dispatcher.call('XorR', Signal(a), **kwargs) 
  
 @vectorize
 def AddFull(a, b, **kwargs):
     """ a: Signal, b: Signal or Immd 
     """
-    return HGL._sess.module.dispatcher.call('AddFull', Signal(a), Signal(b), **kwargs) 
+    return HGL._sess.module._conf.dispatcher.call('AddFull', Signal(a), Signal(b), **kwargs) 
 
 @vectorize
 def MulFull(a, b, **kwargs):
     """ a: Signal, b: Signal or Immd 
     """
-    return HGL._sess.module.dispatcher.call('MulFull', Signal(a), Signal(b), **kwargs) 
+    return HGL._sess.module._conf.dispatcher.call('MulFull', Signal(a), Signal(b), **kwargs) 
  
 
 #-------
@@ -103,13 +103,13 @@ def Bool(a, **kwargs):
 
     return a 1-bit uint signal, may not generate new gate
     """
-    return HGL._sess.module.dispatcher.call('Bool', Signal(a), **kwargs)
+    return HGL._sess.module._conf.dispatcher.call('Bool', Signal(a), **kwargs)
 # !a
 @vectorize 
 def LogicNot(a, **kwargs):
     """ a: Signal or Immd
     """
-    return HGL._sess.module.dispatcher.call('LogicNot', Signal(a), **kwargs)
+    return HGL._sess.module._conf.dispatcher.call('LogicNot', Signal(a), **kwargs)
 
 # a && b
 @vectorize_axis
@@ -117,7 +117,7 @@ def LogicAnd(*args, **kwargs):
     """ args: Signal or Immd
     """
     args = (Signal(i) for i in args)
-    return HGL._sess.module.dispatcher.call('LogicAnd', *args, **kwargs) 
+    return HGL._sess.module._conf.dispatcher.call('LogicAnd', *args, **kwargs) 
 
 
 # a || b
@@ -126,7 +126,7 @@ def LogicOr(*args, **kwargs):
     """ args: Signal or Immd
     """
     args = (Signal(i) for i in args)
-    return HGL._sess.module.dispatcher.call('LogicOr', *args, **kwargs) 
+    return HGL._sess.module._conf.dispatcher.call('LogicOr', *args, **kwargs) 
 
 
 #--------
@@ -137,13 +137,13 @@ def Cat(*args, **kwargs):
     """ args: Signal or Immd
     """
     args = (Signal(i) for i in args)
-    return HGL._sess.module.dispatcher.call('Cat', *args, **kwargs) 
+    return HGL._sess.module._conf.dispatcher.call('Cat', *args, **kwargs) 
     
 @vectorize_first 
 def Slice(x, **kwargs):
     """ x: Signal or Immd, key = ...
     """
-    return HGL._sess.module.dispatcher.call('Slice', Signal(x), **kwargs)
+    return HGL._sess.module._conf.dispatcher.call('Slice', Signal(x), **kwargs)
 
 #-----------
 # converting
@@ -152,7 +152,7 @@ def Slice(x, **kwargs):
 def Convert(a, b, **kwargs):
     """ a: Signal, b: SignalType
     """
-    return HGL._sess.module.dispatcher.call('Convert', a, b, **kwargs)
+    return HGL._sess.module._conf.dispatcher.call('Convert', a, b, **kwargs)
 
 
 #--------
@@ -160,35 +160,35 @@ def Convert(a, b, **kwargs):
 #-------- 
 @vectorize
 def Wire(x, **kwargs):
-    return HGL._sess.module.dispatcher.call('Wire', Signal(x), **kwargs) 
+    return HGL._sess.module._conf.dispatcher.call('Wire', Signal(x), **kwargs) 
 
 @vectorize
 def WireNext(x, **kwargs):
-    return HGL._sess.module.dispatcher.call('WireNext', Signal(x), **kwargs) 
+    return HGL._sess.module._conf.dispatcher.call('WireNext', Signal(x), **kwargs) 
 
 @vectorize
 def Reg(x, **kwargs):
-    return HGL._sess.module.dispatcher.call('Reg', Signal(x), **kwargs) 
+    return HGL._sess.module._conf.dispatcher.call('Reg', Signal(x), **kwargs) 
 
 @vectorize
 def RegNext(x, **kwargs):
-    return HGL._sess.module.dispatcher.call('RegNext', Signal(x), **kwargs) 
+    return HGL._sess.module._conf.dispatcher.call('RegNext', Signal(x), **kwargs) 
 
 @vectorize
 def Latch(x, **kwargs):
-    return HGL._sess.module.dispatcher.call('Latch', Signal(x), **kwargs) 
+    return HGL._sess.module._conf.dispatcher.call('Latch', Signal(x), **kwargs) 
 
 @vectorize
 def Wtri(x, **kwargs):
-    return HGL._sess.module.dispatcher.call('Wtri', Signal(x), **kwargs) 
+    return HGL._sess.module._conf.dispatcher.call('Wtri', Signal(x), **kwargs) 
 
 @vectorize
 def Wor(x, **kwargs):
-    return HGL._sess.module.dispatcher.call('Wor', Signal(x), **kwargs) 
+    return HGL._sess.module._conf.dispatcher.call('Wor', Signal(x), **kwargs) 
 
 @vectorize
 def Wand(x, **kwargs):
-    return HGL._sess.module.dispatcher.call('Wand', Signal(x), **kwargs) 
+    return HGL._sess.module._conf.dispatcher.call('Wand', Signal(x), **kwargs) 
 
 
 
@@ -203,7 +203,7 @@ class __hgl_logicnot__(HGL):
     """
     def __call__(self, a):
         if isinstance(a, HGLPattern):
-            return HGL._sess.module.dispatcher.call('Assert_Not', a)
+            return HGL._sess.module._conf.dispatcher.call('Assert_Not', a)
         else:
             return LogicNot(a)    
     
@@ -222,7 +222,7 @@ class __hgl_logicor__(HGL):
     """
     def __call__(self, a, b):
         if isinstance(a, HGLPattern) or isinstance(b, HGLPattern):
-            return HGL._sess.module.dispatcher.call('Assert_Or', a, b)
+            return HGL._sess.module._conf.dispatcher.call('Assert_Or', a, b)
         else:
             return LogicOr(a,b)     
     
