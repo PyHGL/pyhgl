@@ -103,7 +103,11 @@ class _Conf(HGL):
     
     @property 
     def m(self):
-        return self._sess.module
+        return self._sess.module 
+    
+    @property 
+    def t(self):
+        return self._sess.sim_py.t
 
     @property 
     def clock(self):  

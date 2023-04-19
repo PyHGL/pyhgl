@@ -50,6 +50,10 @@ import itertools
         C <== C_next 
         counter <== counter + 1
 
+    clk = conf.clock[0]
+    with AssertCtrl():
+        Assert(Rise(clk) >>> clk)
+
 
 
 @conf Global(clock_period):

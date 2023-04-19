@@ -76,7 +76,7 @@ AdderIO = lambda w: Bundle(
         adder1 = RippleCarry()
         adder2 = KoggeStone()
         sess.track(adder1.io, adder2.io)  
-        # sess.add_task(task3())
+        # sess.start(task3())
 
         test_data = []
         for i in range(100):

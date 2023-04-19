@@ -1,7 +1,7 @@
 import pyhgl
 from pyhgl.tester import tester
 
-
+# tester.filter('test_inout')
 
 from . import test0_grammar
 from . import test1_config

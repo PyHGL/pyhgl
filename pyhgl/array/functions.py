@@ -38,7 +38,10 @@ class HGLFunction(HGL):
     def __hgl_type__(self):
         return HGLFunction 
         
-
+def Assert(*args, **kwargs):
+    """ Assertion
+    """
+    return HGL._sess.module._conf.dispatcher.call('Assert', *args, **kwargs)
 #--------
 # bitwise
 #--------
@@ -191,7 +194,6 @@ def Wand(x, **kwargs):
     return HGL._sess.module._conf.dispatcher.call('Wand', Signal(x), **kwargs) 
 
 
-
 #-------------------------------- 
 # extended hgl operators: ! && ||  
 #-------------------------------- 
@@ -202,10 +204,7 @@ class __hgl_logicnot__(HGL):
     """ PyHGL operator ! 
     """
     def __call__(self, a):
-        if isinstance(a, HGLPattern):
-            return HGL._sess.module._conf.dispatcher.call('Assert_Not', a)
-        else:
-            return LogicNot(a)    
+        return LogicNot(a)    
     
     
 @singleton 
@@ -221,16 +220,31 @@ class __hgl_logicor__(HGL):
     """ PyHGL operator ||
     """
     def __call__(self, a, b):
-        if isinstance(a, HGLPattern) or isinstance(b, HGLPattern):
-            return HGL._sess.module._conf.dispatcher.call('Assert_Or', a, b)
-        else:
-            return LogicOr(a,b)     
+        return LogicOr(a,b)     
     
 
 @singleton 
+class __hgl_rshift__(HGL):
+    """ PyHGL operator >>>, unary op: >>> a; binary op: a >>> b
+    """
+    def __call__(self, *args): 
+        return HGL._sess.module._conf.dispatcher.call('Sequence', *args) 
+    
+@singleton 
+class __hgl_imply__(HGL):
+    """ PyHGL operator |->
+    """
+    def __call__(self, a, b):
+        return HGL._sess.module._conf.dispatcher.call('Imply', a, b) 
+
+
+
+@singleton 
 class __hgl_unit__(HGL):
-    """ unit: 1.2`m/s`
+    """ 
+    ex: 1.2`m/s`
+    f: lambda:m/s 
+    exec f and return a unit
     """
     def __call__(self, v, f: callable):
-        # f()
         pass

@@ -58,6 +58,8 @@ def str2logic(a: str) -> Tuple[int, int, int]:
         8.x:d1  - xxxx_xxx1 
         8.1     - 1111_1111 
         8.0:b11 - 0000_0011
+
+    TODO return negative value with width, don't cut off here
     """
     _a = a 
     a = _str_sub.sub('', a.lower())  

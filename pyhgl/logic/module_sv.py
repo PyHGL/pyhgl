@@ -95,17 +95,18 @@ class ModuleSV(HGL):
         # deal with inputs, outputs, inouts of module 
         up_module = self.module._position[-2]._module
         for i in self.inputs: 
-            if i._data.writer is None and i._data._module is None: 
+            if i._data._module is None: 
                 i._data._module = self.module._position[-2]  # input belongs to father
             self.get_name(i) 
         for o in self.outputs: 
-            if o._data.writer is None and o._data._module is None:
+            if o._data._module is None:
                 o._data._module = self.module
             self.get_name(o)
             up_module.get_name(o)
         for x in self.inouts:
             assert isinstance(x._data.writer._driver, hgl_core.Analog) 
             self.get_name(x)
+            up_module.get_name(x)
 
 
     def get_name( self, obj: Union[
@@ -124,15 +125,15 @@ class ModuleSV(HGL):
             return ret 
         # new name
         if isinstance(obj, hgl_core.SignalData): 
-            if obj._module is None:     # constant
+            if obj._module is None:                     # constant
                 ret = self._sv_immd(obj)
             else:
-                ret = self._new_name(obj, obj._name)  # assign a new name
-                obj._dump_sv(self)                          # will call get_name
+                ret = self._new_name(obj, obj._name)    # assign a new name
+                obj._dump_sv(self)                      # will call get_name
                 self._sess.verilog._solve_dependency(self.module, obj)
             return ret
         elif isinstance(obj, module_hgl.Module):
-            assert obj in self.module._submodules      # only submodule is allowed 
+            assert obj in self.module._submodules       # only submodule is allowed 
             ret = self._new_name(obj, obj._name)        # assign a new name
             return ret 
         elif isinstance(obj, (hgl_core.Logic, hgl_core.BitPat, int, gmpy2.mpz)): 
@@ -187,6 +188,7 @@ class ModuleSV(HGL):
 
         io: List[str] = [] 
         signals: List[str] = []
+
 
         for signaldata, T in self.signals.items():
             s = T.format(self.get_name(signaldata))
@@ -354,9 +356,8 @@ class Verilog(HGL):
         case2: Global.a.b.c, Global.a.b
         case3: Global.a.b.c1 Global.a.b.c2
         """
-
         if isinstance(right, (hgl_core.Reader,hgl_core.Writer)):
-            right = right._data
+            right = right._data 
         # skip signals without position. regard as constant
         if right._module is None:
             return 
@@ -374,8 +375,8 @@ class Verilog(HGL):
             else:
                 break
 
-        # analog, pull out to global
-        if right.writer is not None and isinstance(right.writer, hgl_core.Analog):
+        # analog
+        if right.writer is not None and isinstance(right.writer._driver, hgl_core.Analog): 
             for m in left_pos[idx:]:
                 m._module.inouts_data[right] = None
             for m in right_pos[idx:]:

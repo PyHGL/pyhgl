@@ -17,6 +17,7 @@ from pyhgl.tester import *
 
     when w_en:
         mem[w_addr] <== w_data1 
+        mem[w_addr] <== w_data2
     
     r_mem <== mem[r_addr]
     r_rom <== rom[r_addr]
@@ -24,10 +25,19 @@ from pyhgl.tester import *
 
 
 @task task1(self, dut):
-    setv(dut.w_en,1)
-    setv(dut.w_addr, 2)
-    setv(dut.w_data1, 3)
-    yield 100 
+    for i in range(128):
+        setv(dut.w_en, 1)
+        setv(dut.w_addr, i)
+        setv(dut.w_data1, i+1) 
+        setv(dut.w_data2, i+2)
+        setv(dut.r_addr, i-1)
+        yield self.clock() 
+        if i == 0 or i > 100:
+            self.EQ += getv(dut.r_rom), Logic(0,0xff)
+            self.EQ += getv(dut.r_mem), Logic(0,0xff)
+        else:
+            self.EQ += getv(dut.r_rom), i-1
+            self.EQ += getv(dut.r_mem), i+1 
     setv(dut.w_en, 0)
     
 
@@ -38,9 +48,8 @@ from pyhgl.tester import *
     
     dut = memory(100)
     sess.track(dut)
-    sess.add_task(task1(dut))
-    sess.run(1000)
-
+    sess.start(task1(dut))
+    sess.run(12000)
 
 
     @blackbox testbench(builder):

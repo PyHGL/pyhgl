@@ -249,7 +249,7 @@ class Session(HGL):
             self.sim_py.insert_coroutine_event(0, g) 
         self.exit() 
 
-    def add_task(self, *args: simulator_py._Task):
+    def start(self, *args: simulator_py._Task):
         self.enter()
         for i in args:
             assert isinstance(i, simulator_py._Task) and i.args is not None, 'uninitialized task'

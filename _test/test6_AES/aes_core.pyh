@@ -271,6 +271,11 @@ def addroundkey(data, rkey): return data ^ rkey
                 ready_reg, result_valid_reg <== 1 
                 state <== 'CTRL_IDLE'
 
+    with AssertCtrl():
+        # def f():
+        #     print(f'state: {state} t:{conf.t}')
+        #     return True
+        Assert(Rise(io.init) |-> 1 >>> state == 1)
 
 @module aes_key_mem:
     io = Bundle(
@@ -460,7 +465,7 @@ def addroundkey(data, rkey): return data ^ rkey
     sess.dumpVerilog('AES.sv', delay=True, top = False) 
 
     sess.track(dut, dut.dec_block, dut.keymem, dut.enc_block) 
-    sess.add_task(tests())
+    sess.start(tests())
     sess.run(200000)
  
     print(sess)

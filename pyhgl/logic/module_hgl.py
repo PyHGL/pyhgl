@@ -269,7 +269,8 @@ class _Ports(HGLFunction):
         assert len(module._position) > 1, 'IO should be called inside a module'
 
         def make_io(x):
-            assert isinstance(x, hgl_core.Reader) 
+            assert isinstance(x, hgl_core.Reader)  
+            assert x._direction == 'inner'
             x._direction = self.direction
             if x._direction == 'input':
                 assert x._data.writer is None  
@@ -278,8 +279,11 @@ class _Ports(HGLFunction):
             elif x._direction == 'output':
                 x._direction = 'output'  
                 module._module.outputs[x] = None 
-            elif x._direction == 'inout':
-                module._module.inouts[x] = None
+            elif x._direction == 'inout':  
+                # convert to tri state wire
+                if x._data._module is None:
+                    Wtri(x)
+                module._module.inouts[x] = None 
         Map(make_io, s) 
         return s
     

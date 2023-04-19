@@ -6,6 +6,7 @@ from .hgl_core import *
 from .module_hgl import *
 from .hgl_assign import *
 from .simulator_py import *
+from .hgl_assertion import *
 
 from .gate import * 
 from .signal import *

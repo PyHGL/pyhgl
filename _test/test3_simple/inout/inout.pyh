@@ -1,0 +1,68 @@
+from pyhgl.logic import * 
+from pyhgl.tester import * 
+
+
+@module sub:
+    en3 = UInt('0')     @ Input 
+    bus = UInt('8:b0')  @ InOut 
+
+    when en3:
+        bus <== UInt('8:hff')
+
+@module top:
+    bus = UInt('8:b0')      @ InOut 
+    data_in = UInt('8:b0')  @ Input
+    en1, en2, en3 = (0,0,0) @ Input 
+
+    when en1:
+        bus <== data_in
+    when en2:
+        bus <== '8:hf0' 
+
+    m = sub()
+    m.en3 <== en3 
+    m.bus <=> bus
+
+
+@task task1(self, dut):
+    yield 50 
+    setv(dut.en1, 1) 
+    setv(dut.data_in, '00110011')
+    yield 50 
+    self.EQ += getv(dut.bus), '00110011'
+    setv(dut.en1, 0)
+    setv(dut.en2, 1)
+    yield 50 
+    self.EQ += getv(dut.bus), '11110000'
+    setv(dut.en2, 0)
+    yield 50
+    self.EQ += getv(dut.bus), 'xxxxxxxx'
+    setv(dut.en3, 1)
+    yield 50
+    self.EQ += getv(dut.bus), '11111111'
+    
+
+
+@tester test_inout(self):
+    sess = Session()
+    sess.enter()
+    
+    dut = top()
+    sess.track(dut) 
+    # print(dut.bus._data.writer._driver.iports)
+    sess.start(task1(dut))
+    sess.run(12000)
+
+
+    @blackbox testbench(builder):
+        builder.append('initial begin\n$dumpfile("inout_iverilog.vcd");$dumpvars(0);') 
+        builder.append('$finish;\nend')
+    sess.dumpVCD('inout.vcd')
+    sess.dumpGraph('inout.gv') 
+    sess.dumpVerilog('inout.sv', delay=True, top=True)
+    sess.test_iverilog()
+    print(sess)
+    sess.exit()
+
+
+

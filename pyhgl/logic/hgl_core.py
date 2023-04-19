@@ -21,7 +21,6 @@
 from __future__ import annotations
 from typing import Any, Callable, Dict, Generator, List, Optional, Set, Tuple, Union, Iterable, Literal
 
-import bisect
 import gmpy2
 import random
 
@@ -30,7 +29,8 @@ import pyhgl.logic.module_hgl as module_hgl
 import pyhgl.logic._config as _config
 import pyhgl.logic.module_cpp as cpp
 import pyhgl.logic._session as _session  
-import pyhgl.logic.module_sv as sv
+import pyhgl.logic.module_sv as sv 
+import pyhgl.logic.simulator_py as simulator
 import pyhgl.logic.utils as utils
 
 
@@ -395,7 +395,7 @@ class SignalData(HGL):
 
     _sess: _session.Session
 
-    __slots__ = 'writer', 'reader', '_name', '_module', 'v', 'x', '_v', '_x'
+    __slots__ = 'v', 'x', '_v', '_x', 'writer', 'reader', '_name', '_module', 'tracker', 'events'
     
     def __init__(self, v: Union[int, gmpy2.mpz], x: Union[int, gmpy2.mpz]):  
         # value
@@ -413,6 +413,11 @@ class SignalData(HGL):
         self._name: str = 'temp'
         # position, None means constant value 
         self._module: Optional[module_hgl.Module] = None
+
+        # record history values
+        self.tracker: simulator.Tracker = None 
+        # record triggered coroutine events. also indicates sensitive
+        self.events: Optional[List[Generator]] = None
 
 
     def _update_py(self, new: Logic) -> bool:
@@ -895,6 +900,7 @@ class Writer(HGL):
         """ when deleting a gate
         """
         self._data.writer = None 
+        self._data._module = None
         self._data = None
         self._driver = None
         self._type = None
@@ -985,7 +991,7 @@ class Reader(HGL):
         # insert a wire behind the signal, make it assignable 
         if self._data.writer is None or not isinstance(self._data.writer._driver, Assignable):
             Wire(self)  
-        self._data.writer._driver.__partial_assign__(self,acitve_signals,cond_stacks,value,high_key)  
+        self._data.writer._driver.__partial_assign__(acitve_signals,cond_stacks,value,high_key)  
 
     def __getattr__(self, name: str) -> Any:
         """ 
@@ -1351,9 +1357,11 @@ class UIntType(LogicType):
             - signal <== immd 
             - signal == immd 
             - UInt(immd) 
-        return valid immd
-        Exception if v overflowed
-        """
+        return a logic value within bit length
+        sext for underflow
+        cut off for overflow
+        """ 
+        assert self._width
         if isinstance(v, str) and '?' in v:
             v = BitPat(v)  
         if isinstance(v, BitPat):
@@ -1365,15 +1373,14 @@ class UIntType(LogicType):
         elif isinstance(v, Logic):
             _v = v.v 
             _x = v.x 
-            _w = max(utils.width_infer(v.v), utils.width_infer(v.x))
+            # _w = max(utils.width_infer(v.v), utils.width_infer(v.x))
         else:
             _v = v
             _x = 0
-            _w = utils.width_infer(_v) 
+            # _w = utils.width_infer(_v) 
         # overflow not allowed
-        if self._width < _w or _v < 0 or _x < 0:
-            raise Exception(f'value {v} overflow for {self}') 
-        return Logic(_v, _x)
+        mask = gmpy2.bit_mask(self._width)
+        return Logic(_v & mask, _x & mask)
 
     def __call__(
         self, 
@@ -2172,15 +2179,13 @@ class Assignable(Gate):
 
     def __partial_assign__(
         self, 
-        target: Reader,                     # target signal 
         acitve_signals: List[Reader],       # [None, signal, signal, ...]
         cond_stacks: List[hgl_assign.CaseGate],        
         value: Union[Reader, int, Any], 
         high_key: Optional[Tuple[Union[Reader, int],int]], 
     ) -> None: 
-        assert target._data.writer._driver is self
         # get simplified_key 
-        low_key ,T = target._type._slice(high_key) 
+        low_key ,T = self.output._type._slice(high_key) 
         # get valid immd
         if not isinstance(value, Reader):
             value = T._eval(value) 
@@ -2566,144 +2571,194 @@ class _Latch(Assignable):
     output: Writer 
     _netlist = 'logic'
     
-    def __head__(self, x: Reader, *, id: str = '', enable: Tuple[Reader, int] = None) -> Reader:
-        """  
-            always_latch begin
-                if (enable) begin
-                    a_latch <= something;
-                end
-            end
-        """
-        self.id = id or self.id  
-        self.condtree = CondTreeNode(gate=self, is_analog=False, is_reg=False)
-        # enable signal, no trigger 
-        assert x._data.writer is None  
-        self.output = self.write(x)
+    def __head__(
+            self, 
+            x: Reader, 
+            *, 
+            id: str = '', 
+            enable: Tuple[Reader, int] = ...,
+            reset: Optional[Tuple[Reader, int]] = ...
+        ) -> Reader:
+        self.id = id or self.id
+        self.branches: List[Tuple[
+            Union[Reader, None], 
+            Union[None,Tuple],
+            Union[Reader, Logic]
+        ]] = []   
+        self.condtree = CondTreeNode()
+        # enable signal, level sensitive 
+        self.enable = self.read(enable[0])
+        self.enable_level = int(enable[1]) 
+        assert len(self.enable) == 1, 'not 1-bit signal'
+        assert self.enable_level in [0,1]
+
+        self.pos_rst: Reader = None
+        self.neg_rst: Reader = None
+        self.reset_value: Logic = x._data._getval_py()
+        # reset signal
+        if reset is ...:   reset = _config.conf.reset
+        if reset is None:
+            pass 
+        elif reset[1]:
+            self.pos_rst = self.read(reset[0])
+        else:
+            self.neg_rst = self.read(reset[0])
+
+        # has default output
+        assert x._data.writer is None, f'Signal {x} already has driver'  
+        self.output = self.write(x)  
+        self.branches.append((None, None, x._data._getval_py())) 
+        self.condtree.insert([], None, x._data._getval_py())
         return x 
         
 
-    def forward(self):
-        assignments: List[_Assignment] = [] 
-        self.condtree.eval(assignments)
-
-        assignments: List[_Assignment] = [] 
-        self.condtree.eval(assignments)
-
-        if len(assignments) == 0:
-            return 
-        elif len(assignments) == 1:
-            key, value = assignments[0].eval()
-            self.output._setval_py(value, self.delay, key)  
-        else:
-            _data = self.output._data.copy()
-            _type = self.output._type
-            for assignment in reversed(assignments):
-                key, value = assignment.eval()
-                _type._setval_py(_data, key, value) 
-            value = _type._getval_py(_data, None) 
-            self.output._setval_py(value, self.delay, None)      
+    def forward(self): 
+        if (rst:=self.pos_rst) is not None: 
+            if rst._data._getval_py() == Logic(1,0):
+                self.output._data._setval_py(self.reset_value, dt = self.delay, trace=self) 
+                return
+        if (rst:=self.neg_rst) is not None:
+            if rst._data._getval_py() == Logic(0,0):
+                self.output._data._setval_py(self.reset_value, dt = self.delay, trace=self) 
+                return 
+        
+        if self.enable._data._getval_py() == self.enable_level:
+            if len(self.branches) == 1:
+                data = self.branches[-1][-1]  
+                if isinstance(data, Reader):
+                    data = data._data._getval_py()
+                self.output._data._setval_py(data, dt = self.delay, trace=self)
+            else:
+                self.output._data._setval_py(self.branches, need_merge=True, dt=self.delay, trace=self)
 
                 
-    def dump_sv(self, v: sv.Verilog) -> str:
-        body = self.condtree.dumpVerilog('=') 
-        body = '  ' + '  '.join(body.splitlines(keepends=True))
-        return '\n'.join(['always_latch begin', body , 'end'])
+    def dump_sv(self, builder: sv.ModuleSV):
+        """  
+        always_latch begin 
+            if (reset) out = init;
+            else if (enable) begin
+                latch = a;
+                latch = b;
+                ...
+            end
+        end
+        """
+        enable = builder.get_name(self.enable) 
+        if self.enable_level == 0: 
+            enable = f'!{enable}' 
+        has_reset = False
+        if (rst:=self.pos_rst) is not None: 
+            reset = builder.get_name(rst)
+            has_reset = True 
+        elif (rst:=self.neg_rst) is not None:
+            reset = f'!{builder.get_name(rst)}'
+            has_reset = True   
+        body = self.condtree._dump_sv(self.output, builder=builder, op='=')
+        body = '    ' + '    '.join(body.splitlines(keepends=True))
+        if has_reset:
+            left, right = self.output._data._dump_sv_assign(None, self.reset_value, builder=builder)
+            body = f'  if ({reset}) {left} = {right}; else if ({enable}) begin\n{body}\n  end'
+        else:
+            body = f'  if ({enable}) begin\n{body}\n  end' 
+
+        ret = '\n'.join(['always_latch begin', body , 'end'])
+        builder.Block(self, ret)
 
 
     def __str__(self):
-        return f'Latch{{{self.output}}}'
+        return f'Latch(name={self.output._data._name})'
 
 
 
-class Mem(Assignable):
+# class Mem(Assignable):
 
-    id = 'Mem'          
-    delay: int          
-    condtree: CondTreeNode 
-    _netlist = 'logic'   
-    _sess: _session.Session 
+#     id = 'Mem'          
+#     delay: int          
+#     condtree: CondTreeNode 
+#     _netlist = 'logic'   
+#     _sess: _session.Session 
 
-    def __head__(self, x: Reader, *, id: str='', clock: Tuple[Reader, int] = ...) -> Reader:
-        assert isinstance(x._type, MemType) and x._data.writer is None 
+#     def __head__(self, x: Reader, *, id: str='', clock: Tuple[Reader, int] = ...) -> Reader:
+#         assert isinstance(x._type, MemType) and x._data.writer is None 
 
-        self.id = id or self.id
-        self.condtree =  CondTreeNode(gate=self, is_analog=False, is_reg=True)
+#         self.id = id or self.id
+#         self.condtree =  CondTreeNode(gate=self, is_analog=False, is_reg=True)
 
-        self.posedge_clk: List[Reader, gmpy2.mpz] = []
-        self.negedge_clk: List[Reader, gmpy2.mpz] = [] 
+#         self.posedge_clk: List[Reader, gmpy2.mpz] = []
+#         self.negedge_clk: List[Reader, gmpy2.mpz] = [] 
 
-        if clock is ...:   clock = _config.conf.clock 
-        if clock[1]:
-            self.posedge_clk = [self.read(clock[0]), clock[0]._getval_py()] 
-        else:
-            self.negedge_clk = [self.read(clock[0]), clock[0]._getval_py()] 
+#         if clock is ...:   clock = _config.conf.clock 
+#         if clock[1]:
+#             self.posedge_clk = [self.read(clock[0]), clock[0]._getval_py()] 
+#         else:
+#             self.negedge_clk = [self.read(clock[0]), clock[0]._getval_py()] 
 
-        self.output = self.write(x)
-        return x 
+#         self.output = self.write(x)
+#         return x 
 
 
-    def __partial_assign__(
-        self, 
-        signal: Reader,
-        conds,
-        value: Union[Reader, int, Any], 
-        keys: Optional[Tuple[Union[Reader, int],int]], 
-    ) -> None: 
-        assert signal._data.writer._driver is self
-        # get simplified_key 
-        if type(keys) is SignalKey:
-            low_key, T = None, self.output._type
-        else:
-            low_key ,T = signal._type._slice(keys) 
-        # get valid immd
-        if not isinstance(value, Reader):
-            value = T._eval(value)
+#     def __partial_assign__(
+#         self, 
+#         signal: Reader,
+#         conds,
+#         value: Union[Reader, int, Any], 
+#         keys: Optional[Tuple[Union[Reader, int],int]], 
+#     ) -> None: 
+#         assert signal._data.writer._driver is self
+#         # get simplified_key 
+#         if type(keys) is SignalKey:
+#             low_key, T = None, self.output._type
+#         else:
+#             low_key ,T = signal._type._slice(keys) 
+#         # get valid immd
+#         if not isinstance(value, Reader):
+#             value = T._eval(value)
 
-        self.condtree.insert(conds, _Assignment(low_key, value, None)) 
+#         self.condtree.insert(conds, _Assignment(low_key, value, None)) 
 
-    def forward(self):
-        if s:=self.posedge_clk: 
-            clk, odd = s 
-            new = clk._getval_py()
-            s[1] = new 
-            if not (odd==0 and new != 0):
-                return    
-        if s:=self.negedge_clk:
-            clk, odd = s 
-            new = clk._getval_py() 
-            s[1] = new  
-            if not (odd != 0 and new == 0):
-                return  
+#     def forward(self):
+#         if s:=self.posedge_clk: 
+#             clk, odd = s 
+#             new = clk._getval_py()
+#             s[1] = new 
+#             if not (odd==0 and new != 0):
+#                 return    
+#         if s:=self.negedge_clk:
+#             clk, odd = s 
+#             new = clk._getval_py() 
+#             s[1] = new  
+#             if not (odd != 0 and new == 0):
+#                 return  
             
-        assignments: List[_Assignment] = []  
-        self.condtree.eval(assignments)   # 800ms   
-        if not assignments: 
-            return
-        # TODO simulation error if more than one assignments 
-        key, value = assignments[0].eval()
-        self.output._setval_py(value, self.delay, key) 
+#         assignments: List[_Assignment] = []  
+#         self.condtree.eval(assignments)   # 800ms   
+#         if not assignments: 
+#             return
+#         # TODO simulation error if more than one assignments 
+#         key, value = assignments[0].eval()
+#         self.output._setval_py(value, self.delay, key) 
             
     
-    def dumpVerilog(self, v: sv.Verilog) -> str: 
-        triggers = [] 
+#     def dumpVerilog(self, v: sv.Verilog) -> str: 
+#         triggers = [] 
             
-        if self.posedge_clk:
-            triggers.append(f'posedge {self.get_name(self.posedge_clk[0])}')
-        else:
-            triggers.append(f'negedge {self.get_name(self.negedge_clk[0])}')
-        triggers = ' or '.join(triggers)
+#         if self.posedge_clk:
+#             triggers.append(f'posedge {self.get_name(self.posedge_clk[0])}')
+#         else:
+#             triggers.append(f'negedge {self.get_name(self.negedge_clk[0])}')
+#         triggers = ' or '.join(triggers)
         
-        out = self.get_name(self.output)
-        body = self.condtree.dumpVerilog('<=')
-        body = '    ' + '    '.join(body.splitlines(keepends=True)) 
+#         out = self.get_name(self.output)
+#         body = self.condtree.dumpVerilog('<=')
+#         body = '    ' + '    '.join(body.splitlines(keepends=True)) 
 
-        return '\n'.join([
-            # FIXME modelsim error
-            # f'initial begin {out} = {self.reset_value}; end',
-            f'always_ff @({triggers}) begin',
-            body, 
-            'end'
-        ])
+#         return '\n'.join([
+#             # FIXME modelsim error
+#             # f'initial begin {out} = {self.reset_value}; end',
+#             f'always_ff @({triggers}) begin',
+#             body, 
+#             'end'
+#         ])
             
 
 
@@ -2714,33 +2769,38 @@ class Analog(Assignable):
 
 class _WireTri(Analog):  
     
-    id = 'Wtri'         # id
-    delay: int          # timing
-    condtree: CondTreeNode 
-    output: Writer 
-    _netlist = 'logic'   # netlist type
+    id = 'Wtri'         # id 
+    _netlist = 'wire'
   
     def __head__(self, x: Reader, *, id: str) -> Reader: 
 
         self.id = id or self.id  
-        self.condtree = CondTreeNode(gate=self, is_analog=True, is_reg=False)
-        assert x._data.writer is None  
-
-        self.output = self.write(x)
-        # default pull up/down
-        self.default = x._getval_py()
+        assert x._data.writer is None and x._type._storage == 'packed' 
+        self.branches: List[Tuple[
+            Reader,                 # condition signal, 1-bit 
+            None,                   # no key is allowed
+            Union[Reader, Logic]    # value
+        ]] = []   
+        self.output = self.write(x) 
+        self.first_branch = (None, None, Logic(0, gmpy2.bit_mask(len(x))))
         return x 
         
-
     def __merge__(self, other: Assignable): 
         assert isinstance(other, _WireTri) and len(other.output._type) == len(self.output._type)
-        self.condtree.merge(other.condtree)   
-        other.output._exchange(self.output._data)   
-        other.delete()
+        # merge branches
+        for cond, key, value in other.branches:
+            self.read(cond)
+            if isinstance(value, Reader):
+                self.read(value)
+            self.branches.append((cond, key, value))
+        for reader in list(other.output._data.reader.keys()):
+            reader._exchange(self.output._data)
+        other._delete()
 
-    def delete(self): 
+    def _delete(self): 
         for i in self.iports:
             i._driven.pop(self)
+        # delete output
         for o in self.oports: 
             o._delete() 
         self.iports.clear()
@@ -2750,53 +2810,54 @@ class _WireTri(Analog):
 
     def __partial_assign__(
         self, 
-        signal: Reader,
-        conds: List,
+        acitve_signals: List[Reader],
+        cond_stacks: List[hgl_assign.CaseGate],        
         value: Union[Reader, int, Any], 
-        keys: Optional[Tuple[Union[Reader, int],int]], 
+        high_key: Optional[Tuple],
     ) -> None: 
         """ 
         TODO casted type bit-width mismatch
-        """ 
-        assert signal._data.writer._driver is self
-        # get simplified_key 
-        if type(keys) is SignalKey:
-            low_key, T = None, self.output._type
+        """  
+        assert len(cond_stacks) == 1, 'inout assign only valid in first `when` stmt'
+        cond = cond_stacks[0].inout_valid 
+        assert isinstance(cond, Reader), 'inout assign only valid in first `when` stmt'
+        self.read(cond) 
+        assert high_key is None, 'inout does not support partial/sliced assignment'
+        if isinstance(value, Reader):
+            self.read(value)
         else:
-            raise Exception('partial assign to analog wire is invalid')
-        # get valid immd
-        if not isinstance(value, Reader):
-            value = T._eval(value)
-
-        self.condtree.insert(conds, _Assignment(low_key, value, None)) 
+            value = self.output._type._eval(value)
+        self.branches.append((cond, None, value))
         
 
     def forward(self):
         """ simulation function 
         """
-        assignments: List[_Assignment] = [] 
-        self.condtree.eval(assignments)
-        # TODO simulating error for multiple assignment 
-        if not assignments:
-            self.output._setval_py(self.default, self.delay, None)
-        else:
-            key, value = assignments[0].eval()
-            self.output._setval_py(value, self.delay, key)  
-    
-    
-    def dumpVerilog(self, v) -> str: 
-        body = self.condtree.dumpVerilog('=')  
-        body = f"{self.get_name(self.output)} = 'z;\n{body}" 
-        body = '  ' + '  '.join(body.splitlines(keepends=True))
-        return '\n'.join(['always_comb begin', body , 'end'])
+        l = [self.first_branch, *self.branches]
+        self.output._data._setval_py(l, need_merge=True, dt=self.delay, trace=self)
+
+    def dump_cpp(self):
+        raise NotImplementedError(self)
+
+    def dump_sv(self, builder: sv.ModuleSV):
+        """
+        assign out = cond1 ? a : 'z;
+        assign out = cond2 ? b : 'z;
+        assign out = cond3 ? c : 'z;
+        """
+        # body = [self._sv_assignment(i, builder=builder) for i in self.branches] 
+        # body.insert(0, 'always_comb begin')
+        # body.append('end')
+        # builder.gates[self] = '\n'.join(body) 
+        ret = []
+        out = builder.get_name(self.output)
+        for cond, _, value in self.branches:
+            ret.append(f"assign {out} = {builder.get_name(cond)} ? {builder.get_name(value)} : 'z;")
+        ret = '\n'.join(ret)
+        builder.Block(self, ret)
             
-
-
-class _WireOr(Analog): ... 
-
-class _WireAnd(Analog): ...
-
-
+    def __str__(self):
+        return f'Tri(name={self.output._data._name})'
 
 
 @dispatch('Wire', Any)
@@ -2820,10 +2881,8 @@ def _regnext(x: Reader,  *, id = '', clock = ..., reset = ...) -> Reader:
 
 
 @dispatch('Latch', Any)
-def _latch(x: Reader, *, id: str = '') -> Reader:
-    return _Latch(x, id=id)
-
-
+def _latch(x: Reader, *, id: str = '', enable=...) -> Reader:
+    return _Latch(x, enable = enable, id=id)
 
 @dispatch('Wtri', Any)
 def _tri(x: Reader, id: str = '') -> Reader: 
@@ -2853,7 +2912,7 @@ class Clock(Gate):
 
     def forward(self): 
         if self._phase_flag:
-            self.clk_w._data._setval_py(Logic(1,0), dt=self.low+self.phase, trace=self) 
+            self.clk_w._data._setval_py(Logic(1,0), dt=self.low+self.phase-1, trace=self) 
             self._phase_flag = False
         else:
             odd: Logic = self.clk._data._getval_py() 
@@ -2863,8 +2922,7 @@ class Clock(Gate):
                 self.clk_w._data._setval_py(Logic(1,0), dt=self.low, trace=self)
 
     def dump_cpp(self):
-        # TODO 
-        return super().dump_cpp()
+        raise NotImplementedError()
     
     def dump_sv(self, builder: sv.ModuleSV) -> None:
         clk = builder.get_name(self.clk)

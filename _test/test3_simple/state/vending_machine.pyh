@@ -55,7 +55,7 @@ import time
 
     dut = VendingMachine()
     sess.track(dut)
-    sess.add_task(task1(dut))
+    sess.start(task1(dut))
     sess.run(1000) 
 
 
