@@ -51,7 +51,7 @@ from pyhgl.tester import *
     sess.track(dut) 
     # print(dut.bus._data.writer._driver.iports)
     sess.join_none(task1(dut))
-    sess.run(12000)
+    sess.step(12000)
 
 
     @blackbox testbench(builder):

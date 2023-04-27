@@ -38,12 +38,12 @@ with Session() as sess:
     dut = TestReg() 
     sess.track(dut.x, dut.y, dut.a, dut.b, dut.m, dut.n)
 
-    sess.run(10)
+    sess.step(10)
 
     for _ in range(100):
         setv(dut.x, random.randint(0,15))
         setv(dut.y, random.randint(0,15))
-        sess.run(20)
+        sess.step(20)
 
 
 

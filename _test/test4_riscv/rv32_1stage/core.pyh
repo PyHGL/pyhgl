@@ -531,25 +531,25 @@ ffff0000
     with Session() as sess:
         dut = Memory((0,40), 32, test_dmem) 
         sess.track(dut.io, dut) 
-        sess.run(100)
+        sess.step(100)
 
         setv(dut.io.req.valid, 1)
         for i in range(10):
             setv(dut.io.req.op, 'Read')
             setv(dut.io.req.addr, i*4) 
-            sess.run(100) 
+            sess.step(100) 
 
         for i in range(10):
             setv(dut.io.req.op, 'Write') 
             setv(dut.io.req.mask, 'MT_W')
             setv(dut.io.req.data, i+2) 
             setv(dut.io.req.addr, i*4)
-            sess.run(400) 
+            sess.step(400) 
 
         for i in range(10):
             setv(dut.io.req.op, 'Read')
             setv(dut.io.req.addr, i*4) 
-            sess.run(100) 
+            sess.step(100) 
         sess.dumpVCD('build/mem.vcd')
 
 
@@ -561,7 +561,7 @@ ffff0000
 
         # print(dut.datapath.regfile._condtree)
         t = time.time()
-        sess.run(50*100)  
+        sess.step(50*100)  
         print('riscv pyhgl sim cost:', time.time()-t)
         sess.dumpVCD('build/core.vcd') 
 

@@ -31,17 +31,18 @@ def test_logic(self):
 @tester
 def test_single_input(self):
     with Session() as sess:
-        a = UInt(0, w=6, name='a') 
+        a = UInt('x1x011', name='a') 
         b = UInt('11xx00', name='b')
         result_not = Not(a, name='result_not') 
-        result_and: Reader = And(b, name='result_and') 
-        sess.run(10)
+        result_and = And(b, name='result_and') 
+        sess.step(10)
         for _ in range(10):
             a_in = setx(a)
             b_in = setx(b)
-            sess.run(10)
-            self.EQ += getv(result_not), (~a_in) & Logic('111111')
-            self.EQ += getv(result_and), b_in
+            sess.step(10) 
+            # print(a_in.to_bin(6), getv(result_not).to_bin(6))
+            self.AssertEq(getv(result_not), (~a_in) & Logic('111111'))
+            self.AssertEq(getv(result_and), b_in)
 
 
 sess = Session()
@@ -92,13 +93,13 @@ def test_boolean_shift_cmp_arith(self):
     # mux 
     out_mux = Mux(inputs[0], inputs[1], inputs[2])
     
-    sess.run(10)  
+    sess.step(10)  
     # tests
     for _ in range(100):
         
-        v = setx(inputs) 
+        v = setr(inputs) 
         mask = Logic(0b11111)
-        sess.run(10)  
+        sess.step(10)  
         
         self.EQ += getv(out_and), v[0] & v[1] & v[2] & v[3] 
         self.EQ += getv(out_nand), ~(v[0] & v[1] & v[2] & v[3]) & mask 

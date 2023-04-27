@@ -30,7 +30,7 @@ import random
 
             setv(Bundle(x,y,z), Bundle(x_,y_,z_))
 
-            sess.run(100)  
+            sess.step(100)  
 
             self.EQ += getv(out_eqx), (x_ & 3) == 3 
             self.EQ += getv(out_eqy), (y_ & 7) == 5 

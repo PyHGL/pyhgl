@@ -62,7 +62,7 @@ with Session() as sess:
         y = random.randint(0, mask)
         setv(dut.x, x) 
         setv(dut.y, y) 
-        sess.run(100) 
+        sess.step(100) 
         out = getv(dut.out)
         print(f'{x} + {y} = {out}\t{(x+y)&mask==out}') 
 

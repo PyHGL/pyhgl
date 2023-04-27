@@ -63,38 +63,60 @@ class _Lshift(Gate):
         ret: Reader = SInt[self.width](0, name=name) 
         self.output: Writer = self.write(ret)
         return ret
-    
-    def forward(self):
-        a: Logic = self.a._data._getval_py()
-        b: Logic = self.b 
-        mask = gmpy2.bit_mask(self.width)
-        if isinstance(b, Reader):
-            b = b._data._getval_py() 
-        if b.x:    # unknown
-            self.output._data._setval_py(Logic(0, mask), dt=self.delay, trace=self)
-        else: 
-            v = a.v 
-            x = a.x
-            if v[self.width-1]:   # 1... 
-                v = v | ~mask 
-            if x[self.width-1]:   # x...
-                x = x | ~mask
-            self.output._data._setval_py(
-                Logic(
-                    (v >> b.v) & mask,
-                    (x >> b.v) & mask,
-                ),
-                dt = self.delay, trace=self
-            )
 
-    def dump_cpp(self):
-        raise NotImplementedError(self)
+    def sim_init(self):
+        super().sim_init() 
+        self.sim_x_count -= 1000
+
+    def sim_vx(self):
+        delay = self.timing['delay']
+        mask = gmpy2.bit_mask(self.width)
+        target = self.output._data 
+        simulator = self._sess.sim_py  
+        a = self.a._data 
+        if isinstance(self.b, Reader):
+            b = self.b._data 
+        else:
+            b = self.b
+        while 1:
+            yield   
+            if b.x:
+                ret_v = gmpy2.mpz(0)
+                ret_x = mask 
+            else:
+                v = a.v 
+                x = a.x 
+                if v[self.width-1]: v = v | ~mask
+                if x[self.width-1]: x = x | ~mask
+                ret_v = (v >> b.v) & mask 
+                ret_x = (x >> b.v) & mask 
+
+            simulator.update_v(delay, target, ret_v) 
+            simulator.update_x(delay, target, ret_x)
+    
+    def sim_v(self):
+        delay = self.timing['delay']
+        mask = gmpy2.bit_mask(self.width)
+        mask_n = ~mask
+        msb_idx = self.width - 1
+        target = self.output._data 
+        simulator = self._sess.sim_py  
+        a = self.a._data 
+        if isinstance(self.b, Reader):
+            b = self.b._data 
+        else:
+            b = self.b
+        while 1:
+            yield     
+            v = a.v 
+            if v[msb_idx]: v = v | mask_n
+            simulator.update_v(delay, target, (v >> b.v) & mask) 
+
 
     def dump_sv(self, builder: sv.ModuleSV):
         x = f"$signed({builder.get_name(self.a)}) {self._op} {builder.get_name(self.b)}"
         y = builder.get_name(self.output) 
         builder.Assign(self, y, x, delay=self.delay) 
-    
     
 
 class _GateSigned2(Gate):
@@ -162,19 +184,64 @@ class _SMul(_GateSigned2):
 
     len(ret) = max(len(a), len(b)) 
     """
-    
-    def forward(self):
-        a: Logic = self.a._data._getval_py()
-        b: Logic = self.b._data._getval_py()
-        if a.x or b.x:
-            self.output._data._setval_py(Logic(0, gmpy2.bit_mask(self.width)), dt=self.delay, trace=self)
-        else:
-            a, b = self.to_signed(a,b) 
-            self.output._data._setval_py(
-                Logic( (a * b) & gmpy2.bit_mask(self.width), 0), 
-                dt=self.delay, trace=self
-            )
 
+
+    def sim_init(self):
+        super().sim_init() 
+        self.sim_x_count -= 1000
+
+    def sim_vx(self):
+        delay = self.timing['delay']
+        mask = gmpy2.bit_mask(self.width)
+        target = self.output._data 
+        simulator = self._sess.sim_py  
+        a = self.a._data 
+        if isinstance(self.b, Reader):
+            b = self.b._data 
+        else:
+            b = self.b 
+        signed_a = self.signed_a; msb_a = self.width_a - 1
+        signed_b = self.signed_b; msb_b = self.width_b - 1
+        mask_a_n = ~gmpy2.bit_mask(self.width_a)
+        mask_b_n = ~gmpy2.bit_mask(self.width_b)
+        while 1:
+            yield   
+            if a.x or b.x:
+                ret_v = gmpy2.mpz(0)
+                ret_x = mask 
+            else: 
+                _int_a = a.v 
+                _int_b = b.v
+                if signed_a and _int_a[msb_a]: _int_a = _int_a | mask_a_n 
+                if signed_b and _int_b[msb_b]: _int_b = _int_b | mask_b_n 
+                ret_v = (_int_a * _int_b) & mask 
+                ret_x = gmpy2.mpz(0)
+
+            simulator.update_v(delay, target, ret_v) 
+            simulator.update_x(delay, target, ret_x)
+    
+    def sim_v(self):
+        delay = self.timing['delay']
+        mask = gmpy2.bit_mask(self.width)
+        target = self.output._data 
+        simulator = self._sess.sim_py  
+        a = self.a._data 
+        if isinstance(self.b, Reader):
+            b = self.b._data 
+        else:
+            b = self.b 
+        signed_a = self.signed_a; msb_a = self.width_a - 1
+        signed_b = self.signed_b; msb_b = self.width_b - 1
+        mask_a_n = ~gmpy2.bit_mask(self.width_a)
+        mask_b_n = ~gmpy2.bit_mask(self.width_b)
+        while 1:
+            yield   
+            _int_a = a.v 
+            _int_b = b.v
+            if signed_a and _int_a[msb_a]: _int_a = _int_a | mask_a_n 
+            if signed_b and _int_b[msb_b]: _int_b = _int_b | mask_b_n 
+            ret_v = (_int_a * _int_b) & mask 
+            simulator.update_v(delay, target, ret_v) 
 
 def div_round_towards_zero(a: gmpy2.mpz, b: gmpy2.mpz) -> Tuple[gmpy2.mpz, gmpy2.mpz]:
     """ behavior of cpp, not python
@@ -194,18 +261,41 @@ class _SFloordiv(_GateSigned2):
     id = 'Floordiv'
     _op = '/'
 
-    def forward(self):
-        a: Logic = self.a._data._getval_py()
-        b: Logic = self.b._data._getval_py()
-        if a.x or b.x or b.v == 0:
-            self.output._data._setval_py(Logic(0, gmpy2.bit_mask(self.width)), dt=self.delay, trace=self)
+    def sim_init(self):
+        super().sim_init() 
+        self.sim_x_count += 1000    # may output unknown
+
+    def sim_vx(self):
+        delay = self.timing['delay']
+        mask = gmpy2.bit_mask(self.width)
+        target = self.output._data 
+        simulator = self._sess.sim_py  
+        a = self.a._data 
+        if isinstance(self.b, Reader):
+            b = self.b._data 
         else:
-            a, b = self.to_signed(a,b) 
-            q, r = div_round_towards_zero(a,b)
-            self.output._data._setval_py(
-                Logic( q & gmpy2.bit_mask(self.width), 0), 
-                dt=self.delay, trace=self
-            )
+            b = self.b 
+        signed_a = self.signed_a; msb_a = self.width_a - 1
+        signed_b = self.signed_b; msb_b = self.width_b - 1
+        mask_a_n = ~gmpy2.bit_mask(self.width_a)
+        mask_b_n = ~gmpy2.bit_mask(self.width_b)
+        while 1:
+            yield   
+            if a.x or b.x or b.v == 0:
+                ret_v = gmpy2.mpz(0)
+                ret_x = mask 
+            else: 
+                _int_a = a.v 
+                _int_b = b.v
+                if signed_a and _int_a[msb_a]: _int_a = _int_a | mask_a_n 
+                if signed_b and _int_b[msb_b]: _int_b = _int_b | mask_b_n 
+                q, r = div_round_towards_zero(_int_a, _int_b)
+                ret_v = q & mask 
+                ret_x = gmpy2.mpz(0)
+
+            simulator.update_v(delay, target, ret_v) 
+            simulator.update_x(delay, target, ret_x)
+    
 
     
 @dispatch('Mod', SIntType, SIntType) 
@@ -216,15 +306,37 @@ class _SMod(_GateSigned2):
     id = 'Mod'
     _op = '%'
     
-    def forward(self):
-        a: Logic = self.a._data._getval_py()
-        b: Logic = self.b._data._getval_py()
-        if a.x or b.x or b.v == 0:
-            self.output._data._setval_py(Logic(0, gmpy2.bit_mask(self.width)), dt=self.delay, trace=self)
+    def sim_init(self):
+        super().sim_init() 
+        self.sim_x_count += 1000    # may output unknown
+
+    def sim_vx(self):
+        delay = self.timing['delay']
+        mask = gmpy2.bit_mask(self.width)
+        target = self.output._data 
+        simulator = self._sess.sim_py  
+        a = self.a._data 
+        if isinstance(self.b, Reader):
+            b = self.b._data 
         else:
-            a, b = self.to_signed(a,b) 
-            q, r = div_round_towards_zero(a,b)
-            self.output._data._setval_py(
-                Logic( r & gmpy2.bit_mask(self.width), 0), 
-                dt=self.delay, trace=self
-            )
+            b = self.b 
+        signed_a = self.signed_a; msb_a = self.width_a - 1
+        signed_b = self.signed_b; msb_b = self.width_b - 1
+        mask_a_n = ~gmpy2.bit_mask(self.width_a)
+        mask_b_n = ~gmpy2.bit_mask(self.width_b)
+        while 1:
+            yield   
+            if a.x or b.x or b.v == 0:
+                ret_v = gmpy2.mpz(0)
+                ret_x = mask 
+            else: 
+                _int_a = a.v 
+                _int_b = b.v
+                if signed_a and _int_a[msb_a]: _int_a = _int_a | mask_a_n 
+                if signed_b and _int_b[msb_b]: _int_b = _int_b | mask_b_n 
+                q, r = div_round_towards_zero(_int_a, _int_b)
+                ret_v = r & mask 
+                ret_x = gmpy2.mpz(0)
+
+            simulator.update_v(delay, target, ret_v) 
+            simulator.update_x(delay, target, ret_x)

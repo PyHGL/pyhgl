@@ -76,7 +76,7 @@ import itertools
 
     dut = Divider(W)
     sess.track(dut.clock[0], dut, dut.io)
-    sess.run(10)
+    sess.step(10)
 
     random.seed(57)
     test_x = [random.randint(0,mask) for _ in range(N)]
@@ -102,7 +102,7 @@ import itertools
 
     sess.task(Task()) 
     t = time.time()
-    sess.run(clock_period * 2 * (W) * N) 
+    sess.step(clock_period * 2 * (W) * N) 
     print('pyhgl simulation cost:', time.time()-t)
 
     sess.dumpVCD('Divider.vcd')

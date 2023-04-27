@@ -229,21 +229,6 @@ class Session(HGL):
     def track(self, *args, **kwargs):
         self.waveform._track(*args, **kwargs)
         
-    def run(self, dt: Union[int, str]) -> None:
-        self.enter()
-        if isinstance(dt, str):
-            dt = self.timing._get_timestep(dt)
-        if self.backend == 'python':
-            if self.sim_py.t == 0:
-                self.sim_py.init() 
-            for _ in range(dt):
-                self.sim_py.step()
-        else:
-            if self.sim_cpp.dll is None:
-                self.sim_cpp.dump() 
-                self.sim_cpp.build()
-            self.sim_py.step_cpp(dt)
-        self.exit() 
         
     def task(self, *args):
         self.enter()
@@ -257,7 +242,7 @@ class Session(HGL):
         self.enter()
         if self.backend == 'python':
             if self.sim_py.t == 0:
-                self.sim_py.init()    # init simulator: trigger all gates
+                self.sim_py.init_py()    # init simulator: trigger all gates
             for _ in range(dt):
                 self.sim_py.step()    # n time step
         else:                         # TODO 
@@ -304,7 +289,6 @@ class Session(HGL):
 class _Logging:
     def __init__(self) -> None:
         self.warnings = []
-        self.n_exec_gates = 0
         
     def warning(self, msg: str, start: int = 3, end: int = 100):
         x = ['Traceback:\n', utils.format_hgl_stack(start, end)]
@@ -319,7 +303,7 @@ class _Logging:
         ...
         
     def __str__(self) -> str:
-        ret = [f'  n_exec_gates: {self.n_exec_gates}']
+        ret = [f'  n_exec_gates: {HGL._sess.sim_py.exec_times}']
         for i in self.warnings:
             ret.append('─────────────────────────────────────────────────')
             ret.append(str(i))

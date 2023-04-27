@@ -27,6 +27,7 @@ import pyhgl.logic.utils as utils
 from pyhgl.logic.hgl_assign import __hgl_when__, __hgl_elsewhen__, __hgl_partial_assign__
 
 
+# FIXME unknown immd is not allowed
 
 @dispatch('Eq', Any, Any) 
 class _Eq(Gate):
@@ -47,15 +48,81 @@ class _Eq(Gate):
             return ret
         else:  # BitPat or Logic
             self.left = self.read(left)
-            self.right = self.left._type._eval(right)
+            self.right: Union[BitPat, Logic] = self.left._type._eval(right)
             return ret
+
+    def sim_init(self):
+        super().sim_init() 
+        self.sim_x_count -= 1000
+
+    def sim_vx(self):
+        delay = self.timing['delay']
+        simulator = self._sess.sim_py   
+        target = self.output._data 
+        left = self.left._data 
+        if isinstance(self.right, Reader):
+            right = self.right._data  
+        else:
+            right = self.right
+        if isinstance(right, BitPat):
+            mask = ~right.x
+            while 1:
+                yield 
+                v1 = right.v 
+                v2 = left.v & mask 
+                x2 = left.x & mask 
+                if x2:
+                    if v1 & (~x2) == v2 & (~x2):  # bits without x
+                        out_v = gmpy2.mpz(0)
+                        out_x = gmpy2.mpz(1)
+                    else:
+                        out_v = gmpy2.mpz(0)
+                        out_x = gmpy2.mpz(0) 
+                else:
+                    out_v = gmpy2.mpz(v1==v2)
+                    out_x = gmpy2.mpz(0)
+                simulator.update_v(delay, target, out_v) 
+                simulator.update_x(delay, target, out_x)
+        else:
+            while 1:
+                yield 
+                v1, x1 = left.v, left.x 
+                v2, x2 = right.v, right.x 
+                if x1 or x2:
+                    x = ~(x1 | x2)
+                    if v1 & x == v2 & x:   # has x, rest eq
+                        out_v = gmpy2.mpz(0) 
+                        out_x = gmpy2.mpz(1)
+                    else:                 # rest not eq
+                        out_v = gmpy2.mpz(0) 
+                        out_x = gmpy2.mpz(0)
+                else:
+                    out_v = gmpy2.mpz(v1==v2)
+                    out_x = gmpy2.mpz(0)
+                simulator.update_v(delay, target, out_v) 
+                simulator.update_x(delay, target, out_x) 
+
     
-    def forward(self): 
-        left = self.left._data._getval_py()
-        right: Union[Logic, BitPat] = self.right 
-        if isinstance(right, Reader):
-            right = right._data._getval_py()
-        self.output._data._setval_py(right._eq(left), dt=self.delay, trace=self)
+    def sim_v(self):
+        delay = self.timing['delay']
+        simulator = self._sess.sim_py   
+        target = self.output._data 
+        left = self.left._data 
+        if isinstance(self.right, Reader):
+            right = self.right._data 
+        else:
+            right = self.right
+        if isinstance(right, BitPat):
+            mask = ~right.x
+            while 1:
+                yield 
+                out_v = gmpy2.mpz((left.v & mask) == right.v)
+                simulator.update_v(delay, target, out_v) 
+        else:
+            while 1:
+                yield 
+                out_v = gmpy2.mpz(left.v == right.v)
+                simulator.update_v(delay, target, out_v) 
 
 
     def dump_cpp(self):
@@ -80,18 +147,80 @@ class _Eq(Gate):
 class _Ne(_Eq):
     
     id = 'Ne'
-    
-    def forward(self): 
-        left = self.left._data._getval_py()
-        right: Union[Logic, BitPat] = self.right 
-        if isinstance(right, Reader):
-            right = right._data._getval_py() 
-        eq = right._eq(left) 
-        ne = Logic(not eq.v, eq.x)
-        self.output._data._setval_py(ne, dt=self.delay, trace=self)
 
-    def dump_cpp(self):
-        raise NotImplementedError(self)
+    def sim_init(self):
+        super().sim_init() 
+        self.sim_x_count -= 1000
+
+    def sim_vx(self):
+        delay = self.timing['delay']
+        simulator = self._sess.sim_py   
+        target = self.output._data 
+        left = self.left._data 
+        if isinstance(self.right, Reader):
+            right = self.right._data  
+        else:
+            right = self.right
+        if isinstance(right, BitPat):
+            mask = ~right.x
+            while 1:
+                yield 
+                v1 = right.v 
+                v2 = left.v & mask 
+                x2 = left.x & mask 
+                if x2:
+                    if v1 & (~x2) == v2 & (~x2):  # bits without x
+                        out_v = gmpy2.mpz(0)
+                        out_x = gmpy2.mpz(1)
+                    else:
+                        out_v = gmpy2.mpz(0)
+                        out_x = gmpy2.mpz(0) 
+                else:
+                    out_v = gmpy2.mpz(v1==v2)
+                    out_x = gmpy2.mpz(0) 
+                simulator.update_v(delay, target, gmpy2.mpz(1)-out_v) 
+                simulator.update_x(delay, target, out_x)
+        else:
+            while 1:
+                yield 
+                v1, x1 = left.v, left.x 
+                v2, x2 = right.v, right.x 
+                if x1 or x2:
+                    x = ~(x1 | x2)
+                    if v1 & x == v2 & x:   # has x, rest eq
+                        out_v = gmpy2.mpz(0) 
+                        out_x = gmpy2.mpz(1)
+                    else:                 # rest not eq
+                        out_v = gmpy2.mpz(0) 
+                        out_x = gmpy2.mpz(0)
+                else:
+                    out_v = gmpy2.mpz(v1==v2)
+                    out_x = gmpy2.mpz(0)
+                simulator.update_v(delay, target, gmpy2.mpz(1) - out_v) 
+                simulator.update_x(delay, target, out_x) 
+
+    
+    def sim_v(self):
+        delay = self.timing['delay']
+        simulator = self._sess.sim_py   
+        target = self.output._data 
+        left = self.left._data 
+        if isinstance(self.right, Reader):
+            right = self.right._data 
+        else:
+            right = self.right
+        if isinstance(right, BitPat):
+            mask = ~right.x
+            while 1:
+                yield 
+                out_v = gmpy2.mpz((left.v & mask) != right.v)
+                simulator.update_v(delay, target, out_v) 
+        else:
+            while 1:
+                yield 
+                out_v = gmpy2.mpz(left.v != right.v)
+                simulator.update_v(delay, target, out_v) 
+
 
     def dump_sv(self, builder: sv.ModuleSV):  
         left = builder.get_name(self.left)
@@ -123,23 +252,48 @@ class _Lt(Gate):
             return ret
         else:  
             self.left = self.read(left)
-            self.right = self.left._type._eval(right)
+            self.right: Logic = self.left._type._eval(right)
             assert not isinstance(self.right, BitPat)
             return ret
     
-    def forward(self): 
-        left: Logic = self.left._data._getval_py()
-        right: Logic = self.right 
-        if isinstance(right, Reader):
-            right = right._data._getval_py() 
-        
-        if left.x or right.x:
-            self.output._data._setval_py(Logic(0,1), dt=self.delay, trace=self)
-        else:
-            self.output._data._setval_py(Logic(left.v < right.v, 0), dt=self.delay, trace=self)
+    def sim_init(self):
+        super().sim_init() 
+        self.sim_x_count -= 1000
 
-    def dump_cpp(self):
-        raise NotImplementedError(self)
+    def sim_vx(self):
+        delay = self.timing['delay']
+        target = self.output._data 
+        simulator = self._sess.sim_py   
+        left = self.left._data 
+        if isinstance(self.right, Reader):
+            right = self.right._data  
+        else:
+            right = self.right
+        while 1:
+            yield    
+            if left.x or right.x:
+                out_v = gmpy2.mpz(0)
+                out_x = gmpy2.mpz(1)
+            else:
+                out_v = gmpy2.mpz(left.v < right.v)
+                out_x = gmpy2.mpz(0)
+
+            simulator.update_v(delay, target, out_v) 
+            simulator.update_x(delay, target, out_x)
+    
+    def sim_v(self):
+        delay = self.timing['delay']
+        target = self.output._data 
+        simulator = self._sess.sim_py   
+        left = self.left._data 
+        if isinstance(self.right, Reader):
+            right = self.right._data  
+        else:
+            right = self.right
+        while 1:
+            yield    
+            out_v = gmpy2.mpz(left.v < right.v)
+            simulator.update_v(delay, target, out_v) 
 
     def dump_sv(self, builder: sv.ModuleSV):  
         """ bitpat: x ==? 6'b1??1??
@@ -157,17 +311,46 @@ class _Gt(_Lt):
     id = 'Gt' 
     _op = '>'
     
-    def forward(self): 
-        left: Logic = self.left._data._getval_py()
-        right: Logic = self.right 
-        if isinstance(right, Reader):
-            right = right._data._getval_py() 
-        
-        if left.x or right.x:
-            self.output._data._setval_py(Logic(0,1), dt=self.delay, trace=self)
+    def sim_init(self):
+        super().sim_init() 
+        self.sim_x_count -= 1000
+
+    def sim_vx(self):
+        delay = self.timing['delay']
+        target = self.output._data 
+        simulator = self._sess.sim_py   
+        left = self.left._data 
+        if isinstance(self.right, Reader):
+            right = self.right._data  
         else:
-            self.output._data._setval_py(Logic(left.v > right.v, 0), dt=self.delay, trace=self)
-        
+            right = self.right
+        while 1:
+            yield    
+            if left.x or right.x:
+                out_v = gmpy2.mpz(0)
+                out_x = gmpy2.mpz(1)
+            else:
+                out_v = gmpy2.mpz(left.v > right.v)
+                out_x = gmpy2.mpz(0)
+
+            simulator.update_v(delay, target, out_v) 
+            simulator.update_x(delay, target, out_x)
+    
+    def sim_v(self):
+        delay = self.timing['delay']
+        target = self.output._data 
+        simulator = self._sess.sim_py   
+        left = self.left._data 
+        if isinstance(self.right, Reader):
+            right = self.right._data  
+        else:
+            right = self.right
+        while 1:
+            yield    
+            out_v = gmpy2.mpz(left.v > right.v)
+            simulator.update_v(delay, target, out_v) 
+
+
 
 @dispatch('Le', Any, Any) 
 class _Le(_Lt):
@@ -175,16 +358,44 @@ class _Le(_Lt):
     id = 'Le'
     _op = '<='
     
-    def forward(self): 
-        left: Logic = self.left._data._getval_py()
-        right: Logic = self.right 
-        if isinstance(right, Reader):
-            right = right._data._getval_py() 
-        
-        if left.x or right.x:
-            self.output._data._setval_py(Logic(0,1), dt=self.delay, trace=self)
+    def sim_init(self):
+        super().sim_init() 
+        self.sim_x_count -= 1000
+
+    def sim_vx(self):
+        delay = self.timing['delay']
+        target = self.output._data 
+        simulator = self._sess.sim_py   
+        left = self.left._data 
+        if isinstance(self.right, Reader):
+            right = self.right._data  
         else:
-            self.output._data._setval_py(Logic(left.v <= right.v, 0), dt=self.delay, trace=self)
+            right = self.right
+        while 1:
+            yield    
+            if left.x or right.x:
+                out_v = gmpy2.mpz(0)
+                out_x = gmpy2.mpz(1)
+            else:
+                out_v = gmpy2.mpz(left.v <= right.v)
+                out_x = gmpy2.mpz(0)
+
+            simulator.update_v(delay, target, out_v) 
+            simulator.update_x(delay, target, out_x)
+    
+    def sim_v(self):
+        delay = self.timing['delay']
+        target = self.output._data 
+        simulator = self._sess.sim_py   
+        left = self.left._data 
+        if isinstance(self.right, Reader):
+            right = self.right._data  
+        else:
+            right = self.right
+        while 1:
+            yield    
+            out_v = gmpy2.mpz(left.v <= right.v)
+            simulator.update_v(delay, target, out_v) 
 
 
 @dispatch('Ge', Any, Any) 
@@ -193,20 +404,47 @@ class _Ge(_Lt):
     id = 'Ge'
     _op = '>='
     
-    def forward(self): 
-        left: Logic = self.left._data._getval_py()
-        right: Logic = self.right 
-        if isinstance(right, Reader):
-            right = right._data._getval_py() 
-        
-        if left.x or right.x:
-            self.output._data._setval_py(Logic(0,1), dt=self.delay, trace=self)
+    def sim_init(self):
+        super().sim_init() 
+        self.sim_x_count -= 1000
+
+    def sim_vx(self):
+        delay = self.timing['delay']
+        target = self.output._data 
+        simulator = self._sess.sim_py   
+        left = self.left._data 
+        if isinstance(self.right, Reader):
+            right = self.right._data  
         else:
-            self.output._data._setval_py(Logic(left.v >= right.v, 0), dt=self.delay, trace=self)
+            right = self.right
+        while 1:
+            yield    
+            if left.x or right.x:
+                out_v = gmpy2.mpz(0)
+                out_x = gmpy2.mpz(1)
+            else:
+                out_v = gmpy2.mpz(left.v >= right.v)
+                out_x = gmpy2.mpz(0)
+
+            simulator.update_v(delay, target, out_v) 
+            simulator.update_x(delay, target, out_x)
+    
+    def sim_v(self):
+        delay = self.timing['delay']
+        target = self.output._data 
+        simulator = self._sess.sim_py   
+        left = self.left._data 
+        if isinstance(self.right, Reader):
+            right = self.right._data  
+        else:
+            right = self.right
+        while 1:
+            yield    
+            out_v = gmpy2.mpz(left.v >= right.v)
+            simulator.update_v(delay, target, out_v) 
 
 
-
-# TODO 
+# FIXME not use
 
 def MuxSel(sel: Reader, default: Any, table: dict) -> Any:
     """ ex. 

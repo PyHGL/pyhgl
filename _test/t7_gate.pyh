@@ -77,7 +77,7 @@ import random
 
 
         start = time.time()
-        sess.run(21000) 
+        sess.step(21000) 
         print(f'sim time: {time.time() - start} s' )
         print(f'sim mem : {process.memory_info().rss / 1024 / 1024} MB')
 

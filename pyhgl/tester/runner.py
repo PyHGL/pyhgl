@@ -88,8 +88,8 @@ class _TestTreeNode:
     def Assert(self, v: bool, *args):
         _AssertTrue(v, self) 
 
-    def AssertEq(self, a: Any, b:Any, *args):
-        _AssertEq((a,b), self)
+    def AssertEq(self, a: Any, b:Any, msg = ''):
+        _AssertEq((a,b), self, msg=msg)
 
 
 class EQ: 

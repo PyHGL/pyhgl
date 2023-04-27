@@ -58,7 +58,7 @@ AdderIO = lambda w: Bundle(
         for i in range(100):
             x1, y1 = setr(adder1.io[['x','y']])
             x2, y2 = setr(adder2.io[['x','y']]) 
-            sess.run(100)
+            sess.step(100)
             self.EQ += getv(adder1.io.out), x1+y1 
             self.EQ += getv(adder2.io.out), x2+y2 
         sess.dumpVCD('Adder.vcd') 

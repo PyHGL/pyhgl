@@ -109,10 +109,10 @@ def read_fifo(dut):
     sess.track(dut.io, dut)
     sess.task(write_fifo(dut), read_fifo(dut))
 
-    sess.run(100)
+    sess.step(100)
     setv(dut.io.r_rst_n, 1)
     setv(dut.io.w_rst_n, 1)
-    sess.run(N * 100) 
+    sess.step(N * 100) 
 
     for i, o in zip(write_data, read_data):
         self.EQ += i, o

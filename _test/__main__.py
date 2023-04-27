@@ -16,14 +16,14 @@ if f:=_locals.get('filter'):
     assert isinstance(f, str)
     tester.filter(f)
 
-from . import test0_grammar
-from . import test1_config
-from . import test2_basic
-from . import test3_simple 
-from . import test5_SRV32
-from . import test6_AES
-from . import test7_chisel_examples
-from . import test8_basic_simd
+from _test import test0_grammar
+from _test import test1_config
+from _test import test2_basic
+from _test import test3_simple 
+from _test import test5_SRV32
+from _test import test6_AES
+from _test import test7_chisel_examples
+from _test import test8_basic_simd
 # from . import test2_assign
 # from . import test3_async
 # from . import test4_riscv 

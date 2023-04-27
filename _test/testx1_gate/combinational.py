@@ -49,10 +49,10 @@ def test_single_input(self):
     result_and = And(a, b, name='result_and') 
     result_not = Not(a, name='result_not') 
     
-    sess.run(10)
+    sess.step(10)
     for _ in range(10):
         v = setx(a)
-        sess.run(10)
+        sess.step(10)
         print(a)
         self.EQ += getv(result_and), v & Logic('11xx00')
         self.EQ += getv(result_not), (~v) & Logic('111111')
@@ -113,13 +113,13 @@ def test_boolean_shift_cmp_arith(self):
     # mux 
     out_mux = Mux(inputs[0], inputs[1], inputs[2])
     
-    sess.run(10)  
+    sess.step(10)  
     # tests
     for n in range(100):
         
         v =  Array(random.randint(0,31) for _ in range(4)) 
         setv(inputs, v)
-        sess.run(10)  
+        sess.step(10)  
         
         self.EQ += getv(out_and), v[0] & v[1] & v[2] & v[3] 
         self.EQ += getv(out_nand), ~(v[0] & v[1] & v[2] & v[3]) & 31 

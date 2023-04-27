@@ -123,7 +123,11 @@ class CaseGate(hgl_core.Gate):
         self.active_signal = self.read(active_signal)
         # case items, ex. [((1x1,x00), branch_1), ((signal), branch_2), (None, branch_3)]
         self.branches: List[Tuple[ 
-            Union[Tuple, None],     # case item
+            Optional[Tuple[ 
+                hgl_core.Logic,
+                hgl_core.BitPat,
+                hgl_core.Reader,
+            ]],     # case item
             hgl_core.Reader,        # branch active signal
         ]] = []  
         # for inout type ,  cond signal | None
@@ -196,8 +200,13 @@ class CaseGate(hgl_core.Gate):
                     # does not support variable width 
                     assert i._type._storage == 'packed', 'case item must be fixed width'
                     items_valid.append(self.read(i)) 
-                else:
-                    items_valid.append(self.sel_signal._type._eval(i))
+                else: 
+                    val = self.sel_signal._type._eval(i)
+                    if isinstance(val, hgl_core.Logic):
+                        assert val.x == 0, 'unknown item is not allowed'
+                    else:
+                        assert isinstance(val, hgl_core.BitPat), f'value error: {val}'
+                    items_valid.append(val)
 
             ret = hgl_core.UInt[1](0, name='case_active') 
             self.branches.append((
@@ -206,41 +215,143 @@ class CaseGate(hgl_core.Gate):
             )) 
             return ret
 
-    def forward(self) -> None:  
+    def sim_init(self):
+        super().sim_init() 
+        self.sim_x_count -= 1000 
+
+    def sim_vx(self):
+        delay = self.timing['delay']
+        simulator = self._sess.sim_py  
+        if self.active_signal is None:
+            active_data = hgl_core.Logic(1,0)
+        else:
+            active_data = self.active_signal._data
+        sel_data = self.sel_signal._data
+        while 1:
+            yield  
+            active = hgl_core.Logic(active_data.v, active_data.x)
+            sel = hgl_core.Logic(sel_data.v, sel_data.x)
+            # disable all output
+            if active.v == 0 and active.x == 0:
+                for _, s in self.branches: 
+                    simulator.update_v(delay, s._data, gmpy2.mpz(0))
+                    simulator.update_x(delay, s._data, gmpy2.mpz(0))
+                continue   
+            # active == x or 1
+            branch_active: List[hgl_core.Logic] = [] 
+            already_matched = hgl_core.Logic(0,0)       # the default branch requires
+            for item, _ in self.branches: 
+                if item is None:
+                    curr_matched = ~ already_matched
+                else: 
+                    data = (i._data._getval_py() if isinstance(i, hgl_core.Reader) else i for i in item)
+                    data_bool = [i._eq(sel) for i in data]
+                    curr_matched = hgl_core.Logic(0,0)
+                    for i in data_bool:
+                        curr_matched = curr_matched | i  
+
+                if already_matched == hgl_core.Logic(0,0):   # no prev match
+                    already_matched = curr_matched  
+                elif already_matched == hgl_core.Logic(1,0): # has prev match
+                    curr_matched = hgl_core.Logic(0,0)       # no curr match
+                else:                                        # prev `x` match
+                    if curr_matched == hgl_core.Logic(1,0):  # curr does match
+                        already_matched = hgl_core.Logic(1,0)
+                branch_active.append(curr_matched & active)  # maybe meta match
+            
+            for data, (_, signal) in zip(branch_active, self.branches):
+                simulator.update_v(delay, signal._data, data.v)
+                simulator.update_x(delay, signal._data, data.x)
+    
+    def sim_v(self):
+        """ seek for first active branch, set others to zero
+        """
+        delay = self.timing['delay']
+        simulator = self._sess.sim_py  
         if self.active_signal is None:
             active = hgl_core.Logic(1,0)
         else:
-            active = self.active_signal._data._getval_py()
-        # disable all output
-        if active == hgl_core.Logic(0,0):
-            for _, s in self.branches:
-                s._data._setval_py(hgl_core.Logic(0,0), dt=self.delay, trace=self)
-            return   
-        # active == x or 1
-        sel: hgl_core.Logic = self.sel_signal._data._getval_py()
-        branch_active: List[hgl_core.Logic] = [] 
-        already_matched = hgl_core.Logic(0,0)       # the default branch requires
-        for item, _ in self.branches: 
-            if item is None:
-                curr_matched = ~ already_matched
-            else: 
-                data = (i._data._getval_py() if isinstance(i, hgl_core.Reader) else i for i in item)
-                data_bool = [i._eq(sel) for i in data]
-                curr_matched = hgl_core.Logic(0,0)
-                for i in data_bool:
-                    curr_matched = curr_matched | i  
+            active = self.active_signal._data
 
-            if already_matched == hgl_core.Logic(0,0):   # no prev match
-                already_matched = curr_matched  
-            elif already_matched == hgl_core.Logic(1,0): # has prev match
-                curr_matched = hgl_core.Logic(0,0)       # no curr match
-            else:                                        # prev `x` match
-                if curr_matched == hgl_core.Logic(1,0):  # curr does match
-                    already_matched = hgl_core.Logic(1,0)
-            branch_active.append(curr_matched & active)  # maybe meta match
+        sel = self.sel_signal._data                     # case selector
+        outputs: List[hgl_core.SignalData] = []         # output signals 
+        items: List[ 
+            Optional[List[Union[
+                hgl_core.Logic,
+                hgl_core.BitPat,
+                hgl_core.SignalData
+            ]]]
+        ] = []
+        for item, s in self.branches:
+            outputs.append(s._data)
+            if item is None:
+                items.append(item)
+            else:
+                items.append([i._data if isinstance(i, hgl_core.Reader) else i for i in item]) 
+        items.append(None)              # dummy element
+
+        while 1:
+            yield 
+            if active.v == 0:           # no branch should active
+                for data in outputs:
+                    simulator.update_v(delay, data, gmpy2.mpz(0))
+                continue
+
+            for i in range(len(items)):
+                item = items[i] 
+                if item is None:
+                    break 
+                for value in item:
+                    if isinstance(value, hgl_core.BitPat): 
+                        if (sel.v & (~value.x)) == value.v:
+                            break
+                    elif sel.v == value.v:
+                        break
+                else:
+                    continue 
+                break
+            
+            for j in range(len(outputs)):
+                if j == i:
+                    simulator.update_v(delay, outputs[j], gmpy2.mpz(1))
+                else:
+                    simulator.update_v(delay, outputs[j], gmpy2.mpz(0))
+
+    # def forward(self) -> None:  
+    #     if self.active_signal is None:
+    #         active = hgl_core.Logic(1,0)
+    #     else:
+    #         active = self.active_signal._data._getval_py()
+    #     # disable all output
+    #     if active == hgl_core.Logic(0,0):
+    #         for _, s in self.branches:
+    #             s._data._setval_py(hgl_core.Logic(0,0), dt=self.delay, trace=self)
+    #         return   
+    #     # active == x or 1
+    #     sel: hgl_core.Logic = self.sel_signal._data._getval_py()
+    #     branch_active: List[hgl_core.Logic] = [] 
+    #     already_matched = hgl_core.Logic(0,0)       # the default branch requires
+    #     for item, _ in self.branches: 
+    #         if item is None:
+    #             curr_matched = ~ already_matched
+    #         else: 
+    #             data = (i._data._getval_py() if isinstance(i, hgl_core.Reader) else i for i in item)
+    #             data_bool = [i._eq(sel) for i in data]
+    #             curr_matched = hgl_core.Logic(0,0)
+    #             for i in data_bool:
+    #                 curr_matched = curr_matched | i  
+
+    #         if already_matched == hgl_core.Logic(0,0):   # no prev match
+    #             already_matched = curr_matched  
+    #         elif already_matched == hgl_core.Logic(1,0): # has prev match
+    #             curr_matched = hgl_core.Logic(0,0)       # no curr match
+    #         else:                                        # prev `x` match
+    #             if curr_matched == hgl_core.Logic(1,0):  # curr does match
+    #                 already_matched = hgl_core.Logic(1,0)
+    #         branch_active.append(curr_matched & active)  # maybe meta match
         
-        for data, (_, signal) in zip(branch_active, self.branches):
-            signal._data._setval_py(data, dt=self.delay, trace=self)
+    #     for data, (_, signal) in zip(branch_active, self.branches):
+    #         signal._data._setval_py(data, dt=self.delay, trace=self)
     
 
     def dump_sv(self, builder: sv.ModuleSV): 

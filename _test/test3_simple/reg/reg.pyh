@@ -13,7 +13,6 @@ import random
     a <== x | y 
     b <== a & x
 
-
 with Session() as sess:
 
     dut = TestReg() 
@@ -29,19 +28,19 @@ with Session() as sess:
     #     >>> (lambda s: s['x'][0] & s['a'][0] == dut.b._getval())
     # )
     sess.track(dut.clock[0], dut.reset[0], dut.x, dut.y, dut.a, dut.b)
-    sess.run(10)
+    sess.step(10)
 
     for _ in range(50):
         setv(dut.x, random.randint(0,15))
         setv(dut.y, random.randint(0,15))
-        sess.run(30)
+        sess.step(30)
 
     setv(dut.reset[0], 1)
-    sess.run(100)
+    sess.step(100)
     setv(dut.reset[0], 0)
-    sess.run(100)
+    sess.step(100)
     setv(dut.reset[0], 1)
-    sess.run(100)
+    sess.step(100)
 
 
 sess.dumpVCD('./reg.vcd')

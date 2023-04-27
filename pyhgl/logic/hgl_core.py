@@ -483,19 +483,6 @@ class SignalData(HGL):
         self.tracker: simulator.Tracker = None 
         # record triggered coroutine events. also indicates sensitive
         self.events: Optional[List[Generator]] = None
-
-
-    def _update_py(self, new: Logic) -> bool:
-        """ only called by python simulator, return whether value changes or not
-
-        no overflow, no negative value 
-        """
-        if self.v == new.v and self.x == new.x:  
-            return False
-        else:
-            self.v = new.v 
-            self.x = new.x 
-            return True
         
     def _dump_sv(self, builder: sv.ModuleSV):
         """ dump declaration to builder. if necessary, also dump assignment/initial block
@@ -710,8 +697,10 @@ class LogicData(SignalData):
                             (new.v << start) & mask_curr,
                             (new.x << start) & mask_curr,
                         ) 
-                data = data._merge(unknown, mask_curr, new)
-        self._sess.sim_py.insert_signal_event(dt, self, data, trace) 
+                data = data._merge(unknown, mask_curr, new) 
+        self._sess.sim_py.insert_signal_event(dt, self, data.v, sel=0)
+        self._sess.sim_py.insert_signal_event(dt, self, data.x, sel=1)
+        # self._sess.sim_py.insert_signal_event(dt, self, data, sel=2) 
 
     def _getval_cpp(self, part: Literal['v', 'x']) -> List[cpp.TData]:
         """ dump cpp. return list of value & unknown
@@ -852,7 +841,7 @@ class MemData(SignalData):
         TODO unknown state
         """
         if not need_merge:
-            self._sess.sim_py.insert_signal_event(dt, self, value, trace)
+            data = value
         else: 
             data = Logic(0,0) 
             mask_data = gmpy2.bit_mask(self.shape[-1])
@@ -891,7 +880,9 @@ class MemData(SignalData):
                             (new.x << lshift) & mask_curr,
                         ) 
                 data = data._merge(False, mask_curr, new)
-            self._sess.sim_py.insert_signal_event(dt, self, data, trace)
+        self._sess.sim_py.insert_signal_event(dt, self, data.v, sel=0)
+        self._sess.sim_py.insert_signal_event(dt, self, data.x, sel=1)
+        # self._sess.sim_py.insert_signal_event(dt, self, data, sel=2)
             
                 
         
@@ -1944,13 +1935,12 @@ class Gate(HGL):
 
     _netlist: str = 'logic'   # verilog netlist type of output signal
 
-
     # number of unknown values of inputs 
     # if always need to calculate unknown output, set init > 0 
     """
     if (update_v):
         for i in v.driven:
-            changed_gates.append(i) 
+            changed_gates.append(i)
     elif (update_x):
         for i in x.driven:
             i.update_x_count()
@@ -1965,14 +1955,14 @@ class Gate(HGL):
             i.forward_v()
     """
      
-    sim_x_count: int = 0         # number of unknown values of input signals 
-    sim_x_changed: bool = False  # input unknown changed at current time slot 
-    sim_executed: bool = False   # already executed at current time slot 
+    sim_x_count: int            # number of unknown values of input signals 
+    sim_x_changed: bool         # input unknown changed at current time slot 
+    sim_waiting: bool           # need to execute at current time slot 
 
-    sim_forward_v: Generator = None  # only update v of outputs 
-    sim_forward_vx: Generator = None # update v & x of outputs
-    
+    sim_forward_v: Generator    # only update v of outputs 
+    sim_forward_vx: Generator   # update v & x of outputs
 
+    __slots__ = 'sim_x_count','sim_x_changed','sim_waiting','sim_forward_v','sim_forward_vx','__dict__'
     
     def __head__(self, *args, **kwargs) -> Union[Reader, Tuple[Reader]]:
         """ initializating,  return Signal or Tuple[Signal]
@@ -2012,8 +2002,8 @@ class Gate(HGL):
         self.iports = {}
         self.oports = {}
         self.sim_x_count = 0 
-        self.sim_x_changed = False 
-        self.sim_executed = False 
+        self.sim_x_changed = True 
+        self.sim_waiting = True 
         self.sim_forward_v = None 
         self.sim_forward_vx = None
         ret = self.__head__(*args, **kwargs)
@@ -2033,17 +2023,28 @@ class Gate(HGL):
     def sim_init(self) -> None:
         """ get timing, count x, set x_changed, init generator
         """
-        ... 
+        # get timing using self.id
+        self.timing = self._sess.timing.get(self.id) or self.timing 
+        # count x
+        for s in self.iports:
+            if s._data.x:
+                self.sim_x_count += 1 
+        self.sim_forward_v = self.sim_v(); next(self.sim_forward_v)
+        self.sim_forward_vx = self.sim_vx(); next(self.sim_forward_vx)
+        self.sim_x_count += 1000
+
 
     def sim_v(self):
-        ... 
-    def sim_vx(self):
-        ...
-    
-    def forward(self) -> None:
-        """ called by simulator when inputs changing or after init 
+        """ called by simulator 
         """
-        pass
+        while 1:
+            yield
+
+    def sim_vx(self):
+        while 1:
+            yield 
+            self.forward()
+    
 
     def dump_cpp(self):
         pass
@@ -2834,95 +2835,6 @@ class _Latch(Assignable):
 
 
 
-# class Mem(Assignable):
-
-#     id = 'Mem'          
-#     delay: int          
-#     condtree: CondTreeNode 
-#     _netlist = 'logic'   
-#     _sess: session.Session 
-
-#     def __head__(self, x: Reader, *, id: str='', clock: Tuple[Reader, int] = ...) -> Reader:
-#         assert isinstance(x._type, MemType) and x._data.writer is None 
-
-#         self.id = id or self.id
-#         self.condtree =  CondTreeNode(gate=self, is_analog=False, is_reg=True)
-
-#         self.posedge_clk: List[Reader, gmpy2.mpz] = []
-#         self.negedge_clk: List[Reader, gmpy2.mpz] = [] 
-
-#         if clock is ...:   clock = config.conf.clock 
-#         if clock[1]:
-#             self.posedge_clk = [self.read(clock[0]), clock[0]._getval_py()] 
-#         else:
-#             self.negedge_clk = [self.read(clock[0]), clock[0]._getval_py()] 
-
-#         self.output = self.write(x)
-#         return x 
-
-
-#     def __partial_assign__(
-#         self, 
-#         signal: Reader,
-#         conds,
-#         value: Union[Reader, int, Any], 
-#         keys: Optional[Tuple[Union[Reader, int],int]], 
-#     ) -> None: 
-#         assert signal._data.writer._driver is self
-#         # get simplified_key 
-#         if type(keys) is SignalKey:
-#             low_key, T = None, self.output._type
-#         else:
-#             low_key ,T = signal._type._slice(keys) 
-#         # get valid immd
-#         if not isinstance(value, Reader):
-#             value = T._eval(value)
-
-#         self.condtree.insert(conds, _Assignment(low_key, value, None)) 
-
-#     def forward(self):
-#         if s:=self.posedge_clk: 
-#             clk, odd = s 
-#             new = clk._getval_py()
-#             s[1] = new 
-#             if not (odd==0 and new != 0):
-#                 return    
-#         if s:=self.negedge_clk:
-#             clk, odd = s 
-#             new = clk._getval_py() 
-#             s[1] = new  
-#             if not (odd != 0 and new == 0):
-#                 return  
-            
-#         assignments: List[_Assignment] = []  
-#         self.condtree.eval(assignments)   # 800ms   
-#         if not assignments: 
-#             return
-#         # TODO simulation error if more than one assignments 
-#         key, value = assignments[0].eval()
-#         self.output._setval_py(value, self.delay, key) 
-            
-    
-#     def dumpVerilog(self, v: sv.Verilog) -> str: 
-#         triggers = [] 
-            
-#         if self.posedge_clk:
-#             triggers.append(f'posedge {self.get_name(self.posedge_clk[0])}')
-#         else:
-#             triggers.append(f'negedge {self.get_name(self.negedge_clk[0])}')
-#         triggers = ' or '.join(triggers)
-        
-#         out = self.get_name(self.output)
-#         body = self.condtree.dumpVerilog('<=')
-#         body = '    ' + '    '.join(body.splitlines(keepends=True)) 
-
-#         return '\n'.join([
-#             # FIXME modelsim error
-#             # f'initial begin {out} = {self.reset_value}; end',
-#             f'always_ff @({triggers}) begin',
-#             body, 
-#             'end'
-#         ])
             
 
 
@@ -3066,37 +2978,43 @@ class Clock(Gate):
         ret._data._name = id.lower()
         self.clk = self.read(ret)
         self.clk_w = self.write(ret)
-        # get timing
-        timing = self._sess.timing.get(self.id) or self.timing 
-        self.low: int = timing['low'] 
-        self.high: int = timing['high']
-        self.phase: int = timing['phase'] 
-        self._phase_flag: bool = True
         return ret
 
-    def forward(self): 
-        if self._phase_flag:
-            self.clk_w._data._setval_py(Logic(1,0), dt=self.low+self.phase-1, trace=self) 
-            self._phase_flag = False
-        else:
-            odd: Logic = self.clk._data._getval_py() 
-            if odd.v:  # 1 -> 0
-                self.clk_w._data._setval_py(Logic(0,0), dt=self.high, trace=self) 
-            else:    # 0 -> 1
-                self.clk_w._data._setval_py(Logic(1,0), dt=self.low, trace=self)
+
+    def sim_init(self):
+        super().sim_init() 
+        self.sim_x_count += 1000
+
+    def sim_vx(self):
+        low = self.timing['low']
+        high = self.timing['high']
+        phase = self.timing['phase'] 
+        clk = self.clk._data
+        simulator = self._sess.sim_py  
+        yield 
+        simulator.update_v(low+phase-1, clk, gmpy2.mpz(1))
+        while 1:
+            yield 
+            if clk.v:
+                simulator.update_v(high, clk, gmpy2.mpz(0))
+            else:
+                 simulator.update_v(low, clk, gmpy2.mpz(1))
+    
+    def sim_v(self): 
+        while 1:
+            yield
+
 
     def dump_cpp(self):
         raise NotImplementedError()
     
     def dump_sv(self, builder: sv.ModuleSV) -> None:
         clk = builder.get_name(self.clk)
-        builder.Task(self, f'always begin {clk} = 0; # {self.low}; {clk} = 1; # {self.high}; end')
+        low = self.timing['low']
+        high = self.timing['high']
+        builder.Task(self, f'always begin {clk} = 0; # {low}; {clk} = 1; # {high}; end')
     
-    def dumpVerilog(self, v: sv.Verilog) -> str: 
-        clk = self.get_name(self.clk) 
-        low = self.low
-        high = self.high
-        return f'always begin {clk} = 0; # {low}; {clk} = 1; # {high}; end'
+
 
 
 class ClockDomain(HGL):
@@ -3150,8 +3068,6 @@ class BlackBox(Gate):
     def append(self, *args: str):
         self.verilog.extend(args) 
         
-    def forward(self):
-        pass
     
     def dump_cpp(self):
         pass

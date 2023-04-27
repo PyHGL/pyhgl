@@ -9,7 +9,7 @@ import sys
     @conf RippleCarry:
         w = 5
     @conf KoggeStone:
-        w = 5
+        w = 16
 
 AdderIO = lambda w: Bundle(
     x   = UInt[w](0)    @ Input,
@@ -46,46 +46,21 @@ AdderIO = lambda w: Bundle(
     io.out <== Cat(0, *G) ^ P_odd
 
 
-@task task1(self):
-    yield 30 
-    print(self.t, 'task1')
-    self.EQ += 1,2 
-    
-@task task2(self):
-    yield 40 
-    print(self.t, 'task2')
-    self.EQ += 1,2 
-
-@task task3(self):
-    yield 10 
-    self.EQ += 1,2 
-    self.Assert(0)
-    self.Eq(3,4)
-    self.EQ += 5,5
-    print(self.t, 'task3')
-    yield self.join(task1(), task2()) 
-    print(self.t, 'finished') 
-    yield self.clock() 
-    print(self.t, 'clk1')
-    yield self.clock() 
-    print(self.t, 'clk2')
-
 @tester test_adder(self): 
     with Session(conf=Global(), verbose_sim=False) as sess: 
 
         adder1 = RippleCarry()
         adder2 = KoggeStone()
         sess.track(adder1.io, adder2.io)  
-        # sess.start(task3())
 
         test_data = []
         for i in range(100):
             x, y = setr(adder1.io[['x','y']]) 
             test_data.append((x,y))
             setv(adder2.io[['x','y']], (x,y))
-            sess.run(100)
-            self.EQ += getv(adder1.io.out), x + y 
-            self.EQ += getv(adder2.io.out), x + y
+            sess.step(100)
+            self.AssertEq(getv(adder1.io.out), x + y) 
+            self.AssertEq(getv(adder2.io.out), x + y)
         sess.dumpVCD('Adder.vcd') 
         sess.dumpGraph('Adder.gv')
         print(sess)

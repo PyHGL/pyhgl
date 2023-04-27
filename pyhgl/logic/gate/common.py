@@ -59,6 +59,7 @@ class _GateN(Gate):
         ret: Reader = UInt[self.width](0, name=name)
         self.output: Writer = self.write(ret)                               # write 
         return ret
+    
 
     def dump_cpp(self):
         raise NotImplementedError(self)
@@ -84,16 +85,31 @@ class _Not(_GateN):
     id = 'Not'
     _op = ('~', '')
 
-    def forward(self):
-        v: Logic = self.inputs[0]._data._getval_py()
-        mask = gmpy2.bit_mask(self.width) 
-        out = Logic(
-            (~v.v) & mask,
-            v.x,
-        )
-        self.output._data._setval_py(out, dt=self.delay, trace=self)
+    def sim_init(self):
+        super().sim_init() 
+        self.sim_x_count -= 1000
 
-
+    def sim_vx(self):
+        delay = self.timing['delay']
+        data = self.inputs[0]._data 
+        target = self.output._data 
+        mask = gmpy2.bit_mask(self.width)
+        simulator = self._sess.sim_py 
+        while 1:
+            yield 
+            simulator.update_v(delay, target, (~data.v) & mask) 
+            simulator.update_x(delay, target, data.x)
+    
+    def sim_v(self):
+        delay = self.timing['delay']
+        data = self.inputs[0]._data 
+        target = self.output._data 
+        mask = gmpy2.bit_mask(self.width)
+        simulator = self._sess.sim_py 
+        while 1:
+            yield 
+            simulator.update_v(delay, target, (~data.v) & mask) 
+            
     def dump_cpp(self) -> None:
         input_v: List[cpp.TData] = self.inputs[0]._data._getval_cpp('v') 
         input_x: List[cpp.TData] = self.inputs[0]._data._getval_cpp('x') 
@@ -115,11 +131,36 @@ class _And(_GateN):
     id = 'And'
     _op = ('', '&')
     
-    def forward(self): 
-        v = self.inputs[0]._data._getval_py()
-        for i in self.inputs[1:]:
-            v = v & i._data._getval_py() 
-        self.output._data._setval_py(v, dt=self.delay, trace=self)
+    def sim_init(self):
+        super().sim_init() 
+        self.sim_x_count -= 1000
+
+    def sim_vx(self):
+        delay = self.timing['delay']
+        first = self.inputs[0]._data  
+        rest = [i._data for i in self.inputs[1:]]
+        target = self.output._data 
+        simulator = self._sess.sim_py 
+        while 1:
+            yield  
+            v = first._getval_py()
+            for i in rest:
+                v = v & i._getval_py()
+            simulator.update_v(delay, target, v.v) 
+            simulator.update_x(delay, target, v.x)
+    
+    def sim_v(self):
+        delay = self.timing['delay']
+        first = self.inputs[0]._data  
+        rest = [i._data for i in self.inputs[1:]]
+        target = self.output._data 
+        simulator = self._sess.sim_py 
+        while 1:
+            yield  
+            v = first.v
+            for i in rest:
+                v = v & i.v
+            simulator.update_v(delay, target, v) 
 
     def dump_cpp(self) -> None:
         """
@@ -162,11 +203,37 @@ class _Or(_GateN):
     id = 'Or'
     _op = ('', '|')
 
-    def forward(self): 
-        v = self.inputs[0]._data._getval_py()
-        for i in self.inputs[1:]:
-            v = v | i._data._getval_py() 
-        self.output._data._setval_py(v, dt=self.delay, trace=self)
+    def sim_init(self):
+        super().sim_init() 
+        self.sim_x_count -= 1000
+
+    def sim_vx(self):
+        delay = self.timing['delay']
+        first = self.inputs[0]._data  
+        rest = [i._data for i in self.inputs[1:]]
+        target = self.output._data 
+        simulator = self._sess.sim_py 
+        while 1:
+            yield  
+            v = first._getval_py()
+            for i in rest:
+                v = v | i._getval_py()
+            simulator.update_v(delay, target, v.v) 
+            simulator.update_x(delay, target, v.x)
+    
+    def sim_v(self):
+        delay = self.timing['delay']
+        first = self.inputs[0]._data  
+        rest = [i._data for i in self.inputs[1:]]
+        target = self.output._data 
+        simulator = self._sess.sim_py 
+        while 1:
+            yield  
+            v = first.v
+            for i in rest:
+                v = v | i.v
+            simulator.update_v(delay, target, v) 
+
 
     def dump_cpp(self):
         """
@@ -208,11 +275,36 @@ class _Xor(_GateN):
     id = 'Xor'
     _op = ('', '^')
         
-    def forward(self): 
-        v = self.inputs[0]._data._getval_py()
-        for i in self.inputs[1:]:
-            v = v ^ i._data._getval_py() 
-        self.output._data._setval_py(v, dt=self.delay, trace=self)
+    def sim_init(self):
+        super().sim_init() 
+        self.sim_x_count -= 1000
+
+    def sim_vx(self):
+        delay = self.timing['delay']
+        first = self.inputs[0]._data  
+        rest = [i._data for i in self.inputs[1:]]
+        target = self.output._data 
+        simulator = self._sess.sim_py 
+        while 1:
+            yield  
+            v = first._getval_py()
+            for i in rest:
+                v = v ^ i._getval_py()
+            simulator.update_v(delay, target, v.v) 
+            simulator.update_x(delay, target, v.x)
+    
+    def sim_v(self):
+        delay = self.timing['delay']
+        first = self.inputs[0]._data  
+        rest = [i._data for i in self.inputs[1:]]
+        target = self.output._data 
+        simulator = self._sess.sim_py 
+        while 1:
+            yield  
+            v = first.v
+            for i in rest:
+                v = v ^ i.v
+            simulator.update_v(delay, target, v) 
 
     def dump_cpp(self):
         """
@@ -244,16 +336,39 @@ class _Nand(_GateN):
     id = 'Nand'
     _op = ('~', '&')
 
-    def forward(self): 
-        v: Logic = self.inputs[0]._data._getval_py()
-        for i in self.inputs[1:]:
-            v = v & i._data._getval_py() 
-        mask = gmpy2.bit_mask(self.width) 
-        out = Logic(
-            (~v.v) & mask,
-            v.x,
-        )
-        self.output._data._setval_py(out, dt=self.delay, trace=self) 
+
+    def sim_init(self):
+        super().sim_init() 
+        self.sim_x_count -= 1000
+
+    def sim_vx(self):
+        delay = self.timing['delay']
+        first = self.inputs[0]._data  
+        rest = [i._data for i in self.inputs[1:]]
+        mask = gmpy2.bit_mask(self.width)
+        target = self.output._data 
+        simulator = self._sess.sim_py  
+        while 1:
+            yield  
+            v = first._getval_py()
+            for i in rest:
+                v = v & i._getval_py()
+            simulator.update_v(delay, target, (~v.v) & mask) 
+            simulator.update_x(delay, target, v.x)
+    
+    def sim_v(self):
+        delay = self.timing['delay']
+        first = self.inputs[0]._data  
+        rest = [i._data for i in self.inputs[1:]]
+        mask = gmpy2.bit_mask(self.width)
+        target = self.output._data 
+        simulator = self._sess.sim_py 
+        while 1:
+            yield  
+            v = first.v
+            for i in rest:
+                v = v & i.v
+            simulator.update_v(delay, target, (~v)&mask) 
 
     def dump_cpp(self):
         inputs_v = [i._data._getval_cpp('v') for i in self.inputs]
@@ -292,17 +407,39 @@ class _Nor(_GateN):
     id = 'Nor'
     _op = ('~', '|')
         
-    def forward(self): 
-        v: Logic = self.inputs[0]._data._getval_py()
-        for i in self.inputs[1:]:
-            v = v | i._data._getval_py() 
-        mask = gmpy2.bit_mask(self.width) 
-        out = Logic(
-            (~v.v) & mask,
-            v.x,
-        )
-        self.output._data._setval_py(out, dt=self.delay, trace=self) 
+    def sim_init(self):
+        super().sim_init() 
+        self.sim_x_count -= 1000
 
+    def sim_vx(self):
+        delay = self.timing['delay']
+        first = self.inputs[0]._data  
+        rest = [i._data for i in self.inputs[1:]]
+        mask = gmpy2.bit_mask(self.width)
+        target = self.output._data 
+        simulator = self._sess.sim_py  
+        while 1:
+            yield  
+            v = first._getval_py()
+            for i in rest:
+                v = v | i._getval_py()
+            simulator.update_v(delay, target, (~v.v) & mask) 
+            simulator.update_x(delay, target, v.x)
+    
+    def sim_v(self):
+        delay = self.timing['delay']
+        first = self.inputs[0]._data  
+        rest = [i._data for i in self.inputs[1:]]
+        mask = gmpy2.bit_mask(self.width)
+        target = self.output._data 
+        simulator = self._sess.sim_py 
+        while 1:
+            yield  
+            v = first.v
+            for i in rest:
+                v = v | i.v
+            simulator.update_v(delay, target, (~v)&mask) 
+        
     def dump_cpp(self):
         inputs_v = [i._data._getval_cpp('v') for i in self.inputs]
         inputs_x = [i._data._getval_cpp('x') for i in self.inputs]
@@ -340,16 +477,38 @@ class _Nxor(_GateN):
     id = 'Nxor'
     _op = ('~', '^')
         
-    def forward(self): 
-        v: Logic = self.inputs[0]._data._getval_py()
-        for i in self.inputs[1:]:
-            v = v ^ i._data._getval_py() 
-        mask = gmpy2.bit_mask(self.width) 
-        out = Logic(
-            (~v.v) & mask,
-            v.x,
-        )
-        self.output._data._setval_py(out, dt=self.delay, trace=self) 
+    def sim_init(self):
+        super().sim_init() 
+        self.sim_x_count -= 1000
+
+    def sim_vx(self):
+        delay = self.timing['delay']
+        first = self.inputs[0]._data  
+        rest = [i._data for i in self.inputs[1:]]
+        mask = gmpy2.bit_mask(self.width)
+        target = self.output._data 
+        simulator = self._sess.sim_py  
+        while 1:
+            yield  
+            v = first._getval_py()
+            for i in rest:
+                v = v ^ i._getval_py()
+            simulator.update_v(delay, target, (~v.v) & mask) 
+            simulator.update_x(delay, target, v.x)
+    
+    def sim_v(self):
+        delay = self.timing['delay']
+        first = self.inputs[0]._data  
+        rest = [i._data for i in self.inputs[1:]]
+        mask = gmpy2.bit_mask(self.width)
+        target = self.output._data 
+        simulator = self._sess.sim_py 
+        while 1:
+            yield  
+            v = first.v
+            for i in rest:
+                v = v ^ i.v
+            simulator.update_v(delay, target, (~v)&mask) 
 
     def dump_cpp(self):
         inputs_v = [i._data._getval_cpp('v') for i in self.inputs]
@@ -398,17 +557,45 @@ class _AndR(_Reduce):
     id = 'AndR'
     _op = ('&', '')
     
-    def forward(self):
-        data: Logic = self.input._data._getval_py()
-        v: gmpy2.mpz = data.v 
-        x: gmpy2.mpz = data.x
+    def sim_init(self):
+        super().sim_init() 
+        self.sim_x_count -= 1000
+
+    def sim_vx(self):
+        delay = self.timing['delay']
+        data = self.input._data  
+        target = self.output._data 
         mask = gmpy2.bit_mask(len(self.input))  
-        if (~v) & (~x) & mask:   # exists 0
-            self.output._data._setval_py(Logic(0,0), dt=self.delay, trace=self)
-        elif x:             # unknown
-            self.output._data._setval_py(Logic(0,1), dt=self.delay, trace=self)
-        else:       # all 1
-            self.output._data._setval_py(Logic(1,0), dt=self.delay, trace=self)
+        simulator = self._sess.sim_py  
+        while 1:
+            yield  
+            v = data.v 
+            x = data.x 
+            if (~v) & (~x) & mask:                      # exists 0 
+                out_v, out_x = gmpy2.mpz(0),gmpy2.mpz(0) 
+            elif x:                                     # unknown
+                out_v, out_x = gmpy2.mpz(0),gmpy2.mpz(1) 
+            else:                                       # all 1
+                out_v, out_x = gmpy2.mpz(1),gmpy2.mpz(0)  
+
+            simulator.update_v(delay, target, out_v) 
+            simulator.update_x(delay, target, out_x)
+    
+    def sim_v(self):
+        delay = self.timing['delay']
+        data = self.input._data  
+        target = self.output._data 
+        mask = gmpy2.bit_mask(len(self.input))  
+        simulator = self._sess.sim_py  
+        while 1:
+            yield  
+            if data.v == mask:
+                out_v = gmpy2.mpz(1)   # all 1 
+            else:
+                out_v = gmpy2.mpz(0)   # exists 0
+
+            simulator.update_v(delay, target, out_v) 
+
         
     def dump_cpp(self) -> None: 
         input_v: List[cpp.TData] = self.input._data._getval_cpp('v')
@@ -429,19 +616,44 @@ class _OrR(_Reduce):
     id = 'OrR'
     _op = ('|', '')
     
-    def forward(self):
-        data: Logic = self.input._data._getval_py()
-        v: gmpy2.mpz = data.v 
-        x: gmpy2.mpz = data.x
-        if  v & (~x):   # exists 1
-            self.output._data._setval_py(Logic(1,0), dt=self.delay, trace=self)
-        elif x:             # unknown
-            self.output._data._setval_py(Logic(0,1), dt=self.delay, trace=self)
-        else:       # all 0
-            self.output._data._setval_py(Logic(0,0), dt=self.delay, trace=self)
-        
-    def dump_cpp(self) -> None: 
-        pass # TODO 
+    def sim_init(self):
+        super().sim_init() 
+        self.sim_x_count -= 1000
+
+    def sim_vx(self):
+        delay = self.timing['delay']
+        data = self.input._data  
+        target = self.output._data 
+        simulator = self._sess.sim_py  
+        while 1:
+            yield  
+            v = data.v 
+            x = data.x 
+            if  v & (~x):                               # exists 1          
+                out_v, out_x = gmpy2.mpz(1),gmpy2.mpz(0) 
+            elif x:                                     # unknown
+                out_v, out_x = gmpy2.mpz(0),gmpy2.mpz(1) 
+            else:                                       # all 0
+                out_v, out_x = gmpy2.mpz(0),gmpy2.mpz(0)  
+
+            simulator.update_v(delay, target, out_v) 
+            simulator.update_x(delay, target, out_x)
+    
+    def sim_v(self):
+        delay = self.timing['delay']
+        data = self.input._data  
+        target = self.output._data 
+        simulator = self._sess.sim_py  
+        while 1:
+            yield  
+            if data.v:
+                out_v = gmpy2.mpz(1)   
+            else:
+                out_v = gmpy2.mpz(0)   
+            simulator.update_v(delay, target, out_v)
+
+
+
 
 
 @dispatch('XorR', Any) 
@@ -450,17 +662,36 @@ class _XorR(_Reduce):
     id = 'XorR'
     _op = ('^', '')
     
-    def forward(self):
-        data: Logic = self.input._data._getval_py()
-        v: gmpy2.mpz = data.v 
-        x: gmpy2.mpz = data.x
-        if x:           # unknown
-            self.output._data._setval_py(Logic(0,1), dt=self.delay, trace=self)
-        else:
-            self.output._data._setval_py(Logic(utils.parity(v),0), dt=self.delay, trace=self)
-        
-    def dump_cpp(self) -> None: 
-        pass # TODO 
+
+    def sim_init(self):
+        super().sim_init() 
+        self.sim_x_count -= 1000
+
+    def sim_vx(self):
+        delay = self.timing['delay']
+        data = self.input._data  
+        target = self.output._data 
+        simulator = self._sess.sim_py  
+        while 1:
+            yield  
+            v = data.v 
+            x = data.x 
+            if x:                                     
+                out_v, out_x = gmpy2.mpz(0),gmpy2.mpz(1) 
+            else:                                        
+                out_v, out_x = utils.parity(v),gmpy2.mpz(0)  
+
+            simulator.update_v(delay, target, out_v) 
+            simulator.update_x(delay, target, out_x)
+    
+    def sim_v(self):
+        delay = self.timing['delay']
+        data = self.input._data  
+        target = self.output._data 
+        simulator = self._sess.sim_py  
+        while 1:
+            yield   
+            simulator.update_v(delay, target, utils.parity(data.v))
     
         
 @dispatch('Cat', Any, [Any, None])
@@ -480,22 +711,43 @@ class _Cat(Gate):
         ret: Reader = UInt[sum(self.widths)](0, name=name)
         self.output: Writer = self.write(ret)                       # write  
         return ret
-        
-    def forward(self):
-        v = gmpy2.mpz(0)
-        x = gmpy2.mpz(0)
-        start = 0
-        for width, s in zip(self.widths, self.inputs): 
-            data: Logic = s._data._getval_py() 
-            _v = data.v 
-            _x = data.x
-            v = v | (_v << start)
-            x = x | (_x << start)
-            start += width 
-        self.output._data._setval_py(Logic(v, x), dt=self.delay, trace=self)
+
+    def sim_vx(self):
+        delay = self.timing['delay']
+        target = self.output._data 
+        simulator = self._sess.sim_py 
+
+        datas = [(w, s._data) for w,s in zip(self.widths, self.inputs)] 
+        while 1:
+            yield   
+            v = gmpy2.mpz(0)
+            x = gmpy2.mpz(0)
+            start = 0
+            for width, data in datas:
+                _v = data.v 
+                _x = data.x 
+                v = v | (_v << start)
+                x = x | (_x << start)
+                start += width 
+            simulator.update_v(delay, target, v) 
+            simulator.update_x(delay, target, x)
     
-    def dump_cpp(self):
-        raise NotImplementedError(self)
+    def sim_v(self):
+        delay = self.timing['delay']
+        target = self.output._data 
+        simulator = self._sess.sim_py 
+
+        datas = [(w, s._data) for w,s in zip(self.widths, self.inputs)]  
+        while 1:
+            yield   
+            v = gmpy2.mpz(0)
+            start = 0
+            for width, data in datas:
+                _v = data.v 
+                v = v | (_v << start)
+                start += width 
+            simulator.update_v(delay, target, v) 
+
 
     def dump_sv(self, builder: sv.ModuleSV): 
         x = [builder.get_name(i) for i in reversed(self.inputs)]
@@ -529,19 +781,41 @@ class _LogicNot(_Reduce):
     id = 'LogicNot'
     _op = ('!', '')
     
-    def forward(self):
-        data: Logic = self.input._data._getval_py()
-        v: gmpy2.mpz = data.v 
-        x: gmpy2.mpz = data.x
-        if  v & (~x):   # exists 1
-            self.output._data._setval_py(Logic(0,0), dt=self.delay, trace=self)
-        elif x:             # unknown
-            self.output._data._setval_py(Logic(0,1), dt=self.delay, trace=self)
-        else:       # all 0
-            self.output._data._setval_py(Logic(1,0), dt=self.delay, trace=self)
-        
-    def dump_cpp(self) -> None: 
-        pass # TODO 
+    def sim_init(self):
+        super().sim_init() 
+        self.sim_x_count -= 1000
+
+    def sim_vx(self):
+        delay = self.timing['delay']
+        data = self.input._data  
+        target = self.output._data 
+        simulator = self._sess.sim_py  
+        while 1:
+            yield  
+            v = data.v 
+            x = data.x 
+            if  v & (~x):                               # exists 1          
+                out_v, out_x = gmpy2.mpz(0),gmpy2.mpz(0) 
+            elif x:                                     # unknown
+                out_v, out_x = gmpy2.mpz(0),gmpy2.mpz(1) 
+            else:                                       # all 0
+                out_v, out_x = gmpy2.mpz(1),gmpy2.mpz(0)  
+
+            simulator.update_v(delay, target, out_v) 
+            simulator.update_x(delay, target, out_x)
+    
+    def sim_v(self):
+        delay = self.timing['delay']
+        data = self.input._data  
+        target = self.output._data 
+        simulator = self._sess.sim_py  
+        while 1:
+            yield  
+            if data.v:
+                out_v = gmpy2.mpz(0)   
+            else:
+                out_v = gmpy2.mpz(1)   
+            simulator.update_v(delay, target, out_v)
 
 
 @dispatch('LogicAnd', Any, [Any, None])
@@ -561,24 +835,49 @@ class _LogicAnd(Gate):
         ret: Reader = UInt[1](0, name=name)
         self.output: Writer = self.write(ret)                       # write 
         return ret
-    
-    def forward(self): 
-        v, x = self._bool()
-        zeros = [(not _v) and (not _x) for _v, _x in zip(v,x)] 
-        if any(zeros):    # exists false
-            self.output._data._setval_py(Logic(0,0), dt=self.delay, trace=self)
-        elif any(x):        # unknown
-            self.output._data._setval_py(Logic(0,1), dt=self.delay, trace=self)
-        else:               # all true
-            self.output._data._setval_py(Logic(1,0), dt=self.delay, trace=self) 
 
-    def _bool(self):
+    def sim_init(self):
+        super().sim_init() 
+        self.sim_x_count -= 1000
+
+    def sim_vx(self):
+        delay = self.timing['delay']
+        data = [i._data for i in self.inputs]
+        target = self.output._data 
+        simulator = self._sess.sim_py   
+        while 1:
+            yield  
+            v, x = self._bool(data) 
+            zeros = [(not _v) and (not _x) for _v, _x in zip(v,x)] 
+            if any(zeros):                              # exists false
+                out_v, out_x = gmpy2.mpz(0),gmpy2.mpz(0)
+            elif any(x):                                  # unknown         
+                out_v, out_x = gmpy2.mpz(0),gmpy2.mpz(1) 
+            else:                                       # all true
+                out_v, out_x = gmpy2.mpz(1),gmpy2.mpz(0)  
+                
+            simulator.update_v(delay, target, out_v) 
+            simulator.update_x(delay, target, out_x)
+    
+    def sim_v(self):
+        delay = self.timing['delay']
+        data = [i._data for i in self.inputs]
+        target = self.output._data 
+        simulator = self._sess.sim_py   
+        while 1:
+            yield   
+            if all(i.v for i in data):
+                simulator.update_v(delay, target, gmpy2.mpz(1)) 
+            else:
+                simulator.update_v(delay, target, gmpy2.mpz(0))
+
+
+    def _bool(self, l: List[LogicData]):
         """ perform Or Reduce
         """
         ret_v = []
         ret_x = []
-        for i in self.inputs:
-            data: Logic = i._data._getval_py()
+        for data in l:
             if data.v & (~data.x):
                 ret_v.append(1)
                 ret_x.append(0)
@@ -589,9 +888,6 @@ class _LogicAnd(Gate):
                 ret_v.append(0)
                 ret_x.append(0) 
         return ret_v, ret_x
-
-    def dump_cpp(self):
-        raise NotImplementedError(self)
 
     def dump_sv(self, builder: sv.ModuleSV):
         x = self._op.join(builder.get_name(i) for i in self.inputs)
@@ -605,18 +901,43 @@ class _LogicOr(_LogicAnd):
     id = 'LogicOr'
     _op = '||'
     
-    def forward(self): 
-        v, x = self._bool()
-        ones = [_v and not _x for _v, _x in zip(v,x)] 
-        if any(ones):    # exists True
-            self.output._data._setval_py(Logic(1,0), dt=self.delay, trace=self)
-        elif any(x):        # unknown
-            self.output._data._setval_py(Logic(0,1), dt=self.delay, trace=self)
-        else:               # all False
-            self.output._data._setval_py(Logic(0,0), dt=self.delay, trace=self) 
+    def sim_init(self):
+        super().sim_init() 
+        self.sim_x_count -= 1000
 
-    def dump_cpp(self):
-        raise NotImplementedError(self)
+    def sim_vx(self):
+        delay = self.timing['delay']
+        data = [i._data for i in self.inputs]
+        target = self.output._data 
+        simulator = self._sess.sim_py   
+
+        while 1:
+            yield  
+            v, x = self._bool(data) 
+            ones = [_v and not _x for _v, _x in zip(v,x)]
+            if any(ones):    # exists True
+                out_v, out_x = gmpy2.mpz(1),gmpy2.mpz(0)
+            elif any(x):                                  # unknown         
+                out_v, out_x = gmpy2.mpz(0),gmpy2.mpz(1) 
+            else:                                      # all False
+                out_v, out_x = gmpy2.mpz(0),gmpy2.mpz(0)  
+                
+            simulator.update_v(delay, target, out_v) 
+            simulator.update_x(delay, target, out_x)
+    
+    def sim_v(self):
+        delay = self.timing['delay']
+        data = [i._data for i in self.inputs]
+        target = self.output._data 
+        simulator = self._sess.sim_py   
+        while 1:
+            yield   
+            if any(i.v for i in data):
+                simulator.update_v(delay, target, gmpy2.mpz(1)) 
+            else:
+                simulator.update_v(delay, target, gmpy2.mpz(0))
+
+
     
 #------- 
 # shift
@@ -648,22 +969,48 @@ class _Lshift(Gate):
         self.output: Writer = self.write(ret)
         return ret
     
-    def forward(self):
-        a: Logic = self.a._data._getval_py()
-        b: Logic = self.b 
+    def sim_init(self):
+        super().sim_init() 
+        self.sim_x_count -= 1000
+
+    def sim_vx(self):
+        delay = self.timing['delay']
         mask = gmpy2.bit_mask(self.width)
-        if isinstance(b, Reader):
-            b = b._data._getval_py() 
-        if b.x:    # unknown
-            self.output._data._setval_py(Logic(0, mask), dt=self.delay, trace=self)
+        target = self.output._data 
+        simulator = self._sess.sim_py  
+        a = self.a._data 
+        if isinstance(self.b, Reader):
+            b = self.b._data 
         else:
-            self.output._data._setval_py(
-                Logic(
-                    (a.v << b.v) & mask,
-                    (a.x << b.v) & mask,
-                ),
-                dt = self.delay, trace=self
-            )
+            b = self.b
+        while 1:
+            yield   
+            # print(f'{a} << {b}')
+            if b.x:
+                ret_v = gmpy2.mpz(0)
+                ret_x = mask 
+            else:
+                ret_v = (a.v << b.v) & mask 
+                ret_x = (a.x << b.v) & mask 
+
+            simulator.update_v(delay, target, ret_v) 
+            simulator.update_x(delay, target, ret_x)
+    
+    def sim_v(self):
+        delay = self.timing['delay']
+        mask = gmpy2.bit_mask(self.width)
+        target = self.output._data 
+        simulator = self._sess.sim_py  
+        a = self.a._data 
+        if isinstance(self.b, Reader):
+            b = self.b._data 
+        else:
+            b = self.b
+        while 1:
+            yield    
+            ret_v = (a.v << b.v) & mask 
+            simulator.update_v(delay, target, ret_v) 
+
 
     def dump_cpp(self):
         raise NotImplementedError(self)
@@ -680,25 +1027,47 @@ class _Rshift(_Lshift):
     id = 'Rshift'
     _op = '>>'
     
-    def forward(self):
-        a: Logic = self.a._data._getval_py()
-        b: Logic = self.b 
+    def sim_init(self):
+        super().sim_init() 
+        self.sim_x_count -= 1000
+
+    def sim_vx(self):
+        delay = self.timing['delay']
         mask = gmpy2.bit_mask(self.width)
-        if isinstance(b, Reader):
-            b = b._data._getval_py() 
-        if b.x:    # unknown
-            self.output._data._setval_py(Logic(0, mask), dt=self.delay, trace=self)
+        target = self.output._data 
+        simulator = self._sess.sim_py  
+        a = self.a._data 
+        if isinstance(self.b, Reader):
+            b = self.b._data 
         else:
-            self.output._data._setval_py(
-                Logic(
-                    (a.v >> b.v) & mask,
-                    (a.x >> b.v) & mask,
-                ),
-                dt = self.delay, trace=self
-            )
+            b = self.b
+        while 1:
+            yield   
+            if b.x:
+                ret_v = gmpy2.mpz(0)
+                ret_x = mask 
+            else:
+                ret_v = (a.v >> b.v) & mask 
+                ret_x = (a.x >> b.v) & mask 
+
+            simulator.update_v(delay, target, ret_v) 
+            simulator.update_x(delay, target, ret_x)
     
-    def dump_cpp(self):
-        raise NotImplementedError(self)
+    def sim_v(self):
+        delay = self.timing['delay']
+        mask = gmpy2.bit_mask(self.width)
+        target = self.output._data 
+        simulator = self._sess.sim_py  
+        a = self.a._data 
+        if isinstance(self.b, Reader):
+            b = self.b._data 
+        else:
+            b = self.b
+        while 1:
+            yield    
+            ret_v = (a.v >> b.v) & mask 
+            simulator.update_v(delay, target, ret_v) 
+
 
 #-----------
 # arithmetic
@@ -709,12 +1078,30 @@ class _Pos(_GateN):
     
     id = 'Pos'
     _op = ('+', '')
-        
-    def forward(self):
-        self.output._data._setval_py(self.inputs[0]._data._getval_py(), dt=self.delay, trace=self)
+    
+    def sim_init(self):
+        super().sim_init() 
+        self.sim_x_count -= 1000
 
-    def dump_cpp(self):
-        raise NotImplementedError(self)
+    def sim_vx(self):
+        delay = self.timing['delay']
+        inputs = [i._data for i in self.inputs] 
+        target = self.output._data 
+        simulator = self._sess.sim_py  
+        while 1:
+            yield  
+            simulator.update_v(delay, target, inputs[0].v) 
+            simulator.update_x(delay, target, inputs[0].x)
+    
+    def sim_v(self):
+        delay = self.timing['delay']
+        inputs = [i._data for i in self.inputs] 
+        target = self.output._data 
+        simulator = self._sess.sim_py  
+        while 1:
+            yield  
+            simulator.update_v(delay, target, inputs[0].v) 
+
     
     
 @dispatch('Neg', Any, None)
@@ -723,22 +1110,38 @@ class _Neg(_GateN):
     id = 'Neg'
     _op = ('-', '')
     
-    def forward(self):
-        v: Logic = self.inputs[0]._data._getval_py() 
-        mask = gmpy2.bit_mask(self.width)
-        if v.x: 
-            self.output._data._setval_py(Logic(0, mask), dt=self.delay, trace=self) 
-        else:
-            self.output._data._setval_py(
-                Logic(
-                    (-v.v) & mask,
-                    0,
-                ),
-                dt = self.delay, trace=self
-            )
+    def sim_init(self):
+        super().sim_init() 
+        self.sim_x_count -= 1000
 
-    def dump_cpp(self):
-        raise NotImplementedError(self)
+    def sim_vx(self):
+        delay = self.timing['delay']
+        inputs = [i._data for i in self.inputs] 
+        target = self.output._data 
+        simulator = self._sess.sim_py   
+        mask = gmpy2.bit_mask(self.width)
+        while 1:
+            yield   
+            if inputs[0].x:
+                out_v = gmpy2.mpz(0)
+                out_x = mask 
+            else:
+                out_v = (-inputs[0].v) & mask 
+                out_x = gmpy2.mpz(0)
+            simulator.update_v(delay, target, out_v) 
+            simulator.update_x(delay, target, out_x)
+    
+    def sim_v(self):
+        delay = self.timing['delay']
+        inputs = [i._data for i in self.inputs] 
+        target = self.output._data 
+        simulator = self._sess.sim_py  
+        mask = gmpy2.bit_mask(self.width)
+        while 1:
+            yield   
+            out_v = (-inputs[0].v) & mask 
+            simulator.update_v(delay, target, out_v) 
+
 
 
 @dispatch('Add', Any, [Any, None])
@@ -747,22 +1150,39 @@ class _Add(_GateN):
     id = 'Add'
     _op = ('', '+')
     
-    def forward(self): 
-        data: List[Logic] = [i._data._getval_py() for i in self.inputs]
-        mask = gmpy2.bit_mask(self.width)
-        if any(i.x for i in data):
-            self.output._data._setval_py(Logic(0, mask), dt=self.delay, trace=self)  
-        else:
-            self.output._data._setval_py(
-                Logic( 
-                    sum(i.v for i in data) & mask,
-                    0,
-                ),
-                dt = self.delay, trace=self
-            )
 
-    def dump_cpp(self):
-        raise NotImplementedError(self)
+    def sim_init(self):
+        super().sim_init() 
+        self.sim_x_count -= 1000
+
+    def sim_vx(self):
+        delay = self.timing['delay']
+        inputs = [i._data for i in self.inputs] 
+        target = self.output._data 
+        simulator = self._sess.sim_py   
+        mask = gmpy2.bit_mask(self.width)
+        while 1:
+            yield   
+            if any(i.x for i in inputs):
+                out_v = gmpy2.mpz(0)
+                out_x = mask 
+            else:
+                out_v = sum(i.v for i in inputs) & mask 
+                out_x = gmpy2.mpz(0)
+
+            simulator.update_v(delay, target, out_v) 
+            simulator.update_x(delay, target, out_x)
+    
+    def sim_v(self):
+        delay = self.timing['delay']
+        inputs = [i._data for i in self.inputs] 
+        target = self.output._data 
+        simulator = self._sess.sim_py  
+        mask = gmpy2.bit_mask(self.width)
+        while 1:
+            yield   
+            out_v = sum(i.v for i in inputs) & mask 
+            simulator.update_v(delay, target, out_v) 
     
 
     
@@ -782,14 +1202,39 @@ class _AddFull(_GateN):
         ret: Reader = UInt[self.width](0, name=name) 
         self.output: Writer = self.write(ret)
         return ret
+
+    def sim_init(self):
+        super().sim_init() 
+        self.sim_x_count -= 1000
+
+    def sim_vx(self):
+        delay = self.timing['delay']
+        target = self.output._data 
+        simulator = self._sess.sim_py   
+        mask = gmpy2.bit_mask(self.width)
+        a, b = self.a._data, self.b._data
+        while 1:
+            yield   
+            if a.x or b.x:
+                out_v = gmpy2.mpz(0)
+                out_x = mask 
+            else:
+                out_v = a.v + b.v
+                out_x = gmpy2.mpz(0)
+
+            simulator.update_v(delay, target, out_v) 
+            simulator.update_x(delay, target, out_x)
     
-    def forward(self):
-        a: Logic = self.a._data._getval_py()
-        b: Logic = self.b._data._getval_py()
-        if a.x or b.x:
-            self.output._data._setval_py(Logic(0, gmpy2.bit_mask(self.width)), dt=self.delay, trace=self)
-        else:
-            self.output._data._setval_py(Logic(a.v + b.v, 0), dt=self.delay, trace=self)
+    def sim_v(self):
+        delay = self.timing['delay']
+        target = self.output._data 
+        simulator = self._sess.sim_py   
+        a, b = self.a._data, self.b._data
+        while 1:
+            yield   
+            out_v = a.v + b.v 
+            simulator.update_v(delay, target, out_v) 
+
 
     def dump_cpp(self):
         raise NotImplementedError(self)
@@ -805,24 +1250,46 @@ class _Sub(_GateN):
         
     id = 'Sub'
     _op = ('', '-')
-    
-    def forward(self): 
-        data: List[Logic] = [i._data._getval_py() for i in self.inputs]
+
+    def sim_init(self):
+        super().sim_init() 
+        self.sim_x_count -= 1000
+
+    def sim_vx(self):
+        delay = self.timing['delay']
+        inputs = [i._data for i in self.inputs] 
+        target = self.output._data 
+        simulator = self._sess.sim_py   
         mask = gmpy2.bit_mask(self.width)
-        if any(i.x for i in data):
-            self.output._data._setval_py(Logic(0, mask), dt=self.delay, trace=self)  
-        else:
-            res = data[0].v
-            for i in data[1:]:
+        while 1:
+            yield   
+            if any(i.x for i in inputs):
+                out_v = gmpy2.mpz(0)
+                out_x = mask 
+            else: 
+                res = inputs[0].v 
+                for i in inputs[1:]:
+                    res -= i.v
+                out_v = res & mask 
+                out_x = gmpy2.mpz(0)
+
+            simulator.update_v(delay, target, out_v) 
+            simulator.update_x(delay, target, out_x)
+    
+    def sim_v(self):
+        delay = self.timing['delay']
+        inputs = [i._data for i in self.inputs] 
+        target = self.output._data 
+        simulator = self._sess.sim_py  
+        mask = gmpy2.bit_mask(self.width)
+        while 1:
+            yield   
+            res = inputs[0].v 
+            for i in inputs[1:]:
                 res -= i.v
-            self.output._data._setval_py(
-                Logic( 
-                    res & mask,
-                    0,
-                ),
-                dt = self.delay, 
-                trace=self,
-            )
+            out_v = res & mask 
+            simulator.update_v(delay, target, out_v) 
+
     def dump_cpp(self):
         raise NotImplementedError(self)
     
@@ -833,22 +1300,45 @@ class _Mul(_GateN):
     id = 'Mul'
     _op = ('', '*')
     
-    def forward(self): 
-        data: List[Logic] = [i._data._getval_py() for i in self.inputs]
+    def sim_init(self):
+        super().sim_init() 
+        self.sim_x_count -= 1000
+
+    def sim_vx(self):
+        delay = self.timing['delay']
+        inputs = [i._data for i in self.inputs] 
+        target = self.output._data 
+        simulator = self._sess.sim_py   
         mask = gmpy2.bit_mask(self.width)
-        if any(i.x for i in data):
-            self.output._data._setval_py(Logic(0, mask), dt=self.delay, trace=self)  
-        else:
-            res = data[0].v
-            for i in data[1:]:
+        while 1:
+            yield   
+            if any(i.x for i in inputs):
+                out_v = gmpy2.mpz(0)
+                out_x = mask 
+            else: 
+                res = inputs[0].v 
+                for i in inputs[1:]:
+                    res *= i.v
+                out_v = res & mask 
+                out_x = gmpy2.mpz(0)
+
+            simulator.update_v(delay, target, out_v) 
+            simulator.update_x(delay, target, out_x)
+    
+    def sim_v(self):
+        delay = self.timing['delay']
+        inputs = [i._data for i in self.inputs] 
+        target = self.output._data 
+        simulator = self._sess.sim_py  
+        mask = gmpy2.bit_mask(self.width)
+        while 1:
+            yield   
+            res = inputs[0].v 
+            for i in inputs[1:]:
                 res *= i.v
-            self.output._data._setval_py(
-                Logic( 
-                    res & mask,
-                    0,
-                ),
-                dt = self.delay, trace=self
-            )
+            out_v = res & mask 
+            simulator.update_v(delay, target, out_v) 
+
     def dump_cpp(self):
         raise NotImplementedError(self)
     
@@ -870,13 +1360,37 @@ class _MulFull(Gate):
         self.output: Writer = self.write(ret)
         return ret
     
-    def forward(self):
-        a: Logic = self.a._data._getval_py()
-        b: Logic = self.b._data._getval_py()
-        if a.x or b.x:
-            self.output._data._setval_py(Logic(0, gmpy2.bit_mask(self.width)), dt=self.delay, trace=self)
-        else:
-            self.output._data._setval_py(Logic(a.v * b.v, 0), dt=self.delay, trace=self)
+    def sim_init(self):
+        super().sim_init() 
+        self.sim_x_count -= 1000
+
+    def sim_vx(self):
+        delay = self.timing['delay']
+        target = self.output._data 
+        simulator = self._sess.sim_py   
+        mask = gmpy2.bit_mask(self.width)
+        a, b = self.a._data, self.b._data
+        while 1:
+            yield   
+            if a.x or b.x:
+                out_v = gmpy2.mpz(0)
+                out_x = mask 
+            else:
+                out_v = a.v * b.v
+                out_x = gmpy2.mpz(0)
+
+            simulator.update_v(delay, target, out_v) 
+            simulator.update_x(delay, target, out_x)
+    
+    def sim_v(self):
+        delay = self.timing['delay']
+        target = self.output._data 
+        simulator = self._sess.sim_py   
+        a, b = self.a._data, self.b._data
+        while 1:
+            yield   
+            out_v = a.v * b.v 
+            simulator.update_v(delay, target, out_v) 
 
     def dump_cpp(self):
         raise NotImplementedError(self)
@@ -919,13 +1433,29 @@ class _Floordiv(_Gate2):
     id = 'Floordiv'
     _op = '/'
 
-    def forward(self):
-        a: Logic = self.a._data._getval_py()
-        b: Logic = self.b._data._getval_py()
-        if a.x or b.x or b.v == 0:
-            self.output._data._setval_py(Logic(0, gmpy2.bit_mask(self.width)), dt=self.delay, trace=self)
-        else:
-            self.output._data._setval_py(Logic(a.v // b.v, 0), dt=self.delay, trace=self)
+    def sim_init(self):
+        """ may produce unknown 
+        """
+        super().sim_init() 
+        self.sim_x_count += 1000
+
+    def sim_vx(self):
+        delay = self.timing['delay']
+        target = self.output._data 
+        simulator = self._sess.sim_py   
+        mask = gmpy2.bit_mask(self.width)
+        a, b = self.a._data, self.b._data
+        while 1:
+            yield   
+            if a.x or b.x or b.v == 0:
+                out_v = gmpy2.mpz(0)
+                out_x = mask 
+            else:
+                out_v = a.v // b.v
+                out_x = gmpy2.mpz(0)
+
+            simulator.update_v(delay, target, out_v) 
+            simulator.update_x(delay, target, out_x)
 
     
 @dispatch('Mod', Any, Any) 
@@ -933,14 +1463,30 @@ class _Mod(_Gate2):
     
     id = 'Mod'
     _op = '%'
-    
-    def forward(self):
-        a: Logic = self.a._data._getval_py()
-        b: Logic = self.b._data._getval_py()
-        if a.x or b.x or b.v == 0:
-            self.output._data._setval_py(Logic(0, gmpy2.bit_mask(self.width)), dt=self.delay, trace=self)
-        else:
-            self.output._data._setval_py(Logic(a.v % b.v, 0), dt=self.delay)
+
+    def sim_init(self):
+        """ may produce unknown 
+        """
+        super().sim_init() 
+        self.sim_x_count += 1000
+
+    def sim_vx(self):
+        delay = self.timing['delay']
+        target = self.output._data 
+        simulator = self._sess.sim_py   
+        mask = gmpy2.bit_mask(self.width)
+        a, b = self.a._data, self.b._data
+        while 1:
+            yield   
+            if a.x or b.x or b.v == 0:
+                out_v = gmpy2.mpz(0)
+                out_x = mask 
+            else:
+                out_v = a.v % b.v
+                out_x = gmpy2.mpz(0)
+
+            simulator.update_v(delay, target, out_v) 
+            simulator.update_x(delay, target, out_x)
 
 
 @vectorize
@@ -963,22 +1509,47 @@ class Mux(Gate):
         ret: Reader = UInt[self.width](0, name=name) 
         self.output: Writer = self.write(ret)
         return ret
-    
-    def forward(self):
-        sel: Logic = self.sel._data._getval_py()
-        a: Logic = self.a._data._getval_py()
-        b: Logic = self.b._data._getval_py() 
 
-        if sel.x: 
-            self.output._data._setval_py(
-                Logic(a.v|b.v,a.x|b.x|(a.v^b.v)), 
-                dt=self.delay, 
-                trace=self
-            )
-        elif sel.v:
-            self.output._data._setval_py(a, dt=self.delay, trace=self)
-        else:
-            self.output._data._setval_py(b, dt=self.delay, trace=self)
+    def sim_init(self):
+        super().sim_init() 
+        self.sim_x_count -= 1000
+
+    def sim_vx(self):
+        delay = self.timing['delay']
+        simulator = self._sess.sim_py   
+        target = self.output._data 
+        a, b = self.a._data, self.b._data 
+        sel = self.sel._data
+        while 1:
+            yield    
+            if sel.x:
+                out_v = a.v | b.v 
+                out_x = a.x | b.x | (a.v^b.v) 
+            elif sel.v:
+                out_v = a.v 
+                out_x = a.x 
+            else:
+                out_v = b.v 
+                out_x = b.x
+
+            simulator.update_v(delay, target, out_v) 
+            simulator.update_x(delay, target, out_x)
+    
+    def sim_v(self):
+        delay = self.timing['delay']
+        simulator = self._sess.sim_py   
+        target = self.output._data 
+        a, b = self.a._data, self.b._data 
+        sel = self.sel._data
+        while 1:
+            yield   
+            if sel.v:
+                out_v = a.v 
+            else:
+                out_v = b.v
+            simulator.update_v(delay, target, out_v) 
+
+
 
     def dump_cpp(self):
         raise NotImplementedError(self)

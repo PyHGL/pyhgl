@@ -49,7 +49,7 @@ from pyhgl.tester import *
     dut = memory(100)
     sess.track(dut)
     sess.join_none(task1(dut))
-    sess.run(12000)
+    sess.step(12000)
 
 
     @blackbox testbench(builder):

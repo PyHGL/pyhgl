@@ -47,7 +47,7 @@ from pyhgl.tester import tester, utils
             setv(dut.io.data_en, 1)
             setv(dut.io.data_in, i*4)
 
-            sess.run(200) 
+            sess.step(200) 
 
         sess.dumpVCD('target/mem.vcd') 
         sess.dumpGraph('target/mem.gv') 

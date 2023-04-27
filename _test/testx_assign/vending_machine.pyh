@@ -52,7 +52,7 @@ import time
 
     setv(dut.nickel, 1) 
     setv(dut.dime, 1)
-    sess.run(1000)
+    sess.step(1000)
     sess.dumpVCD('VendingMachine.vcd') 
 
     @inline_verilog Verilog(self):

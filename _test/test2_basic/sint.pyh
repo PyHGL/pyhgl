@@ -13,13 +13,15 @@ from pyhgl.tester import *
     res_mul3 = SInt(a.sext(16)) * b.zext(16)
 
     res_div = SInt(a) // SInt(b)
-    res_rem = SInt(a) % SInt(b)
+    res_rem = SInt(a) % SInt(b) 
+    res_rshift = SInt(a) >> b[:4]
     
 @task test_top(self, dut, test_data):
-    for _ in range(10):
+    for _ in range(20):
         a, b = setr(dut.a), setr(dut.b)
         test_data.append((a,b))
         yield 20 
+        self.AssertEq(getv(dut.res_mul1).to_int(16), a.to_int(8) * b.to_int(8))
     self.Assert(True)
         
 
