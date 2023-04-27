@@ -1,6 +1,8 @@
 from pyhgl.logic import *
 from pyhgl.tester import * 
+import pyhgl.logic.utils as utils
 
+import random
 
 
 @module FullAdder:
@@ -40,6 +42,7 @@ from pyhgl.tester import *
     r0, r1, r2, r3 = Reg(UInt('4:b0') for _ in range(4))
     when io.shift:
         r0, r1, r2, r3 <== io.data, r0, r1, r2 
+    io.out <== r3
 
 @module Functionality:
     io = Bundle(
@@ -61,7 +64,7 @@ from pyhgl.tester import *
     )
     x, y = Reg(UInt('16:b0') for _ in range(2))
     when io.load:
-        x, b <== io.a, io.b
+        x, y <== io.a, io.b
     otherwise:
         when x > y: 
             x <== x-y
@@ -84,16 +87,15 @@ from pyhgl.tester import *
     data = UInt('16:b0')    @ Input
     shamt = UInt('4:b0')    @ Input
 
-    s0 = RegNext(io.data)
+    s0 = RegNext(data)
     s1 = RegNext(s0)
     s2 = RegNext(s1)
     out = RegNext(s2)       @ Output
     
-    switch 1:
-        once shamt[3]: s0 <== io.data << 8
-        once shamt[2]: s1 <== s0 << 4
-        once shamt[1]: s2 <== s0 << 2 
-        once shamt[0]: out <== s2 << 1
+    when shamt[3]: s0 <== data << 8
+    when shamt[2]: s1 <== s0 << 4
+    when shamt[1]: s2 <== s1 << 2 
+    when shamt[0]: out <== s2 << 1
 
 
 @module Parity:
@@ -118,8 +120,8 @@ from pyhgl.tester import *
         valid = UInt(0)         @ Output,
         out = UInt('32:b0')     @ Output,
     )
-    file = Reg(MemType[256,32](0))
-    code = Reg(MemType[256,32](0)) 
+    file = Reg(MemArray[256,32](0), reset = None)
+    code = Reg(MemArray[256,32](0), reset = None) 
     pc = Reg('8:b0')
 
     inst = code[pc]
@@ -173,8 +175,8 @@ from pyhgl.tester import *
         dataIn = UInt('32:b0')  @ Input,
         dataOut = UInt('32:b0') @ Output,
     )
-    stack_mem = Reg(MemType[depth, 32](0))
-    sp = Reg(UInt[depth.bit_length()](0))
+    stack_mem = Reg(MemArray[depth, 32](0), reset=None)
+    sp = Reg(UInt[utils.width_infer(depth)](0))
     out = Reg(io.dataOut)
     
     when io.en:
@@ -184,29 +186,22 @@ from pyhgl.tester import *
         elsewhen io.pop && sp > 0:
             sp <== sp - 1 
         when sp > 0:    
-            out <== stack_mem[sp-1]
-
-@module VecSearch:
-    index = Reg('000')
-    index <== index + 1 
-    elts = MemType[7,4]([0,4,15,14,2,5,13]) 
-    out = elts[index]
-
+            out <== stack_mem[sp-1] 
 
 
 @module Life(rows, cols):
     
-    _state = UInt(Array.full((rows+2, cols+2), 0)) 
-    state = Reg(_state[1:-2,1:-2])          @ Output
+    state = Reg(Array.zeros((rows, cols)))  @ Output
     running = UInt('0')                     @ Input 
     writeValue = UInt('0')                  @ Input 
     writeRowAddress = UInt(rows)            @ Input 
     writeColAddress = UInt(cols)            @ Input 
 
-    def make_ceil(row, col):
-        array3x3 = _state[row:row+3, col:col+3]
-        array3x3[1,1] = UInt('3:b0')      # 3-bit adder
-        count_neighbors = Add(array3x3, axis=None) 
+    def make_ceil(row, col):  
+        neighbors = state[[row-1,row,(row+1)%rows],
+                          [col-1,col,(col+1)%cols]]
+        neighbors[1,1] = UInt('3:b0')     # exclude self
+        count_neighbors = Add(neighbors, axis=None) 
         isAlive = state[row, col]
         when !running:  
             when writeRowAddress == row && writeColAddress == col:
@@ -260,15 +255,16 @@ from pyhgl.tester import *
             ready = UInt()                  @ Output,
             valid = UInt()                  @ Input,), 
         iport = Packet(),
-        oports = Array(FlipIO(Packet()) for _ in range(num_outputs)),
+        oports = FlipIO(Array(Packet() for _ in range(num_outputs))),
     )
     entry_size = max((num_outputs - 1).bit_length(), 1) 
-    tbl = Reg(MemArray[route_table_size, entry_size](0))
+    tbl = Reg(MemArray[route_table_size, entry_size](0), reset=None)
     read_resp_valid = io.read_table_req.valid && io.read_table_resp.ready 
 
     # read tbl
-    tbl_read_addr = Mux(read_resp_valid, io.iport.header, io.read_table_req.addr) 
+    tbl_read_addr = Mux(read_resp_valid, io.read_table_req.addr, io.iport.header) 
     tbl_read_data =  tbl[tbl_read_addr] 
+    io.read_table_req.ready <== read_resp_valid
     io.read_table_resp.valid <== read_resp_valid 
     io.read_table_resp.data <== tbl_read_data
 
@@ -281,30 +277,295 @@ from pyhgl.tester import *
     
     for i in range(num_outputs):
         io.oports[i].valid <== (tbl_read_data == i) && io.iport.ready && io.iport.valid 
-        io.oports[i,['header', 'body']] <== io.oports[['header', 'body']]
+        io.oports[i,['header', 'body']] <== io.iport[['header', 'body']]
 
     
 
+# ----------------------- tests -----------------------------
+
+@task test_adder(self, dut):
+    for _ in range(100):
+        A, B, C = setr(dut.io[['A','B','Cin']])
+        yield 100 
+        self.AssertEq(
+            getv(dut.io.Sum) | getv(dut.io.Cout) << Logic(dut.n,0), 
+            A+B+C
+        )
+        
+@task test_byte_selector(self, dut):
+    data = setr(dut.io.data)
+    for _ in range(10):
+        idx = setr(dut.io.offset) * Logic(8,0)
+        yield 100 
+        self.AssertEq(getv(dut.io.out), (data >> idx) & Logic(0xff,0))
+
+@task test_shift_reg(self, dut):
+    record = [0,0,0,0]
+    for _ in range(100):
+        enable = setr(dut.io.shift)
+        data_in = setx(dut.io.data)
+        yield self.clock_n()
+        if enable == 1:
+            record = [data_in, *record[:3]]
+        self.AssertEq(getv(dut.io.out), record[-1])
+
+@task test_functionality(self, dut):
+    for _ in range(100):
+        x, y = setx(dut.io[['x','y']])
+        yield 100
+        z = getv(dut.io['z']) 
+        self.AssertEq((x & y)|(~x & y), z)
+
+@task test_gcd(self, dut):
+    test_data = [(48,32,16), (7,3,1), (100,10,10)]
+    for a, b, res in test_data:
+        setv(dut.io[['a','b','load']], [a, b, 1])
+        yield self.clock_n()
+        setv(dut.io.load, 0)
+        yield self.until(dut.io.valid,1)
+        yield self.clock_n()
+        self.AssertEq(getv(dut.io.out), res)
+
+@task test_mult(self, dut):
+    for _ in range(10):
+        a, b = setr(dut.io.A), setr(dut.io.B)
+        yield 100
+        out = getv(dut.io.Hi).v << 16 | getv(dut.io.Lo).v
+        self.AssertEq(out, a.v * b.v)
+
+@task test_shifter(self, dut):
+    for _ in range(10):
+        data_in = setr(dut.data)
+        shamt_in = setr(dut.shamt)
+        yield self.clock_n(5)
+        self.AssertEq(getv(dut.out), (data_in << shamt_in) & Logic(0xffff,0))
+
+@task test_parity(self, dut):
+    is_odd = 0
+    for _ in range(10):
+        data = setr(dut.io.data)
+        yield self.clock_n()
+        is_odd = (is_odd + data.v) % 2 
+        self.AssertEq(getv(dut.io.out), is_odd)
+
+@task test_risc(self, dut):
+    def write(addr, data):
+        setv(dut.io.isWr, 1)
+        setv(dut.io.wrAddr, addr)
+        setv(dut.io.wrData, data)
+        yield self.clock_n()
+    def boot():
+        setv(dut.io.isWr, 0)
+        setv(dut.io.boot, 1)
+        yield self.clock_n()
+    Inst = lambda op,rc,ra,rb: (op<<24) | (rc<<16) | (ra<<8) | rb 
+    app = [
+        Inst(1, 1, 0, 1),  # r1 <- 1
+        Inst(0, 1, 1, 1),  # r1 <- r1 + r1
+        Inst(0, 1, 1, 1),  # r1 <- r1 + r1
+        Inst(0, 255, 1, 0),  # rh <- r1
+    ]
+    yield from write(0,0)
+    for addr, inst in enumerate(app):
+        yield from write(addr, inst)
+    yield from boot()
+    setv(dut.io.boot, 0)
+    yield self.until(dut.io.valid, 1) 
+    yield self.clock_n()
+    self.AssertEq(getv(dut.io.out), 4)
+        
+@task test_alu(self, dut):
+    def alu_ref(a, b, op):
+        return ([a,b,a+Logic(1,0),a-Logic(1,0),a+Logic(4,0),a-Logic(4,0),a+b,a-b,a._lt(b)] + [a._eq(b)]*7)[op.v] & Logic(0xf,0)
+    for _ in range(100):
+        a, b, op = setr(dut.io[:-1])
+        yield 100 
+        self.AssertEq(getv(dut.io.out), alu_ref(a,b,op))
+
+@task test_stack(self, dut):
+    @task push(self, data):
+        setv(dut.io[['en','dataIn','push']],[1,data,1])
+        yield self.clock_n()
+        setv(dut.io[['en','dataIn','push']], [0,0,0])
+        yield 1 
+    @task expect_pop(self,data):
+        setv(dut.io[['en','pop']], [1,1])
+        yield self.clock_n()
+        self.AssertEq(getv(dut.io.dataOut), data)
+        setv(dut.io[['en','pop']], [0,0])
+        yield 1
+    @task push_and_pop(self, data):
+        setv(dut.io[['en','dataIn','push','pop']],[1,data,1,1])
+        yield self.clock_n()
+        setv(dut.io[['en','dataIn','push','pop']],[0,0,0,0])
+        yield 1
+        
+    yield push(3), push(1), push(2), push(0)
+    yield expect_pop(0), expect_pop(2), expect_pop(1), expect_pop(3)
+    # Extra pops shouldn't change value
+    yield expect_pop(3), expect_pop(3)
+    yield push(3)
+    # pushing and popping should only push
+    yield push_and_pop(2), push_and_pop(3)
+    yield expect_pop(3), expect_pop(2), expect_pop(3)
+    # pushing more than depth will be ignored
+    yield push(0), push(1), push(2), push(3), push(4)
+    yield expect_pop(3), expect_pop(2), expect_pop(1), expect_pop(0)
+
+
+@task test_life(self, dut):
+    @task set_mode(self, run: bool):    
+        setv(dut.running, run)
+        yield self.clock_n()
+
+    @task write(self, row, col):
+        setv(dut.writeValue, 1)
+        setv(dut.writeRowAddress, row)        
+        setv(dut.writeColAddress, col)
+        yield self.clock_n()
+
+    @task init_glider(self):
+        yield write(3,3), write(3,5), write(4,4), write(4,5), write(5,4)
+    
+    def board_str():
+        ceils = getv(dut.state)
+        ceils_str = Map(lambda v: '*' if v==1 else ' ', ceils) 
+        ret = ['  0 1 2 3 4 5 6 7 8 9']
+        for i, row in enumerate(ceils_str):
+            ret.append(' '.join([f'{i}', *row]))
+        return '\n'.join(ret)
+        
+    yield set_mode(0), init_glider(), set_mode(1)
+    for _ in range(19):
+        yield self.clock_n()
+    self.AssertEq(board_str(),
+"""  0 1 2 3 4 5 6 7 8 9
+0                   *
+1                    
+2                    
+3                    
+4                    
+5                    
+6                    
+7                    
+8 *               *  
+9 *                 *""")
+
+
+@task test_router(self, dut):
+
+    @task read_routing_table(self, addr, data):
+        setv(dut.io.read_table_req.addr, addr)
+        setv(dut.io.read_table_req.valid, 1)
+        setv(dut.io.read_table_resp.ready, 1)
+        yield self.clock_n()
+        self.AssertEq(getv(dut.io.read_table_req.ready), 1)
+        self.AssertEq(getv(dut.io.read_table_resp.valid), 1)
+        yield self.clock_n()
+        setv(dut.io.read_table_req.valid, 0)
+        setv(dut.io.read_table_resp.ready, 0)
+        self.AssertEq(getv(dut.io.read_table_resp.data), data)
+
+    @task write_routing_table(self, addr, data):
+        setv(dut.io.write_table_req[['data','addr','valid']], [data, addr, 1])
+        yield self.clock_n()
+        self.AssertEq(getv(dut.io.write_table_req.ready), 1)
+        yield self.clock_n()
+        setv(dut.io.write_table_req.valid, 0) 
+
+    @task write_with_confirm(self, addr, data):
+        yield write_routing_table(addr, data)
+        yield read_routing_table(addr, data)
+        
+    @task route_packet(self, header, body, routed_to):
+        oport = dut.io.oports[routed_to]
+        setv(dut.io.iport[['header','body','valid']], [header,body,1])
+        setv(oport.ready, 1)
+        yield self.clock_n()
+        self.AssertEq(getv(dut.io.iport.ready), 1)
+        self.AssertEq(getv(oport.valid), 1)
+        yield self.clock_n()
+        setv(dut.io.iport.valid, 0)
+        setv(oport.ready, 0)
+        self.AssertEq(getv(oport.body), body)
+        
+    for i in range(4):
+        yield write_with_confirm(i, (i+1) % 4)
+        
+    for i in range(3,-1,-1):
+        yield read_routing_table(i, (i+1) % 4)
+    
+    for i in range(4):
+        route_packet(i,i*3,(i+1)%4)
+
+    new_routing_table = [random.randrange(4) for _ in range(15)] 
+    for i, destination in enumerate(new_routing_table):
+        yield write_routing_table(i, destination)
+    
+    for i in range(20):
+        data = random.randrange(1 << 64)
+        yield route_packet(i%15, data, new_routing_table[i%15])
+        
 
 
 @tester test_examples(self): 
     sess = Session()
     sess.enter()
 
-    # parameter
-    N = 4
-    dut_adder = Adder(N)
-    sess.track(dut_adder)  
+    adder = Adder(4)
+    sess.track(adder)
+    sess.join_none(test_adder(adder))
 
-    for i in range(100):
-        A, B, C = setr(dut_adder.io[['A','B','Cin']]) 
-        sess.run(100)
-        self.EQ += getv(dut_adder.io.Sum) | getv(dut_adder.io.Cout) << Logic(N,0) , A + B + C
+    byte_selector = ByteSelector()
+    sess.track(byte_selector)
+    sess.join_none(test_byte_selector(byte_selector))
+
+    shift_reg = EnableShiftRegister()  
+    sess.track(shift_reg)
+    sess.join_none(test_shift_reg(shift_reg))
+
+    functionality = Functionality()
+    sess.track(functionality)
+    sess.join_none(test_functionality(functionality))
+
+    gcd = GCD()
+    sess.track(gcd)
+    sess.join_none(test_gcd(gcd))
+
+    mult = HiLoMultiplier()
+    sess.track(mult)
+    sess.join_none(test_mult(mult))
+
+    shifter = LogShifter()
+    sess.track(shifter)
+    sess.join_none(test_shifter(shifter))
+
+    parity = Parity()
+    sess.track(parity)
+    sess.join_none(test_parity(parity))
+
+    risc = Risc()
+    sess.track(risc)
+    sess.join_none(test_risc(risc))
+
+    alu = BasicALU()
+    sess.track(alu)
+    sess.join_none(test_alu(alu))
+
+    stack = Stack(4)
+    sess.track(stack)
+    sess.join_none(test_stack(stack))
+
+    life = Life(10,10)
+    sess.track(life)
+    sess.join_none(test_life(life))
+
+    router = Router()
+    sess.track(router)
+    sess.join_none(test_router(router))
 
 
-
-
-
+    sess.step(11000)
 
     sess.dumpVCD('ex.vcd') 
     sess.dumpGraph('ex.gv')

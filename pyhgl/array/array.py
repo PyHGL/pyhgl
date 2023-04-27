@@ -272,6 +272,9 @@ class Array(Container):
                 else:
                     self._list.append(v)
 
+    def __call__(self, *args, **kwargs):
+        return Map(lambda f: f(*args, **kwargs), self)
+
     #-----------------------------------
     # unary operators & binary operators
     #-----------------------------------
@@ -519,7 +522,7 @@ class Array(Container):
 
 
     @property
-    def _flat(self) -> list:
+    def _flat(self) -> Array:
         """ dfs flat
         """
         ret = Array()
@@ -622,7 +625,7 @@ class Array(Container):
             assert n_total % n_new == 0, f'cannot reshape {self._shape} into {new_shape}' 
             new_shape[idx_uncertain] = n_total // n_new 
         
-        ret = Array.full(shape=tuple(new_shape), value = 0)
+        ret = Array.full(tuple(new_shape), value = 0)
         it = iter(flat)  
         return Map(lambda x: next(it), ret)
     
@@ -638,7 +641,7 @@ class Array(Container):
         """ 
         return Map(lambda _: v, self) 
     
-    def full(shape: Union[Tuple[int], Array, int], value) -> Array:
+    def full(shape: Union[Tuple[int], Array, int], value: Any) -> Array:
         """ generate a n-d array
 
         Args:
@@ -646,23 +649,35 @@ class Array(Container):
 
         Examples:
             Array.full((2,3,4), 'a')
+            Array.full(2,3,4, value='b')
         """ 
         if isinstance(shape, int):
             shape = (shape,)
-        assert all(i > 0 for i in shape), 'negative dimensions are not allowed'
+        else:
+            shape = tuple(shape)
         return Map(lambda _: value, Array(np.zeros(shape), recursive=True))
 
-    def ones(shape) -> Array:
+    def ones(*shape) -> Array:
+        if isinstance(shape[0], int):  # zeros(2,3,4)
+            shape = shape 
+        else:                           # zeros((2,3,4))
+            assert len(shape) == 1 
+            shape = shape[0]
         return Map(lambda _: 1, Array(np.zeros(shape), recursive=True))
         
-    def zeros(shape) -> Array:
+    def zeros(*shape) -> Array:
+        if isinstance(shape[0], int):  # zeros(2,3,4)
+            shape = shape 
+        else:                           # zeros((2,3,4))
+            assert len(shape) == 1 
+            shape = shape[0]
         return Map(lambda _: 0, Array(np.zeros(shape), recursive=True))
     
 
 def ToArray(x) -> Any: 
     """ turn iterable (except dict & str) into array, recursively
     """
-    if isinstance(x, (dict, str)) or not hasattr(x, '__iter__'):
+    if isinstance(x, (dict, str, Array)) or not hasattr(x, '__iter__'):
         return x
     else:
         return Array(x, recursive=True)
@@ -808,10 +823,10 @@ def vectorize_first(f):
 
 
 """
-Cat([1,2,3], axis=...)  return 1 signal 
-Cat([1,2,3])             return [1,2,3]
-Add([1,2,3], axis=(0,))  return 6
-Add([1,2,3], axis=None)  return 6
+default:
+    Add(a,b,c, axis=0) === Add([a,b,c], axis=0) === a+b+c 
+axis=1:
+    Add(a,b,c, axis=1) === Add([a,b,c], axis=1) ===[sum(a), sum(b), sum(c)]
 """
 
 def vectorize_axis(f):
@@ -827,29 +842,43 @@ def vectorize_axis(f):
     """
     assert callable(f)
     
-    def vectorized_axis(*args, **kwargs) -> Any:
+    def vectorized_axis(*args, **kwargs) -> Any: 
+        assert args, 'no args'
+        # regard multiple positional args as array
+        args = args[0] if len(args) == 1 else args
         # turn array-like into array
-        args = [ToArray(i) for i in args]
-        if len(args) > 1: 
-            if 'axis' in kwargs:
-                raise TypeError('"axis" is not valid kwarg when more than one positional args')
+        args = ToArray(args) 
+        # get axis
+        if 'axis' in kwargs:
+            axis = kwargs.pop('axis')
+        else:
+            axis = 0    # axis is 0 by default 
+        if axis is ...:
+            axis = None # None means all axes 
+
+        # single atom
+        if not isinstance(args, Array):   
+            return f(args, **kwargs) 
+        # reduce all axes 
+        if axis is None:    
+            return f(*args._flat, **kwargs) 
+        # sum columns
+        elif axis == 0:
             return Map(f, *args, **kwargs)
-        elif len(args) == 1:
-            value = args[0]
-            # single atom
-            if not isinstance(value, Array):
-                return f(value, **kwargs)
-            # get axis
-            if 'axis' not in kwargs:
-                return Map(f, value, **kwargs)
-            else:
-                axis = kwargs.pop('axis') 
-            if axis is ...:
-                axis = None
-            # default apply on all and return single value
-            if axis is None:
-                return f(*value._flat, **kwargs)
-            
+        # sum rows
+        elif axis == 1:
+            # keep axis 0
+            ret = []
+            for i in args:
+                # reduce axis 1
+                if not isinstance(i, Array):
+                    ret.append(f(i, **kwargs))
+                else:
+                    ret.append(Map(f, *i, **kwargs))
+            return Array(ret) 
+        # multiple axis or > 1
+        else:
+            value = args 
             shape = value._shape 
             assert shape is not None and 0 not in shape, 'not array-like'  
             if isinstance(axis, int): 
@@ -881,8 +910,61 @@ def vectorize_axis(f):
                     _slice[i] = slice(None) 
                 ret.append(f( *value.__getitem__(tuple(_slice))._flat, **kwargs))
             return Array(ret)._reshape(ret_shape)
-        else:
-            raise ValueError(f'{f} takes at least one positional arg')
+
+
+        # if len(args) > 1: 
+        #     if 'axis' in kwargs:
+        #         raise TypeError('"axis" is not valid kwarg when more than one positional args')
+        #     return Map(f, *args, **kwargs)
+        # elif len(args) == 1:
+        #     value = args[0]
+        #     # single atom
+        #     if not isinstance(value, Array):
+        #         return f(value, **kwargs)
+        #     # get axis
+        #     if 'axis' not in kwargs:
+        #         return Map(f, value, **kwargs)
+        #     else:
+        #         axis = kwargs.pop('axis') 
+        #     if axis is ...:
+        #         axis = None
+        #     # default apply on all and return single value
+        #     if axis is None:
+        #         return f(*value._flat, **kwargs)
+            
+        #     shape = value._shape 
+        #     assert shape is not None and 0 not in shape, 'not array-like'  
+        #     if isinstance(axis, int): 
+        #         axis = (axis,) 
+        #     # axis
+        #     keeped_axis: List[int] = []
+        #     removed_axis: List[int] = []
+        #     for i in axis:
+        #         if i < 0:
+        #             i += len(shape)
+        #         assert 0 <= i < len(shape), 'axis out of range'
+        #         removed_axis.append(i)    
+        #     for i in range(len(shape)):
+        #         if i not in removed_axis:
+        #             keeped_axis.append(i)
+        #     removed_axis.sort()
+            
+        #     # reduce all axis
+        #     if not keeped_axis:
+        #         return f(*value._flat, **kwargs)
+            
+        #     ret = []
+        #     ret_shape = tuple(shape[i] for i in keeped_axis)
+        #     for idxes in np.ndindex(ret_shape):
+        #         _slice = list(shape)
+        #         for axis, idx in zip(keeped_axis, idxes):
+        #             _slice[axis] = idx 
+        #         for i in removed_axis:
+        #             _slice[i] = slice(None) 
+        #         ret.append(f( *value.__getitem__(tuple(_slice))._flat, **kwargs))
+        #     return Array(ret)._reshape(ret_shape)
+        # else:
+        #     raise ValueError(f'{f} takes at least one positional arg')
 
     vectorized_axis.__hgl_wrapped__ = f 
     return vectorized_axis
@@ -961,14 +1043,14 @@ def Rshift(a, b, **kwargs):
 # compare
 #--------
 # a == b
-@vectorize_first
+@vectorize
 def Eq(a, b, **kwargs):
     """ a: Signal, b: Signal or Immd or Any
     """
     return HGL._sess.module._conf.dispatcher.call('Eq', Signal(a), b, **kwargs) 
 
 # a != b
-@vectorize_first
+@vectorize
 def Ne(a, b, **kwargs):
     """ a: Signal, b: Signal or Immd or Any
     """
@@ -976,28 +1058,28 @@ def Ne(a, b, **kwargs):
 
 
 # a < b
-@vectorize_first
+@vectorize
 def Lt(a, b, **kwargs):
     """ a: Signal, b: Signal or Immd 
     """
     return HGL._sess.module._conf.dispatcher.call('Lt', Signal(a), b, **kwargs) 
 
 # a <= b
-@vectorize_first
+@vectorize
 def Le(a, b, **kwargs):
     """ a: Signal, b: Signal or Immd 
     """
     return HGL._sess.module._conf.dispatcher.call('Le', Signal(a), b, **kwargs) 
 
 # a > b
-@vectorize_first
+@vectorize
 def Gt(a, b, **kwargs):
     """ a: Signal, b: Signal or Immd 
     """
     return HGL._sess.module._conf.dispatcher.call('Gt', Signal(a), b, **kwargs) 
 
 # a >= b
-@vectorize_first
+@vectorize
 def Ge(a, b, **kwargs):
     """ a: Signal, b: Signal or Immd 
     """

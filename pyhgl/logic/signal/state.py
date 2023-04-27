@@ -41,11 +41,9 @@ class EnumType(SignalType):
         frozen: 
             - once called, this type is immutable 
     
-    TODO onehot, gray encoding
     TODO s['idle.1']
     """ 
     
-    __slots__ = '_encoding', '_width', '_frozen', '_order', '_names', '_values'
     
     def __init__(
         self, 
@@ -68,6 +66,9 @@ class EnumType(SignalType):
         # one-to-one mapping
         self._names: Dict[str, int] = {}  
         self._values: Dict[int, str] = {} 
+        
+        # record relative data and update their bit length
+        self._data: Dict[LogicData] = {}
         
         if isinstance(states, dict):
             for k, v in states.items(): 
@@ -155,7 +156,9 @@ class EnumType(SignalType):
         else:
             raise Exception('unknown encoding') 
         
-        self._width = max(utils.width_infer(value),self._width)
+        self._width = max(utils.width_infer(value),self._width) 
+        for data in self._data:
+            data.length = self._width
         self._names[state] = value 
         self._values[value] = state 
         return value
@@ -169,7 +172,9 @@ class EnumType(SignalType):
                 v = 0
         v = self._eval(v)  
         assert isinstance(v, Logic)
-        return Reader(data=LogicData(v.v, v.x), type=self, name=name)
+        ret_data = LogicData(v.v, v.x, len(self))
+        self._data[ret_data] = None
+        return Reader(data=ret_data, type=self, name=name)
         
     def __str__(self, data: LogicData = None):  
         state_str = ','.join(f'{k}={v}' for k,v in self._names.items())

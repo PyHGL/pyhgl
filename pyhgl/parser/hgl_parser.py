@@ -3639,7 +3639,7 @@ class HGLParser(Parser):
 
     @memoize_left_rec
     def hgl_imply(self) -> Optional[Any]:
-        # hgl_imply: hgl_imply '|->' hgl_logic | hgl_logic
+        # hgl_imply: hgl_imply '|->' hgl_or | hgl_or
         mark = self._mark()
         tok = self._tokenizer.peek()
         start_lineno, start_col_offset = tok.start
@@ -3648,49 +3648,75 @@ class HGLParser(Parser):
             and
             (self.expect('|->'))
             and
-            (b := self.hgl_logic())
+            (b := self.hgl_or())
         ):
             tok = self._tokenizer.get_last_non_whitespace_token()
             end_lineno, end_col_offset = tok.end
             return ast . Call ( func = ast . Name ( id = '__hgl_imply__' , ctx = Load , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset ) , args = [a , b] , keywords = [] , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset );
         self._reset(mark)
         if (
-            (hgl_logic := self.hgl_logic())
+            (hgl_or := self.hgl_or())
         ):
-            return hgl_logic;
+            return hgl_or;
         self._reset(mark)
         return None;
 
     @memoize_left_rec
-    def hgl_logic(self) -> Optional[Any]:
-        # hgl_logic: hgl_logic '&&' comparison | hgl_logic '||' comparison | hgl_logic '>>>' comparison | comparison
+    def hgl_or(self) -> Optional[Any]:
+        # hgl_or: hgl_or '||' hgl_and | hgl_and
         mark = self._mark()
         tok = self._tokenizer.peek()
         start_lineno, start_col_offset = tok.start
         if (
-            (a := self.hgl_logic())
-            and
-            (self.expect('&&'))
-            and
-            (b := self.comparison())
-        ):
-            tok = self._tokenizer.get_last_non_whitespace_token()
-            end_lineno, end_col_offset = tok.end
-            return ast . Call ( func = ast . Name ( id = '__hgl_logicand__' , ctx = Load , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset ) , args = [a , b] , keywords = [] , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset );
-        self._reset(mark)
-        if (
-            (a := self.hgl_logic())
+            (a := self.hgl_or())
             and
             (self.expect('||'))
             and
-            (b := self.comparison())
+            (b := self.hgl_and())
         ):
             tok = self._tokenizer.get_last_non_whitespace_token()
             end_lineno, end_col_offset = tok.end
             return ast . Call ( func = ast . Name ( id = '__hgl_logicor__' , ctx = Load , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset ) , args = [a , b] , keywords = [] , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset );
         self._reset(mark)
         if (
-            (a := self.hgl_logic())
+            (hgl_and := self.hgl_and())
+        ):
+            return hgl_and;
+        self._reset(mark)
+        return None;
+
+    @memoize_left_rec
+    def hgl_and(self) -> Optional[Any]:
+        # hgl_and: hgl_and '&&' hgl_shift | hgl_shift
+        mark = self._mark()
+        tok = self._tokenizer.peek()
+        start_lineno, start_col_offset = tok.start
+        if (
+            (a := self.hgl_and())
+            and
+            (self.expect('&&'))
+            and
+            (b := self.hgl_shift())
+        ):
+            tok = self._tokenizer.get_last_non_whitespace_token()
+            end_lineno, end_col_offset = tok.end
+            return ast . Call ( func = ast . Name ( id = '__hgl_logicand__' , ctx = Load , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset ) , args = [a , b] , keywords = [] , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset );
+        self._reset(mark)
+        if (
+            (hgl_shift := self.hgl_shift())
+        ):
+            return hgl_shift;
+        self._reset(mark)
+        return None;
+
+    @memoize_left_rec
+    def hgl_shift(self) -> Optional[Any]:
+        # hgl_shift: hgl_shift '>>>' comparison | comparison
+        mark = self._mark()
+        tok = self._tokenizer.peek()
+        start_lineno, start_col_offset = tok.start
+        if (
+            (a := self.hgl_shift())
             and
             (self.expect('>>>'))
             and

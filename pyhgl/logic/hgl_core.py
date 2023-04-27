@@ -26,9 +26,9 @@ import random
 
 from pyhgl.array import *
 import pyhgl.logic.module_hgl as module_hgl
-import pyhgl.logic._config as _config
+import pyhgl.logic._config as config
 import pyhgl.logic.module_cpp as cpp
-import pyhgl.logic._session as _session  
+import pyhgl.logic._session as session  
 import pyhgl.logic.module_sv as sv 
 import pyhgl.logic.simulator_py as simulator
 import pyhgl.logic.utils as utils
@@ -39,79 +39,43 @@ import pyhgl.logic.utils as utils
 # Literal
 #------------------
     
-
-class BitPat(HGL):
-    """ only used in comparation ==, regard as immediate, not signal value
-    """
-    def __init__(self, v: str) -> None:
-        """ 0101??11  -> value: 01010011, mask: 00001100
-        """
-        assert 'x' not in v, 'unknown value is not allowed in BitPat'
-        v, x, width = utils.str2logic(v)
-        self.v = gmpy2.mpz(v)
-        self.x = gmpy2.mpz(x) 
-        self.width = width
-
-    def __len__(self):
-        """ BitPat has fixed width """
-        return self.width
-
-    def _eq(self, other: Logic) -> Logic:
-        """ return 1 bit logic
-        """
-        mask = ~self.x 
-        v1 = self.v 
-        v2 = other.v & mask 
-        x2 = other.x & mask 
-        if x2:
-            if v1 & (~x2) == v2 & (~x2):  # bits without x
-                return Logic(0,1)
-            else:
-                return Logic(0,0)
-        else:
-            return Logic(v1 == v2,0)
-
-    def __str__(self):
-        ret = re.sub('x', '?', utils.logic2str(self.v, self.x ,width=self.width))
-        return f'BitPat({ret})'  
-
-
-@vectorize_first 
-def _ToLogic(a):
-    if isinstance(a, Logic):
-        return a 
-    elif isinstance(a, str):
-        v, x, *_ = utils.str2logic(a)
-        return Logic(v,x)
-    else:   # int
-        return Logic(a, 0)
-
-
 class Logic(HGL):
     """
     3-valued logic literal: 0, 1, X 
 
-    00 -> 0 
-    10 -> 1 
-    01 -> X 
-    11 -> X 
+    v, x
+    0  0 -> 0 
+    1  0 -> 1 
+    0  1 -> X 
+    1  1 -> X 
+
+    XXX slicing negative mpz return incorrect value
     """
     
     __slots__ = 'v', 'x'
 
-    def __head__(self, v: int, x: int) -> None:
-        # value
-        self.v: int = gmpy2.mpz(v)  
-        # unknown
-        self.x: int = gmpy2.mpz(x)
-
-    def __new__(cls, v: Union[int, list, Array], x: Optional[int] = None):
-        if x is None:
-            return _ToLogic(v)
-        else: 
-            self = object.__new__(cls)
-            self.__head__(v, x)
-            return self
+    def __init__(
+            self, 
+            v: Union[int, str, gmpy2.mpz, Logic], 
+            x: Union[int, gmpy2.mpz] = gmpy2.mpz(0),
+        ) -> None:
+        """ ex. Logic(3), Logic(-1), Logic(-1,-1)
+        """
+        if isinstance(v, gmpy2.mpz) and isinstance(x, gmpy2.mpz):
+            self.v = v    
+            self.x = x    
+        elif isinstance(v, str):        # ignore x
+            _v, _x, _ = utils.str2logic(v)
+            self.v = gmpy2.mpz(_v)
+            self.x = gmpy2.mpz(_x)
+        elif isinstance(v, Logic):      # ignore x
+            self.v, self.x = v.v, v.x
+        else:                           # v, x are int/float
+            try:
+                self.v = gmpy2.mpz(v)
+                self.x = gmpy2.mpz(x)
+            except:
+                raise ValueError(f'wrong value: {v} or {x}') 
     
     def __bool__(self):
         raise Exception('Logic does not support python bool method')  
@@ -119,14 +83,74 @@ class Logic(HGL):
     def __hash__(self):
         return hash((self.v, self.x))
     
+    def __len__(self):
+        """ return minimum bit-length of v,x
+        """
+        return max(utils.width_infer(self.v), utils.width_infer(self.x))
+
+    def to_bin(self, width: int = None) -> str:
+        """ ex. width=None: '1x1x10'; width=8: '001x1x10'
+        """
+        if width is None:
+            width = len(self)
+        return utils.logic2bin(self.v, self.x, width)
+    
+    def to_hex(self, width: int = None) -> str:
+        """ ex. width=None: '1f'; width=16: '001f'
+        """
+        if width is None:
+            width = len(self)
+        return utils.logic2hex(self.v, self.x, width)
+    
+    def to_int(self, width: int = None) -> Optional[int]:
+        """ convert to python int, sign-extended with width
+        """
+        if width is None:
+            if self.x: 
+                return None 
+            else:
+                return int(self.v)
+        else:
+            mask = gmpy2.bit_mask(width)
+            if self.x & mask:               # unknown value
+                return None 
+            else:
+                v = self.v & mask
+                if v[width-1]:              # sign-extended
+                    return int(v | ~mask)
+                else:
+                    return int(v)
+    
+    def split(self, *shape: int) -> Array:
+        assert len(shape) == 2, 'currently only support 2d shape'
+        ret = Array([])
+        n, w = shape 
+        mask = gmpy2.bit_mask(n*w)
+        v = self.v & mask 
+        x = self.x & mask
+        assert n > 0 and w > 0, 'negative shape'
+        for i in range(n):
+            _start, _end = i * w, i * w + w
+            ret._append(Logic(
+                v[_start:_end],
+                x[_start:_end],
+            )) 
+        return ret
+    
+    @staticmethod 
+    def zeros(*shape) -> Array:
+        """ return array of signals
+        """
+        if isinstance(shape[0], int):   # zeros(2,3,4)
+            shape = shape 
+        else:                           # zeros((2,3,4))
+            assert len(shape) == 1 
+            shape = shape[0]
+        return Map(lambda _: Logic(gmpy2.mpz(0), gmpy2.mpz(0)), Array(np.zeros(shape), recursive=True))
+
+    
     def __str__(self):
-        _width = max(
-            utils.width_infer(self.v, signed=self.v<0), 
-            utils.width_infer(self.x, signed=self.x<0)
-        ) 
-        width = min(64, _width) 
-        ret = utils.logic2str(self.v, self.x, width=width, prefix=False)
-        return f"{_width}'b{ret}"
+        return utils.logic2str(self.v, self.x)
 
     def __getitem__(self, key) -> Logic:
         """ bit select, v[0], v[1], ...
@@ -347,13 +371,13 @@ class Logic(HGL):
     def __truediv__(self, other):   
         raise NotImplementedError()
     
-    def _merge(self, unknown: bool, mask: int, other: Logic) -> Logic:
+    def _merge(self, unknown: bool, mask: gmpy2.mpz, other: Logic) -> Logic:
         """
         mask: positions of bits to merge  
         other: another value, should not overflow
         unknown: override or merge 
 
-        ex. self = 1001x, other = 0x000, mask = 11000 -> xx01x
+        ex. unknown = True, self = 1001x, other = 0x000, mask = 11000 -> xx01x
         """
         v1 = self.v 
         v2 = other.v 
@@ -370,6 +394,45 @@ class Logic(HGL):
                 v1 & mask_n | v2,
                 x1 & mask_n | x2,
             )
+
+
+
+
+class BitPat(HGL):
+    """ only used in comparation ==, regard as immediate, not signal value
+    """
+    def __init__(self, v: str) -> None:
+        """ 0101??11  -> value: 01010011, mask: 00001100
+        """
+        assert 'x' not in v, 'unknown value is not allowed in BitPat'
+        v, x, width = utils.str2logic(v)
+        self.v = gmpy2.mpz(v)
+        self.x = gmpy2.mpz(x) 
+        self.width = width
+
+    def __len__(self):
+        """ BitPat has fixed width """
+        return self.width
+
+    def _eq(self, other: Logic) -> Logic:
+        """ return 1 bit logic
+        """
+        mask = ~self.x 
+        v1 = self.v 
+        v2 = other.v & mask 
+        x2 = other.x & mask 
+        if x2:
+            if v1 & (~x2) == v2 & (~x2):  # bits without x
+                return Logic(0,1)
+            else:
+                return Logic(0,0)
+        else:
+            return Logic(v1 == v2,0)
+
+    def __str__(self):
+        ret = re.sub('x', '?', utils.logic2bin(self.v, self.x ,self.width))
+        return f'BitPat({ret})'  
+
 
 
 
@@ -393,15 +456,17 @@ class SignalData(HGL):
     TODO copy with data
     """
 
-    _sess: _session.Session
+    _sess: session.Session
 
-    __slots__ = 'v', 'x', '_v', '_x', 'writer', 'reader', '_name', '_module', 'tracker', 'events'
+    __slots__ = 'v', 'x', 'length', '_v', '_x', 'writer', 'reader', '_name', '_module', 'tracker', 'events'
     
-    def __init__(self, v: Union[int, gmpy2.mpz], x: Union[int, gmpy2.mpz]):  
+    def __init__(self, v: Union[int, gmpy2.mpz], x: Union[int, gmpy2.mpz], length: int):  
         # value
         self.v: gmpy2.mpz = gmpy2.mpz(v)  
         # unknown
         self.x: gmpy2.mpz = gmpy2.mpz(x)
+        # bit length 
+        self.length = length
         # to cpp
         self._v: List[cpp.TData] = None
         self._x: List[cpp.TData] = None    
@@ -422,6 +487,8 @@ class SignalData(HGL):
 
     def _update_py(self, new: Logic) -> bool:
         """ only called by python simulator, return whether value changes or not
+
+        no overflow, no negative value 
         """
         if self.v == new.v and self.x == new.x:  
             return False
@@ -506,14 +573,13 @@ class LogicData(SignalData):
     __slots__ = ()
     
     def __len__(self) -> int:
-        """ bit length is defined by first writer/reader
-        """
-        if self.writer is not None:
-            return len(self.writer)
-        elif self.reader:
-            return len(next(iter(self.reader)))
-        else:
-            return 0
+        return self.length
+        # if self.writer is not None:
+        #     return len(self.writer)
+        # elif self.reader:
+        #     return len(next(iter(self.reader)))
+        # else:
+        #     return 0
 
     def __hash__(self):             
         return id(self) 
@@ -569,12 +635,8 @@ class LogicData(SignalData):
             - length: int
         - return: Logic with certain width
         """
-        if self._v:
-            v: gmpy2.xmpz = cpp.getval(self._v)
-            x: gmpy2.xmpz = cpp.getval(self._x)
-        else:
-            v = self.v 
-            x = self.x 
+        v = self.v 
+        x = self.x 
         if low_key is None:
             return Logic(v, x)
         else:
@@ -582,16 +644,16 @@ class LogicData(SignalData):
             if isinstance(start, Reader):       # dynamic part select
                 start = start._data._getval_py() 
                 if start.x:                     # unknown key, return unknown
-                    return Logic(0, gmpy2.bit_mask(length)) 
+                    return Logic(gmpy2.mpz(0), gmpy2.bit_mask(length)) 
                 else:
                     start = start.v 
             end = start + length
             max_width = len(self)
             if start >= max_width:
-                return Logic(0, gmpy2.bit_mask(length)) # out of range, return unknown 
+                return Logic(gmpy2.mpz(0), gmpy2.bit_mask(length)) # all out of range, return unknown 
             elif end <= max_width:
-                return Logic(v[start:end], x[start:end])  # in range 
-            else:                                             # partly in range
+                return Logic(v[start:end], x[start:end])        # in range 
+            else:                                               # partly in range
                 mask =  gmpy2.bit_mask(end - max_width) << (max_width-start)
                 return Logic(v[start:end], x[start:end] | mask)
 
@@ -697,15 +759,12 @@ class MemData(SignalData):
         x: Union[int, gmpy2.mpz, gmpy2.xmpz],
         shape: Tuple[int,...]
     ) -> None:
-        super().__init__(v, x)
-        # TODO currently only support 2d array, cannot used as module io
-        assert len(shape) == 2 and all(int(i)>0 for i in shape), f'error shape {shape}'
-        self.shape: Tuple[int,...] = shape  
+        assert len(shape) == 2, f'currently only support 2d array, not {shape}'
+        super().__init__(v, x, shape[0] * shape[1])
+
+        self.shape: Tuple[int, int] = shape  
+        # must dump to verilog, using `initial` block
         self._module = self._sess.module
-        # total bits
-        self.length: int = 1 
-        for i in self.shape:
-            self.length *= i 
     
     def __len__(self):
         return self.length
@@ -766,15 +825,17 @@ class MemData(SignalData):
             return Logic(self.v, self.x)
         else:
             idx = low_key[0]
+            if isinstance(idx, Reader):
+                idx = idx._data._getval_py() 
 
-        if isinstance(idx, Reader):
-            idx = idx._data._getval_py()
-        if idx.x or idx.v >= self.shape[0]:
-            return Logic(0, gmpy2.bit_mask(self.shape[-1])) 
+        n, w = self.shape
+        if idx.x or (idx.v >= n):
+            return Logic(gmpy2.mpz(0), gmpy2.bit_mask(w)) 
         else:
-            start = idx.v * self.shape[-1] 
-            end = start + self.shape[-1]
-            return Logic(self.v[start:end], self.x[start:end])
+            start = idx.v * w
+            end = start + w
+            ret = Logic(self.v[start:end], self.x[start:end])
+            return ret
 
             
     def _setval_py(
@@ -787,50 +848,51 @@ class MemData(SignalData):
         """ key is always required, so value is a list
 
         value: List[(cond, key, value)]
+
+        TODO unknown state
         """
         if not need_merge:
             self._sess.sim_py.insert_signal_event(dt, self, value, trace)
-            return 
-        unknown = False 
-        data = Logic(0,0) 
-        mask_full = gmpy2.bit_mask(self.length) 
-        mask_curr = mask_full
-        for cond, key, new in value:
-            if isinstance(new, Reader):
-                new: Logic = new._data._getval_py()
-            if cond is not None:
-                cond: Logic = cond._data._getval_py()
-                if cond.v == 0 and cond.x == 0:
-                    continue
-                elif cond.x:
-                    unknown = True 
-                else:
-                    unknown = False
-        
-            if key is None:
-                new = new 
-            else:
-                idx = key[0]
-                if isinstance(idx, Reader):
-                    idx = idx._data._getval_py()
-                else:   # int 
-                    idx = Logic(idx, 0) 
-                
-                if idx.x:
-                    mask_curr = mask_full 
-                    new = Logic(0, mask_full)
-                else:
-                    lshift = idx.v * self.shape[-1]
-                    mask_curr = (gmpy2.bit_mask(self.shape[-1]) << lshift) & mask_full
-                    new = Logic(
-                        (new.v << lshift) & mask_curr, 
-                        (new.x << lshift) & mask_curr,
-                    ) 
-            data = data._merge(unknown, mask_curr, new)
-        self._sess.sim_py.insert_signal_event(dt, self, data, trace)
+        else: 
+            data = Logic(0,0) 
+            mask_data = gmpy2.bit_mask(self.shape[-1])
+            mask_full = gmpy2.bit_mask(self.length) 
+            mask_curr = mask_full
+            for cond, key, new in value:
+                if isinstance(new, Reader):
+                    new: Logic = new._data._getval_py()
+                if cond is not None:
+                    cond: Logic = cond._data._getval_py()
+                    if cond.v == 0 and cond.x == 0:
+                        continue
             
-                
-
+                if key is None:
+                    new = new 
+                    mask_curr = mask_full
+                else:
+                    idx = key[0]
+                    if isinstance(idx, Reader):
+                        idx = idx._data._getval_py()
+                    else:   # int 
+                        idx = Logic(idx, 0) 
+                    
+                    if idx.x:
+                        mask_curr = mask_full 
+                        new = Logic(0, mask_full)
+                    else: 
+                        _n, _w = self.shape 
+                        _i = idx.v 
+                        if _i >= _n:   # out of range, set nothing
+                            continue
+                        lshift = _i * _w
+                        mask_curr = (mask_data << lshift) & mask_full
+                        new = Logic(
+                            (new.v << lshift) & mask_curr, 
+                            (new.x << lshift) & mask_curr,
+                        ) 
+                data = data._merge(False, mask_curr, new)
+            self._sess.sim_py.insert_signal_event(dt, self, data, trace)
+            
                 
         
 
@@ -869,7 +931,7 @@ class Writer(HGL):
     """ a writer is an outedge of specific gate 
     """
 
-    _sess: _session.Session
+    _sess: session.Session
 
     __slots__ = '_data', '_type', '_driver'
     
@@ -1017,7 +1079,7 @@ class Reader(HGL):
         return len(self._type)
     
     def __str__(self): 
-        return f'{self._name}:{self._type.__str__(self._data)}'
+        return f'{self._name}={self._type.__str__(self._data)}'
     
     def __hash__(self):             return id(self)
     def __bytes__(self):            raise NotImplementedError() 
@@ -1083,7 +1145,7 @@ class SignalType(HGL):
     - _setval_py: return valid mask and value for simulation
     """
 
-    _sess: _session.Session 
+    _sess: session.Session 
     # determines the validity of bitwise operation, type casting, ...
     _storage:  Literal['packed', 'unpacked', 'packed variable'] = 'packed'
 
@@ -1117,7 +1179,8 @@ class SignalType(HGL):
         raise NotImplementedError() 
     
         
-@dispatch('Signal', Any)
+@dispatch('Signal', Any) 
+@vectorize
 def _signal(obj) -> Reader:
     """ literal to signal
     """
@@ -1237,7 +1300,7 @@ class LogicType(SignalType):
     def _slice(self, high_key) -> Tuple[Tuple[Union[int, Reader], int], SignalType]:
         """ uint slicing
         
-        keys: high-level keys, ex. int, signal, slice 
+        keys: high-level keys, ex. int, signal, slice, str
         return: ((start,length), UInt)
         
         - index grow from left to right 
@@ -1252,21 +1315,23 @@ class LogicType(SignalType):
         
         """
         assert self._storage == 'packed', f'{self} has variable bit length'
+
+        if isinstance(high_key, (int, str, Logic, Reader)):
+            high_key = slice(high_key, None, 1)
         
         if isinstance(high_key, slice):
             start, stop, step = high_key.start, high_key.stop, high_key.step 
             if start is not None and stop is None and step is not None:
-                # [signal::8]
+                # [signal::8] 
+                assert isinstance(step, int) and step > 0 
+                assert isinstance(start, (int, str, Logic, Reader))
+                if isinstance(start, (int, str)):
+                    start = Logic(start).v
+                    if start < 0:
+                        start = start + self._width
                 return (start, step), UInt[step] 
             elif step is not None:
-                # [:-1]
                 raise KeyError(f'invalid slicing {high_key}')
-        elif isinstance(high_key, int):
-            if high_key < 0:
-                high_key += self._width
-            start, stop = high_key, high_key+1 
-        elif isinstance(high_key, Reader):
-            return (high_key, 1), UInt[1]
         elif high_key is None:
             return None, self
         else:
@@ -1338,7 +1403,15 @@ class LogicType(SignalType):
         return Oext(self, w)  
 
     def sext(self: Reader, w: int):
-        return Sext(self, w)   
+        return Sext(self, w)    
+    
+    def inside(self: Reader, *args: Any):
+        """ reduced equal, x == a || x == b || x == c
+        """
+        if len(args) == 1:
+            return Eq(self, args[0])
+        else:
+            return Or(Eq(self, ToArray(args))._flat)
 
 
 
@@ -1354,16 +1427,21 @@ class UIntType(LogicType):
     def _eval(self, v: Union[int, str, Logic, BitPat]) -> Union[Logic, BitPat]:
         """ 
         called when:
-            - signal <== immd 
-            - signal == immd 
-            - UInt(immd) 
+            - `signal <== immd `
+            - `signal == immd `
+            - `UInt(immd)`
+
         return a logic value within bit length
-        sext for underflow
-        cut off for overflow
+
+        - overflow:
+            BitPat not allowed 
+            others cut off
+        - underflow:
+            always zero extended
         """ 
-        assert self._width
         if isinstance(v, str) and '?' in v:
             v = BitPat(v)  
+
         if isinstance(v, BitPat):
             assert len(v) <= self._width, f'{v} overflow for UInt[{self._width}]'
             return v 
@@ -1399,17 +1477,32 @@ class UIntType(LogicType):
         else:
             data = self._eval(v)  
             assert isinstance(data, Logic)
-            return Reader(data=LogicData(data.v, data.x), type=self, name=name) 
+            return Reader(data=LogicData(data.v, data.x, len(self)), type=self, name=name)
+
+    def zeros(self, *shape) -> Array:
+        """ return array of signals
+        """
+        if isinstance(shape[0], int):   # zeros(2,3,4)
+            shape = shape 
+        else:                           # zeros((2,3,4))
+            assert len(shape) == 1 
+            shape = shape[0]
+        return Map(lambda _: self(0), Array(np.zeros(shape), recursive=True))
     
+    def __str__(self, data: LogicData = None):
+        if data is None:
+            return f"UInt[{len(self)}]" 
+        else:
+            return f"u{utils.logic2str(data.v, data.x, width=len(self))}"
 
 @singleton
 class UInt(HGLFunction):
     
     def __getitem__(self, key: int):
         """
-        ex. UInt[1], UInt[8]
-        """  
-        assert key > 0 and isinstance(key, int)
+        ex. UInt[8] -> UIntType(8), 
+        """   
+        assert isinstance(key, int) and key > 0
         cache = UIntType._cache
         if key in cache:
             return cache[key]
@@ -1449,6 +1542,8 @@ class UInt(HGLFunction):
 @vectorize
 def Split(signal: Reader, n: int = 1) -> Array:
     assert signal._type._storage == 'packed' 
+    assert isinstance(signal._data, LogicData) 
+    signal = UInt(signal)
     ret = []
     for idx in range( (len(signal)+n-1)//n ): 
         ret.append(signal[idx*n:(idx+1)*n]) 
@@ -1537,7 +1632,7 @@ class Vector(LogicType):
             return Reader(data=v, type=self, name=name)
         else:
             _v = self._eval(v)
-            return Reader(data=LogicData(_v.v, _v.x), type=self, name=name)
+            return Reader(data=LogicData(_v.v, _v.x, len(self)), type=self, name=name)
     
     def _slice(self, keys: Union[int, Reader, tuple]) -> Tuple[Any, SignalType]: 
         # TODO index overflow    
@@ -1599,7 +1694,24 @@ class Vector(LogicType):
             return T 
         else:
             return f"{T}({data})" 
-        
+
+
+@singleton
+class Vec(HGLFunction):
+    
+    def __getitem__(self, key: tuple):
+        """
+        Vec[3,8] -> Vec[3,UInt[8]] 
+        Vec[2,3,4]
+        """   
+        assert isinstance(key, tuple) and len(key) > 1
+        T = key[-1]
+        if not isinstance(T, SignalType):
+            T = UInt[T]
+        return T * key[:-1]
+
+
+
     
 class Struct(LogicType):
     """ 1-d struct
@@ -1664,7 +1776,7 @@ class Struct(LogicType):
             return Reader(data=v, type=self, name=name)
         else:
             _v = self._eval(v)
-            return Reader(data=LogicData(_v.v, _v.x), type=self, name=name)
+            return Reader(data=LogicData(_v.v, _v.x, len(self)), type=self, name=name)
         
     def _slice(self, keys: Union[str, tuple]) -> Tuple[tuple, SignalType]: 
         
@@ -1732,7 +1844,7 @@ class MemType(SignalType):
 
     def __init__(self, *shapes):
         """ 
-        ex. shape=(1024,), T = UInt[8] --> self._shape = (1024,8)
+        ex. self._shape = (1024,8) -> 1024 x UInt[8]
         """
         super().__init__() 
         for i in shapes:
@@ -1746,10 +1858,11 @@ class MemType(SignalType):
     def __len__(self) -> int:
         return self._length 
 
-    def _eval(self, v: Union[int, str, Iterable, Logic]) -> Logic:
+    def _eval(self, v: Union[int, str, Iterable, Logic]) -> Logic: 
+        """ if v is array, zero initialized if cannot fill 
+        """
         v = ToArray(v)
         if isinstance(v, Array): 
-            assert len(v) == self._shape[0], 'shape mismatch' 
             _v = gmpy2.mpz(0) 
             _x = gmpy2.mpz(0)
             _w = self._shape[-1]
@@ -1764,14 +1877,17 @@ class MemType(SignalType):
             return UInt[len(self)]._eval(v) 
  
         
-    def _slice(self, high_key) -> Tuple[Tuple[int], SignalType]:
+    def _slice(self, high_key) -> Tuple[Tuple[Logic], SignalType]:
         if high_key is None:
             raise TypeError('key required for MemType') 
-        elif isinstance(high_key, int):
-            if high_key < 0:
-                high_key += self._shape[0]
-            assert 0 <= high_key < self._shape[0], 'index overflow'
-            return (high_key, ), UInt[self._shape[-1]]
+        elif isinstance(high_key, (int, str, Logic)):
+            key = Logic(high_key) 
+            assert key.x == 0 
+            key = key.v
+            if key < 0:
+                key += self._shape[0]
+            assert 0 <= key < self._shape[0], 'index overflow'
+            return (Logic(key), ), UInt[self._shape[-1]]
         elif isinstance(high_key, Reader):
             return (high_key, ), UInt[self._shape[-1]]
         else:
@@ -1824,9 +1940,38 @@ class Gate(HGL):
 
     iports: Dict[Reader, None] 
     oports: Dict[Writer, None]
-    _sess: _session.Session 
+    _sess: session.Session 
 
     _netlist: str = 'logic'   # verilog netlist type of output signal
+
+
+    # number of unknown values of inputs 
+    # if always need to calculate unknown output, set init > 0 
+    """
+    if (update_v):
+        for i in v.driven:
+            changed_gates.append(i) 
+    elif (update_x):
+        for i in x.driven:
+            i.update_x_count()
+            i.x_need = True 
+            changed_gates.append(i)
+    for i in changed_gates:
+        if i.x_count:
+            i.forward_vx()
+        elif i.x_need:
+            i.forward_vx()
+        else:
+            i.forward_v()
+    """
+     
+    sim_x_count: int = 0         # number of unknown values of input signals 
+    sim_x_changed: bool = False  # input unknown changed at current time slot 
+    sim_executed: bool = False   # already executed at current time slot 
+
+    sim_forward_v: Generator = None  # only update v of outputs 
+    sim_forward_vx: Generator = None # update v & x of outputs
+    
 
     
     def __head__(self, *args, **kwargs) -> Union[Reader, Tuple[Reader]]:
@@ -1866,8 +2011,14 @@ class Gate(HGL):
         self._sess._add_gate(self) 
         self.iports = {}
         self.oports = {}
+        self.sim_x_count = 0 
+        self.sim_x_changed = False 
+        self.sim_executed = False 
+        self.sim_forward_v = None 
+        self.sim_forward_vx = None
         ret = self.__head__(*args, **kwargs)
         # get timing config
+        # TODO get in sim_init
         timing: dict = self._sess.timing.get(self.id) or self.timing 
         if 'delay' in timing:
             self.delay = timing['delay']         
@@ -1879,6 +2030,15 @@ class Gate(HGL):
         #----------------------------------
         return ret 
     
+    def sim_init(self) -> None:
+        """ get timing, count x, set x_changed, init generator
+        """
+        ... 
+
+    def sim_v(self):
+        ... 
+    def sim_vx(self):
+        ...
     
     def forward(self) -> None:
         """ called by simulator when inputs changing or after init 
@@ -2368,7 +2528,8 @@ class _Reg(Assignable):
             id: str = '', 
             next: bool = False, 
             clock: Tuple[Reader, int] = ...,
-            reset: Optional[Tuple[Reader, int]] = ...
+            reset: Optional[Tuple[Reader, int]] = ...,
+            reset_value = None,
         ) -> Reader: 
         """ 
         default:
@@ -2391,11 +2552,14 @@ class _Reg(Assignable):
         self.posedge_clk: List[Reader, bool] = []   # store previous value
         self.negedge_clk: List[Reader, bool] = [] 
         self.pos_rst: Reader = None
-        self.neg_rst: Reader = None
-        self.reset_value: Logic = x._data._getval_py()
+        self.neg_rst: Reader = None 
+        if reset_value is None:
+            self.reset_value: Logic = x._data._getval_py()
+        else:
+            self.reset_value: Logic = x._type._eval(reset_value)
         
-        if clock is ...:   clock = _config.conf.clock 
-        if reset is ...:   reset = _config.conf.reset
+        if clock is ...:   clock = config.conf.clock 
+        if reset is ...:   reset = config.conf.reset
 
         # record initial value of clock 
         clk_init = clock[0]._data._getval_py() 
@@ -2596,7 +2760,7 @@ class _Latch(Assignable):
         self.neg_rst: Reader = None
         self.reset_value: Logic = x._data._getval_py()
         # reset signal
-        if reset is ...:   reset = _config.conf.reset
+        if reset is ...:   reset = config.conf.reset
         if reset is None:
             pass 
         elif reset[1]:
@@ -2676,7 +2840,7 @@ class _Latch(Assignable):
 #     delay: int          
 #     condtree: CondTreeNode 
 #     _netlist = 'logic'   
-#     _sess: _session.Session 
+#     _sess: session.Session 
 
 #     def __head__(self, x: Reader, *, id: str='', clock: Tuple[Reader, int] = ...) -> Reader:
 #         assert isinstance(x._type, MemType) and x._data.writer is None 
@@ -2687,7 +2851,7 @@ class _Latch(Assignable):
 #         self.posedge_clk: List[Reader, gmpy2.mpz] = []
 #         self.negedge_clk: List[Reader, gmpy2.mpz] = [] 
 
-#         if clock is ...:   clock = _config.conf.clock 
+#         if clock is ...:   clock = config.conf.clock 
 #         if clock[1]:
 #             self.posedge_clk = [self.read(clock[0]), clock[0]._getval_py()] 
 #         else:
@@ -2871,13 +3035,13 @@ def _wirenext(x: Reader, *, id: str = '') -> Reader:
 
 
 @dispatch('Reg', Any)
-def _reg(x: Reader, *, id = '', clock = ..., reset = ...) -> Reader: 
-    return _Reg(x, id=id, next=False, clock=clock, reset=reset)
+def _reg(x: Reader, *, id = '', clock = ..., reset = ..., reset_value = None) -> Reader: 
+    return _Reg(x, id=id, next=False, clock=clock, reset=reset, reset_value = reset_value)
 
 
 @dispatch('RegNext', Any)
-def _regnext(x: Reader,  *, id = '', clock = ..., reset = ...) -> Reader: 
-    return _Reg(x, id=id, next=True, clock=clock, reset=reset)
+def _regnext(x: Reader,  *, id = '', clock = ..., reset = ..., reset_value = None) -> Reader: 
+    return _Reg(x, id=id, next=True, clock=clock, reset=reset, reset_value = reset_value)
 
 
 @dispatch('Latch', Any)
@@ -2937,13 +3101,13 @@ class Clock(Gate):
 
 class ClockDomain(HGL):
     
-    _sess: _session.Session
+    _sess: session.Session
     
     def __init__(self, clock = ..., reset = ...):
         if clock is ...:
-            clock = _config.conf.clock 
+            clock = config.conf.clock 
         if reset is ...:
-            reset = _config.conf.reset 
+            reset = config.conf.reset 
             
         clk, edge = clock 
         assert isinstance(clk, Reader) and isinstance(edge, (int, bool))
@@ -2955,14 +3119,14 @@ class ClockDomain(HGL):
         self._rst_restore = []
         
     def __enter__(self):
-        self._clk_restore.append(_config.conf.clock)
-        self._rst_restore.append(_config.conf.reset)
-        _config.conf.clock = self.clock 
-        _config.conf.reset = self.reset
+        self._clk_restore.append(config.conf.clock)
+        self._rst_restore.append(config.conf.reset)
+        config.conf.clock = self.clock 
+        config.conf.reset = self.reset
 
     def __exit__(self, exc_type, exc_value, traceback) -> None:
-        _config.conf.reset = self._clk_restore.pop()
-        _config.conf.clock = self._rst_restore.pop()
+        config.conf.reset = self._clk_restore.pop()
+        config.conf.clock = self._rst_restore.pop()
     
     
 class BlackBox(Gate):
@@ -3025,9 +3189,9 @@ end
 """
 
 
+random.seed(42)
 
-
-@vectorize_first
+@vectorize
 def setv(left: Reader, right: Any, *, key = None, dt=0) -> None: 
     assert dt >= 0
     if key is None:
@@ -3049,7 +3213,7 @@ def setv(left: Reader, right: Any, *, key = None, dt=0) -> None:
     
     
     
-@vectorize_first
+@vectorize
 def setr(left: Reader, dt=0) -> Logic: 
     """ random 2-valued logic
     """
@@ -3060,9 +3224,17 @@ def setr(left: Reader, dt=0) -> Logic:
     else:
         trace = None
     left._data._setval_py(v, dt=dt, trace=trace)
-    return v
+    return v 
 
-@vectorize_first
+@vectorize
+def getr(left: Reader) -> Logic: 
+    """ not set, just return 
+    """
+    T = left._type 
+    v = T._eval(random.randrange(1 << len(T))) 
+    return v 
+
+@vectorize
 def setx(left: Reader, dt=0) -> Logic:  
     """ random 3-valued logic
     """
@@ -3087,35 +3259,7 @@ def getv(signal: Reader, key = None) -> Logic:
         return signal._data._getval_py(low_key)
 
 
-class posedge(HGL):
-    
-    def __init__(self, s: Reader):
-        
-        if not isinstance(s, Reader) or len(s) != 1:
-            raise ValueError(f'input should be 1 bit signal')
-        self.signal = s 
-        
-    def __iter__(self):
-        if self.signal._data._getval_py() == 0:
-            yield self.signal 
-        else: 
-            while self.signal._data._getval_py() != 0:
-                yield self.signal
-            yield self.signal
-    
-    
-class negedge(posedge):
-        
-    def __iter__(self):
-        while self.signal._data._getval_py() == 0:
-            yield self.signal 
-        yield self.signal
-        
-        
-class dualedge(posedge):
 
-    def __iter__(self):
-        yield self.signal
 
 
 import pyhgl.logic.hgl_assign as hgl_assign

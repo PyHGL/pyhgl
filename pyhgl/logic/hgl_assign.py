@@ -61,13 +61,12 @@ def __hgl_connect__(left: hgl_core.Reader, right: hgl_core.Reader) -> None:
         
     if not _has_driver(left) and _has_driver(right):
         assert type(left._data) is type(right._data) 
-        left._exchange(right._data)
+        __hgl_partial_assign__(left, right)
     elif _has_driver(left) and not _has_driver(right):
-        assert type(left._data) is type(right._data)   
-        right._exchange(left._data)
+        assert type(left._data) is type(right._data)  
+        __hgl_partial_assign__(right, left)
     elif not _has_driver(left) and not _has_driver(right):
-        assert type(left._data) is type(right._data) 
-        left._exchange(right._data)
+        raise Exception(f'signals both without driver: {left}, {right}')
     else: 
         assert left._data.writer is not None and right._data.writer is not None
         left_gate: hgl_core.Assignable = left._data.writer._driver
@@ -436,8 +435,29 @@ class __hgl_once__(HGL):
 
 
 
+def MuxSwitch(sel: Any, *args):
+    """
+    MuxSwitch(1,
+        (cond1, [a,b]),
+        (cond2, [b,c]),
+        (cond3, [c,d]),
+        (...,   [1,2])
+    ) 
+    """
+    assert args 
+    case_item, default = args[-1]
+    assert case_item is ..., f'no default value {args}'
+    default = ToArray(default) 
+    ret = WireNext(default)
+    with __hgl_switch__(sel):
+        for item, source in args[:-1]:
+            if not isinstance(item, tuple):
+                item = (item,)
+            with __hgl_once__(item):
+                __hgl_partial_assign__(ret, source)
+    return ret
 
-
-
+def MuxWhen(*args):
+    return MuxSwitch(1, *args)
 
 

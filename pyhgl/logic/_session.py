@@ -133,7 +133,9 @@ class Session(HGL):
     def _add_gate(self, gate: hgl_core.Gate, module: module_hgl.Module = None):
         """ verilog, mapping from (part of) gates to module
         """
-        assert isinstance(gate, hgl_core.Gate)
+        assert isinstance(gate, hgl_core.Gate) 
+        if not isinstance(gate, hgl_core.BlackBox):
+            assert self.sim_py.t == 0, 'cannot generate new gate after simulation started'
         if module is None:
             module = self.module
         self.verilog.gates[gate] = module  
@@ -233,8 +235,9 @@ class Session(HGL):
             dt = self.timing._get_timestep(dt)
         if self.backend == 'python':
             if self.sim_py.t == 0:
-                self.sim_py.init()
-            self.sim_py.step(dt)
+                self.sim_py.init() 
+            for _ in range(dt):
+                self.sim_py.step()
         else:
             if self.sim_cpp.dll is None:
                 self.sim_cpp.dump() 
@@ -249,13 +252,46 @@ class Session(HGL):
             self.sim_py.insert_coroutine_event(0, g) 
         self.exit() 
 
-    def start(self, *args: simulator_py._Task):
+    
+    def step(self, dt: Union[int, str] = 1):
         self.enter()
-        for i in args:
-            assert isinstance(i, simulator_py._Task) and i.args is not None, 'uninitialized task'
+        if self.backend == 'python':
+            if self.sim_py.t == 0:
+                self.sim_py.init()    # init simulator: trigger all gates
+            for _ in range(dt):
+                self.sim_py.step()    # n time step
+        else:                         # TODO 
+            if self.sim_cpp.dll is None:
+                self.sim_cpp.dump() 
+                self.sim_cpp.build()
+        self.exit() 
+
+    def join(self, *args: simulator_py._Task):
+        """ step until 1 step after tasks finished.
+        """
+        for i in args: 
+            assert isinstance(i, simulator_py._Task)
+        n_finished = 0
+        n_total = len(args)
+        def sess_join_callback():
+            nonlocal n_finished
+            n_finished += 1   
+        for task in args:
+            task._init(father=self, callback=sess_join_callback)
+            self.sim_py.insert_coroutine_event(0, iter(task)) 
+        self.step(1)
+        while n_finished != n_total:
+            self.sim_py.step()
+
+    def join_none(self, *args):
+        for i in args: 
+            assert isinstance(i, simulator_py._Task) 
             i._init(father=self)
-            self.sim_py.insert_coroutine_event(0, iter(i))
-        self.exit()
+        self.sim_py.insert_coroutine_event(0, iter(i))
+
+    @property 
+    def t(self):
+        return self.sim_py.t
 
     def test_iverilog(self):
         with self:

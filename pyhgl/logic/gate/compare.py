@@ -28,7 +28,6 @@ from pyhgl.logic.hgl_assign import __hgl_when__, __hgl_elsewhen__, __hgl_partial
 
 
 
-
 @dispatch('Eq', Any, Any) 
 class _Eq(Gate):
     
@@ -244,7 +243,6 @@ def MuxSeq(default: Any, table: dict ) -> Any:
         with __hgl_elsewhen__(cond):
             __hgl_partial_assign__(ret, ToArray(value))
     return ret
-
 
 
 

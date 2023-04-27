@@ -1,0 +1,47 @@
+from pyhgl.logic import * 
+from pyhgl.tester import *  
+
+
+@module Top:
+
+    a = UInt[8](0)  @ Input
+    b = UInt[8](0)  @ Input
+    
+
+    res_mul1 = SInt(a.sext(16)) * SInt(b.sext(16)) 
+    res_mul2 = a.zext(16) * SInt(b.sext(16)) 
+    res_mul3 = SInt(a.sext(16)) * b.zext(16)
+
+    res_div = SInt(a) // SInt(b)
+    res_rem = SInt(a) % SInt(b)
+    
+@task test_top(self, dut, test_data):
+    for _ in range(10):
+        a, b = setr(dut.a), setr(dut.b)
+        test_data.append((a,b))
+        yield 20 
+    self.Assert(True)
+        
+
+@tester test_sint(self):
+    with Session() as sess:
+        dut = Top()
+        test_data = []
+        sess.track(dut)
+        sess.join(test_top(dut, test_data))
+
+        sess.dumpVCD('sint.vcd')
+        sess.dumpGraph('sint.gv')
+        print(sess)
+        
+        @blackbox testbench(builder):
+            a = builder.get_name(dut.a)
+            b = builder.get_name(dut.b)
+            builder.append('initial begin\n$dumpfile("sint_iverilog.vcd");$dumpvars(0);') 
+            for test_a, test_b in test_data:
+                builder.append(f'{a}={test_a};{b}={test_b};#20;')
+            builder.append('$finish;\nend')
+
+        sess.dumpVerilog('sint.sv', delay=True, top = True)
+        sess.test_iverilog()
+

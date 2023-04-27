@@ -4,8 +4,6 @@ from pyhgl.tester import *
 import pyhgl.logic.utils as utils
 import random
 
-sess = Session(verbose_sim=False)
-sess.enter()
 
 
 
@@ -14,33 +12,40 @@ def test_logic(self):
     x = Logic('0011xx')
     y = Logic('1x0x10')
     
-    self.EQ += x & y, '000xx0'
-    self.EQ += x | y, '1x111x'
-    self.EQ += x ^ y, '1x1xxx'
-    self.EQ += ~x, Logic('1100xx') | Logic(~0b111111) 
+    self.AssertEq(x & y, '000xx0')
+    self.AssertEq(x | y, '1x111x')
+    self.AssertEq(x ^ y, '1x1xxx')
+    self.AssertEq(~x, Logic('1100xx') | Logic(~0b111111) )
+
+    z = Logic('01010x0x')
+    self.AssertEq(z.to_bin(16), '0000000001010x0x')
+    self.AssertEq(z.to_hex(16), '005x')
+    z = Logic(-3)
+    self.AssertEq(z.to_hex(15), '7ffd')
+    self.AssertEq(z.to_int()  , -3)
+    self.AssertEq(z.to_int(3) , -3)
+    self.AssertEq(z.to_int(2) , 1 )
+    self.AssertEq(list(z.split(8,4)), [0xd, 0xf, 0xf,0xf,0xf,0xf,0xf,0xf,])
 
 
 @tester
 def test_single_input(self):
-    a = UInt(0, w=6, name='a') 
-    b = UInt('11xx00', name='b')
-    result_not = Not(a, name='result_not') 
-    result_and: Reader = And(b, name='result_and') 
-    sess.run(10)
-    for _ in range(10):
-        a_in = setx(a)
-        b_in = setx(b)
+    with Session() as sess:
+        a = UInt(0, w=6, name='a') 
+        b = UInt('11xx00', name='b')
+        result_not = Not(a, name='result_not') 
+        result_and: Reader = And(b, name='result_and') 
         sess.run(10)
-        self.EQ += getv(result_not), (~a_in) & Logic('111111')
-        self.EQ += getv(result_and), b_in
+        for _ in range(10):
+            a_in = setx(a)
+            b_in = setx(b)
+            sess.run(10)
+            self.EQ += getv(result_not), (~a_in) & Logic('111111')
+            self.EQ += getv(result_and), b_in
 
 
-# sess.dumpGraph()
-# sess.sim_cpp.dump()
-# sess.sim_cpp.build()
-# tester.summary() 
-# sess.dumpVerilog(top=True)
-
+sess = Session()
+sess.enter()
 
 @tester
 def test_boolean_shift_cmp_arith(self):
@@ -121,25 +126,25 @@ def test_boolean_shift_cmp_arith(self):
         ]
         self.EQ += getv(out_logicand), v[0]._orr() & v[1]._orr() & v[2]._orr() & v[3]._orr()
         self.EQ += getv(out_logicor), v[0]._orr() | v[1]._orr() | v[2]._orr() | v[3]._orr()
-        self.EQ += getv(out_logicnot), [
+        self.AssertEq(list(getv(out_logicnot)), [
             ~v[0]._orr() & Logic(1), 
             ~v[1]._orr() & Logic(1),
             ~v[2]._orr() & Logic(1),
             ~v[3]._orr() & Logic(1),
-        ]
+        ])
         
-        self.EQ += list(getv(out_lshift)), [
+        self.AssertEq(list(getv(out_lshift)), [
             v[0] << Logic(1) & mask,
             v[1] << Logic(2) & mask,
             v[2] << Logic(3) & mask,
             v[3] << Logic(4) & mask,
-        ]
-        self.EQ += list(getv(out_rshift)), [
+        ])
+        self.AssertEq(list(getv(out_rshift)), [
             v[0] >> Logic(1),
             v[1] >> Logic(2),
             v[2] >> Logic(3),
             v[3] >> Logic(4),
-        ]
+        ])
         
         self.EQ += getv(out_eq), v[0]._eq(v[1])  
         self.EQ += getv(out_ne), v[0]._ne(v[1]) 

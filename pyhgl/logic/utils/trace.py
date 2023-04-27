@@ -2,6 +2,7 @@ import io
 import inspect
 import traceback 
 import re 
+import os
 
 _pyhgl_exec = re.compile(r'PyHGL Traceback:')
 
@@ -32,3 +33,24 @@ def format_hgl_stack(n_ignored: int = 2, max_n: int = 100) -> str:
             code = ' \n'
         ret.append(f'  {frame.filename}:{frame.lineno}\n    {code.lstrip()}')
     return ''.join(ret)
+
+def relative_path(path: str, level: int = 1, check_exist: bool = False) -> str:
+    """ 
+    path: 
+        path of dir/file, relative to caller's directory/path. ex. ../a, ./b/, c/
+    level: 
+        nth caller 
+    check_exist: 
+        whether check the existance of path 
+
+    return:
+        absolute path
+    """
+    if os.path.isabs(path):
+        ret = path 
+    else:
+        a = os.path.dirname(inspect.stack()[level].filename)
+        ret = os.path.abspath(os.path.join(a, path)) 
+    if check_exist:
+        assert os.path.exists(ret) 
+    return re.sub(r'\\', '/', ret)  

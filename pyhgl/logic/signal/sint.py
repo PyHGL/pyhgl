@@ -33,26 +33,34 @@ class SIntType(LogicType):
         super().__init__(width)
 
     def _eval(self, v: Union[int, str, Logic, BitPat]) -> Union[Logic, BitPat]:
+        """
+        - overflow:
+            BitPat not allowed 
+            others cut off
+        - underflow:
+            negative int|Logic is sign-extended 
+            other immds always zero-extend
+        """
         if isinstance(v, str) and '?' in v:
             v = BitPat(v)  
+
         if isinstance(v, BitPat):
             assert len(v) <= self._width, f'{v} overflow for SInt[{self._width}]'
             return v 
-
-        if isinstance(v, str): 
+        elif isinstance(v, str):   # zext for '4:-d1'
             _v, _x, _w =  utils.str2logic(v) 
+            mask = gmpy2.bit_mask(self._width)
+            return Logic(_v & mask, _x & mask)
         elif isinstance(v, Logic):
             _v = v.v 
             _x = v.x 
-            _w = max(utils.width_infer(v.v, signed=True), utils.width_infer(v.x))
+            mask = gmpy2.bit_mask(self._width)
+            return Logic(_v & mask, _x & mask)
         else:
-            _w = utils.width_infer(_v, signed=True) 
-            _v = v & gmpy2.bit_mask(_w)
+            _v = v 
             _x = 0
-        # overflow not allowed
-        if self._width < _w or _v < 0 or _x < 0:
-            raise Exception(f'value {v} overflow for {self}') 
-        return Logic(_v, _x)
+            mask = gmpy2.bit_mask(self._width)
+            return Logic(_v & mask, _x & mask)
 
     def __call__(
         self, 
@@ -71,7 +79,13 @@ class SIntType(LogicType):
         else:
             data = self._eval(v)  
             assert isinstance(data, Logic)
-            return Reader(data=LogicData(data.v, data.x), type=self, name=name) 
+            return Reader(data=LogicData(data.v, data.x, len(self)), type=self, name=name) 
+        
+    def __str__(self, data: LogicData = None):
+        if data is None:
+            return f"SInt[{len(self)}]" 
+        else:
+            return f"s{utils.logic2str(data.v, data.x, width=len(self))}"
     
 
 @singleton
@@ -82,16 +96,16 @@ class SInt(HGLFunction):
         ex. SInt[2], SInt[8]
         """  
         assert key > 0 and isinstance(key, int)
-        cache = UIntType._cache
+        cache = SIntType._cache
         if key in cache:
             return cache[key]
         else:
-            cache[key] = UIntType(key)
+            cache[key] = SIntType(key)
             return cache[key]
 
     def __call__(
         self, 
-        v: Union[int, str, float, Reader, Iterable, Logic]=0, 
+        v: Union[str, int, Reader, Iterable, Logic]='0', 
         w: int = None,
         name: str = ''
     ) -> Reader: 
@@ -112,7 +126,9 @@ class SInt(HGLFunction):
             if isinstance(v, str):
                 _, _, _w = utils.str2logic(v) 
             elif isinstance(v, Logic):
-                _w = max(utils.width_infer(v.v, signed=True), utils.width_infer(v.x))
+                _w = max(utils.width_infer(v.v, signed=True), utils.width_infer(v.x, signed=True))
             else:
                 _w = utils.width_infer(v, signed=True)
         return SInt[_w](v, name=name)
+    
+    

@@ -4,7 +4,7 @@ from pyhgl.tester import tester
 import numpy as np
 
 
-@tester 
+@tester
 def test_array(self):
     a = Array([
         [],
@@ -54,7 +54,7 @@ def test_array(self):
         else:
             return -1
 
-    x = Array(np.ones((2,3,4)))
+    x = Array.ones((2,3,4))
 
     self.EQ += mysum(1,2,3, hint='hint'), 6 
     self.EQ += list(mysum([1,2],3,[4,5], hint='hint')._flat), [8, 10] 

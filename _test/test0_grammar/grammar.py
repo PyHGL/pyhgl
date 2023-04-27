@@ -7,6 +7,7 @@ from pyhgl.tester import tester
 r = []
 
 # ==================================== expr ======================================= 
+# priority: python `==` > `>>>` > `&&` > `||` > `|->` > python `and`
 
 # priority: same as ~
 def __hgl_logicnot__(a):            
@@ -14,21 +15,25 @@ def __hgl_logicnot__(a):
     r.append(ret)
     return ret      
 
-# priority: above |->
-def __hgl_logicand__(a,b):          
-    ret = f'{a} && {b}' 
+# priority: between `not/and/or` and `comparation`
+def __hgl_imply__(a,b):     
+    ret = f'{a} |-> {b}' 
     r.append(ret)
-    return ret     
-    
+    return ret   
 
 # priority: above |->
 def __hgl_logicor__(a,b):          
     ret = f'{a} || {b}' 
     r.append(ret)
-    return ret     
-   
+    return ret   
 
-# priority: above |->
+# priority: above ||
+def __hgl_logicand__(a,b):          
+    ret = f'{a} && {b}' 
+    r.append(ret)
+    return ret     
+    
+# priority: above &&
 def __hgl_rshift__(*args):     
     if len(args) == 2: 
         a, b = args
@@ -38,11 +43,7 @@ def __hgl_rshift__(*args):
     r.append(ret) 
     return ret  
 
-# priority: between `not/and/or` and `comparation`
-def __hgl_imply__(a,b):     
-    ret = f'{a} |-> {b}' 
-    r.append(ret)
-    return ret        
+     
 
 def __hgl_unit__(a,b):
     ret = f'{a}`{type(b)}'
@@ -55,9 +56,9 @@ def test_expr(self):
     self.EQ += r, [
         '! a', 
         '! a >>> bbb', 
-        '! a >>> bbb || d', 
         '! e', 
-        '! a >>> bbb || d >>> ! ef', 
+        'd >>> ! ef', 
+        'd >>> ! ef >>> g', 
         '! a >>> bbb || d >>> ! ef >>> g'
     ]
     r.clear() 
@@ -172,10 +173,10 @@ def test_stmt(self):
 
 
 
-print(ast_dump(
-"""
-(a, b) <== 1
-"""
-))
+# print(ast_dump(
+# """
+# (a, b) <== 1
+# """
+# ))
 
 

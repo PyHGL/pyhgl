@@ -1360,7 +1360,7 @@ inversion (memo):
 # @hgl imply  |->  and logic  && || >>>
 # -------------------------------------
 hgl_imply:
-    | a=hgl_imply '|->' b=hgl_logic { 
+    | a=hgl_imply '|->' b=hgl_or { 
         ast.Call(
             func=ast.Name(id='__hgl_imply__', ctx=Load, LOCATIONS), 
             args=[a,b], 
@@ -1368,18 +1368,10 @@ hgl_imply:
             LOCATIONS
         ) 
     }
-    | hgl_logic 
+    | hgl_or 
 
-hgl_logic:
-    | a=hgl_logic '&&' b=comparison { 
-        ast.Call(
-            func=ast.Name(id='__hgl_logicand__', ctx=Load, LOCATIONS), 
-            args=[a,b], 
-            keywords=[], 
-            LOCATIONS
-        ) 
-    }
-    | a=hgl_logic '||' b=comparison {
+hgl_or:
+    | a=hgl_or '||' b=hgl_and {
         ast.Call(
             func=ast.Name(id='__hgl_logicor__', ctx=Load, LOCATIONS), 
             args=[a,b], 
@@ -1387,7 +1379,21 @@ hgl_logic:
             LOCATIONS
         ) 
     }
-    | a=hgl_logic '>>>' b=comparison { 
+    | hgl_and
+
+hgl_and:
+    | a=hgl_and '&&' b=hgl_shift { 
+        ast.Call(
+            func=ast.Name(id='__hgl_logicand__', ctx=Load, LOCATIONS), 
+            args=[a,b], 
+            keywords=[], 
+            LOCATIONS
+        ) 
+    }
+    | hgl_shift
+
+hgl_shift:
+    | a=hgl_shift '>>>' b=comparison { 
         ast.Call(
             func=ast.Name(id='__hgl_rshift__', ctx=Load, LOCATIONS), 
             args=[a,b], 

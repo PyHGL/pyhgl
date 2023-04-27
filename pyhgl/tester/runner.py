@@ -18,9 +18,10 @@ class _TestTreeNode:
         self.name: str = name 
         self.level = level  # deepth 
         
-        self.exception: str = None 
+        self.exception: str = None  # exception msg
+        self.msg: str = ''          # other msg
          
-        # self.assertions_passed: List[_Assertion] = [] 
+        self.assertions_passed: List[_Assertion] = [] 
         self.assertions_failed: List[_Assertion] = [] 
         # not all assertions are stored
         self.count_passed = 0
@@ -56,8 +57,9 @@ class _TestTreeNode:
             count_failed += _failed 
         return count_passed, count_failed
         
-    def finish(self):
-        self.t_cost = time.time() - self.t
+    def finish(self, msg: str = ''):
+        self.t_cost = time.time() - self.t 
+        self.msg = msg
         
     def __str__(self): 
         if self.level == 0:
@@ -72,7 +74,9 @@ class _TestTreeNode:
             n_passed = _green(f'{self.count_passed:>8}') 
             n_failed = _red(f'{self.count_failed:>8}') 
             prefix = (self.level-1) * '  '
-            ret = [f'{prefix}{_blue(self.name):<60}{n_passed} passed{n_failed} failed{self.t_cost:>10.4f}s'] 
+            ret = [f'{prefix}{_blue(self.name):<70}{n_passed} passed{n_failed} failed{self.t_cost:>10.4f}s  {self.msg}'] 
+            for i in self.assertions_passed:
+                ret.append(f'{prefix}│ {i}')
             for i in self.assertions_failed:
                 ret.append(f'{prefix}│ {i}') 
             if self.exception: 
@@ -81,10 +85,10 @@ class _TestTreeNode:
             return '\n'.join(ret)
         
         
-    def Assert(self, v: bool):
+    def Assert(self, v: bool, *args):
         _AssertTrue(v, self) 
 
-    def Eq(self, a: Any, b:Any):
+    def AssertEq(self, a: Any, b:Any, *args):
         _AssertEq((a,b), self)
 
 
@@ -104,9 +108,8 @@ class _Assertion:
 
 class _AssertEq(_Assertion):
     
-    def __init__(self, v: Tuple[Any, Any], node: _TestTreeNode, level: int = 2):
+    def __init__(self, v: Tuple[Any, Any], node: _TestTreeNode, level: int = 2, msg: str = ''):
         a, b = v
-        self.msg = ''
         # should support ==, otherwise will stop testcase
         passed = a == b  
         if passed:
@@ -119,7 +122,7 @@ class _AssertEq(_Assertion):
         n = node.count_failed + node.count_passed - 1
         r = f"assertion {n:<6} failed   because {repr(a)} != {repr(b)}"
         frame,filename,line_number,function_name,lines,index = inspect.stack()[level]
-        self.msg = f"{filename}:{line_number:<15}{r}"
+        self.msg = f"{filename}:{line_number:<15}{r}{msg}"
 
     def __str__(self) -> str:
         return self.msg        
@@ -173,20 +176,15 @@ class _Tester:
         self._cond = cond
 
     def __call__(self, f: types.FunctionType) -> None:
-        
+        # disable
         if (
-            not self._global_enable or # global disable
+            not self._global_enable or  
             not self._enable or 
             not self._cond or
             not inspect.isfunction(f)
         ):
             return 
-        
-        # debug mode
-        if self._debug:
-            f()
-            return
-        # normal mode
+        # new test node
         if self._stack: 
             self._stack.append(f.__name__) 
         else:
@@ -198,12 +196,16 @@ class _Tester:
         else:
             # exec
             node = _root.get_or_register(self._stack)  
-            try:
-                f(node)
-            except:
-                exc_type, exc_value, exc_traceback = sys.exc_info()  
-                e = ''.join(traceback.format_exception(exc_type, exc_value, exc_traceback)[2:]) 
-                node.exception = _red('│ ') + _red('\n│ ').join(e.splitlines())
+            # debug mode
+            if self._debug:
+                f(node) 
+            else:
+                try:
+                    f(node)
+                except:
+                    exc_type, exc_value, exc_traceback = sys.exc_info()  
+                    e = ''.join(traceback.format_exception(exc_type, exc_value, exc_traceback)[2:]) 
+                    node.exception = _red('│ ') + _red('\n│ ').join(e.splitlines())
             node.finish()
         # pop stack 
         if len(self._stack) == 2:

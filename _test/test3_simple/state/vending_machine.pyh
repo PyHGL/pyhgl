@@ -55,8 +55,7 @@ import time
 
     dut = VendingMachine()
     sess.track(dut)
-    sess.start(task1(dut))
-    sess.run(1000) 
+    sess.join(task1(dut)) 
 
 
     sess.dumpVCD('VendingMachine.vcd') 

@@ -20,7 +20,7 @@
 
 
 from __future__ import annotations
-from typing import Any, Generator, List, Tuple, Set
+from typing import Any, Generator, List, Tuple, Set, Literal
 
 import inspect
 import bisect
@@ -339,7 +339,7 @@ class Until(Pattern):
         if s._data.tracker is None:
             self.sess.track(s)
         self.s = s 
-        self.v = hgl_core._ToLogic(v)
+        self.v = hgl_core.Logic(v)
     
     def f(self, t: int):
         s = self.s 
@@ -580,7 +580,13 @@ class _Assert(HGL):
 class AssertCtrl(HGL):
     
     _sess: _session.Session
-    
+    """
+    with AssertCtrl() as :
+        # def f():
+        #     print(f'state: {state} t:{conf.t}')
+        #     return True
+        Assert(Rise(io.init) |-> 1 >>> state == 1)
+    """
     def __init__(
         self, 
         trigger: Tuple[hgl_core.Reader, int] = ..., 
@@ -603,7 +609,16 @@ class AssertCtrl(HGL):
         
         self._clk_restore = []
         self._rst_restore = [] 
-        self._dispatcher_restore = []
+        self._dispatcher_restore = [] 
+
+    def edge(self, signal: hgl_core.Reader, value: Literal[0,1]):
+        if value == 0:
+            return Fall(signal)
+        else:
+            return Rise(signal)
+    
+    def until(self, signal: hgl_core.Reader, value: Any):
+        return Until(signal, value)
         
     def __enter__(self):
         self._clk_restore.append(config.conf.clock)
@@ -611,7 +626,8 @@ class AssertCtrl(HGL):
         self._dispatcher_restore.append(config.conf.dispatcher)
         self._sess.module._conf.clock = self.trigger 
         self._sess.module._conf.reset = self.disable
-        self._sess.module._conf.dispatcher = assert_dispatcher
+        self._sess.module._conf.dispatcher = assert_dispatcher 
+        return self
 
     def __exit__(self, exc_type, exc_value, traceback) -> None:
         config.conf.reset = self._clk_restore.pop()

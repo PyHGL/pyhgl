@@ -50,7 +50,7 @@ from pyhgl.tester import *
     dut = top()
     sess.track(dut) 
     # print(dut.bus._data.writer._driver.iports)
-    sess.start(task1(dut))
+    sess.join_none(task1(dut))
     sess.run(12000)
 
 

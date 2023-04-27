@@ -48,7 +48,7 @@ from pyhgl.tester import *
     
     dut = memory(100)
     sess.track(dut)
-    sess.start(task1(dut))
+    sess.join_none(task1(dut))
     sess.run(12000)
 
 

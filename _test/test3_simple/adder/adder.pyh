@@ -91,8 +91,6 @@ AdderIO = lambda w: Bundle(
         print(sess)
 
         @blackbox testbench(builder):
-            dut1 = builder.get_name(adder1) 
-            dut2 = builder.get_name(adder2)
             x1 = builder.get_name(adder1.io.x)
             y1 = builder.get_name(adder1.io.y) 
             x2 = builder.get_name(adder2.io.x)

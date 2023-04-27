@@ -300,27 +300,27 @@ Inner = _Ports('inner')
         
 
 # TODO copy value
-@singleton 
-class CopyIO(HGLFunction):
-    """
-    copy signals with direction. does not copy default value
-    """
-    _sess: _session.Session
+# @singleton 
+# class CopyIO(HGLFunction):
+#     """
+#     copy signals with direction. does not copy default value
+#     """
+#     _sess: _session.Session
     
-    def __call__(self, x: Union[hgl_core.Reader, Array]) -> Any:   
-        x = Signal(x)
-        def f(s: hgl_core.Reader):
-            ret = s._type()
-            if s._direction == 'input': 
-                ret = Input(ret)
-            elif s._direction == 'output':
-                ret = Output(ret)
-            elif s._direction == 'inout':
-                ret = InOut(ret)
-            else:
-                raise Exception(f'{x} no direction')
-            return ret
-        return Map(f, x)
+#     def __call__(self, x: Union[hgl_core.Reader, Array]) -> Any:   
+#         x = Signal(x)
+#         def f(s: hgl_core.Reader):
+#             ret = s._type()
+#             if s._direction == 'input': 
+#                 ret = Input(ret)
+#             elif s._direction == 'output':
+#                 ret = Output(ret)
+#             elif s._direction == 'inout':
+#                 ret = InOut(ret)
+#             else:
+#                 raise Exception(f'{x} no direction')
+#             return ret
+#         return Map(f, x)
     
     
 # TODO Flip each time
@@ -332,20 +332,29 @@ class FlipIO(HGLFunction):
     
     _sess: _session.Session
     
-    def __call__(self, x: Union[hgl_core.Reader, Array]) -> Any:  
-        x = Signal(x)
-        def f(s: hgl_core.Reader):
-            ret = s._type()
-            if s._direction == 'input': 
-                ret = Output(ret)
-            elif s._direction == 'output':
-                ret = Input(ret)
-            elif s._direction == 'inout':
-                ret = InOut(ret)
+    def __call__(self, s: Union[hgl_core.Reader, Array]) -> Any:  
+        s = Signal(s)
+        module = self._sess.module._module
+        def f(x: hgl_core.Reader): 
+            assert isinstance(x, hgl_core.Reader) 
+            if x._direction == 'input': 
+                assert x in module.inputs and x._data._module is not None
+                module.inputs.pop(x)
+                x._direction = 'output' 
+                module.outputs[x] = None
+                x._data._module = None
+            elif x._direction == 'output':
+                assert x in module.outputs and x._data._module is None
+                module.outputs.pop(x)
+                x._direction = 'input' 
+                module.inputs[x] = None 
+                x._data._module = self._sess.module._position[-2]
+            elif x._direction == 'inout':
+                pass
             else:
                 raise Exception(f'{x} no direction')
-            return ret
-        return Map(f, x)
+        Map(f, s)
+        return s
     
 
 @dispatch('Matmul', Any, [HGLFunction, type(lambda _:_), type])

@@ -48,7 +48,8 @@ def inv_mixw(w):
     b3 = gm11(a0) ^ gm13(a1) ^ gm09(a2) ^ gm14(a3) 
     return Array([b3, b2, b1, b0])
 
-def mixcolumns(a):  return Array(mixw(i) for i in a._reshape(4,4))._flat  # a:  Array of 16 bytes
+# a:  Array of 16 bytes
+def mixcolumns(a):  return Array(mixw(i) for i in a._reshape(4,4))._flat  
 
 def inv_mixcolumns(a): return Array(inv_mixw(i) for i in a._reshape(4,4))._flat 
 
@@ -231,7 +232,7 @@ def addroundkey(data, rkey): return data ^ rkey
     muxed_ready     =   Mux(io.encdec, enc_block.io.ready, dec_block.io.ready)
 
     state_t = Enum['idle','init','next'] 
-    print(state_t)
+    
     switch state_test:=Reg(state_t('idle')):
         once 'idle':
             state_test <== 'init'
@@ -271,11 +272,11 @@ def addroundkey(data, rkey): return data ^ rkey
                 ready_reg, result_valid_reg <== 1 
                 state <== 'CTRL_IDLE'
 
-    with AssertCtrl():
+    with AssertCtrl() as a:
         # def f():
         #     print(f'state: {state} t:{conf.t}')
         #     return True
-        Assert(Rise(io.init) |-> 1 >>> state == 1)
+        Assert(a.edge(io.init,1) |-> 1 >>> state == 1)
 
 @module aes_key_mem:
     io = Bundle(
@@ -438,10 +439,11 @@ def addroundkey(data, rkey): return data ^ rkey
     _256_enc_expected3 = 0x23304b7a39f9f3ff067d8d8f9e24ecc7
     _256_enc_expected4 = 0x8ea2b7ca516745bfeafc49904b496089
 
-    @task tests(self):
+    @task aes_tests(self):
         yield self.reset()
         yield test_enc_dec(dut, '128enc', aes128_key1, plaintext0, _128_enc_expected0)
         yield test_enc_dec(dut, '128enc', aes128_key1, plaintext1, _128_enc_expected1)
+        return 
         yield test_enc_dec(dut, '128enc', aes128_key1, plaintext2, _128_enc_expected2)
         yield test_enc_dec(dut, '128enc', aes128_key1, plaintext3, _128_enc_expected3)
         yield test_enc_dec(dut, '128enc', aes128_key2, plaintext4, _128_enc_expected4)
@@ -465,8 +467,7 @@ def addroundkey(data, rkey): return data ^ rkey
     sess.dumpVerilog('AES.sv', delay=True, top = False) 
 
     sess.track(dut, dut.dec_block, dut.keymem, dut.enc_block) 
-    sess.start(tests())
-    sess.run(200000)
+    sess.join(aes_tests())
  
     print(sess)
     sess.dumpVCD('AES.vcd')

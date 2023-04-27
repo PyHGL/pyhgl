@@ -628,12 +628,18 @@ class _Lshift(Gate):
     id = 'Lshift'
     _op = '<<'
     
-    def __head__(self, a: Reader, b: Union[int, Reader, Logic], id: str = '', name: str='temp_shift'):
+    def __head__(self, 
+            a: Reader, 
+            b: Union[int, Reader, Logic, str], 
+            id: str = '', 
+            name: str='temp_shift'
+        ):
         assert isinstance(a._data, LogicData) 
         self.id: str = id or self.id
         self.width = len(a)
         self.a = self.read(a)
-        if isinstance(b, Reader):
+        if isinstance(b, Reader): 
+            assert isinstance(b._type, UIntType)
             self.b = self.read(b)
         else:
             self.b = Logic(b)
@@ -852,7 +858,7 @@ class _MulFull(Gate):
         
     id = 'Mul'
     
-    def __head__(self, a: Reader, b: Reader, id: str = '', name: str='temp_addfull'):
+    def __head__(self, a: Reader, b: Reader, id: str = '', name: str='temp_mulfull'):
         assert isinstance(a._data, LogicData) and isinstance(b._data, LogicData)
         assert a._type._storage == 'packed' and b._type._storage == 'packed'
         self.id: str = id or self.id
@@ -911,7 +917,7 @@ class _Gate2(Gate):
 class _Floordiv(_Gate2):
     
     id = 'Floordiv'
-    _op = '//'
+    _op = '/'
 
     def forward(self):
         a: Logic = self.a._data._getval_py()

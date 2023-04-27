@@ -1,0 +1,229 @@
+from pyhgl.logic import * 
+
+
+@module SIMDadd:
+    A = UInt('16:b0')           @ Input 
+    B = UInt('16:b0')           @ Input 
+    H, O, Q, sub = (0,0,0,0)    @ Input
+    Cout = UInt('16:b0')        @ Output 
+    
+    B_real = Mux(sub, ~B, B)
+    C0 = Add(A[0:4].zext(5),    B_real[0:4],    sub) 
+    C1 = Add(A[4:8].zext(5),    B_real[4:8],    C0[-1] & (O | H),   sub & Q)
+    C2 = Add(A[8:12].zext(5),   B_real[8:12],   C1[-1] & H,         sub & (Q|O))
+    C3 = Add(A[12:16].zext(5),  B_real[12:16],  C2[-1] & (O | H),   sub & Q)
+
+    Cout <== Cat(C0[:4], C1[:4], C2[:4], C3[:4])
+
+@module SIMDshifter:
+    shiftinput = UInt('16:b0')      @ Input 
+    H, O, Q, left = (0,0,0,0)       @ Input
+    shiftoutput =  UInt('16:b0')    @ Output 
+
+    left_shift = shiftinput[0:15]
+    right_shift = shiftinput[1:16]
+    out_tmp = Mux(left, Cat(0, left_shift), Cat(right_shift, 0))
+    
+    shiftoutput[0:4] <== Cat(out_tmp[0:3], (left|H|O)&out_tmp[3])
+    shiftoutput[4:8] <== Cat((!left|H|O)&out_tmp[4], out_tmp[5:7], (left|H)&out_tmp[7]) 
+    shiftoutput[8:12] <== Cat((!left|H)&out_tmp[8], out_tmp[9:11], (left|H|O)&out_tmp[11])
+    shiftoutput[12:] <== Cat((!left|H|O)&out_tmp[12], out_tmp[13:15], (left|H)&out_tmp[15])
+
+@module SIMDmultiply:
+    mulinputa = UInt('16:b0')   @ Input 
+    mulinputb = UInt('16:b0')   @ Input 
+    H, O, Q = (0,0,0)           @ Input
+    muloutput = UInt('16:b0')   @ Output 
+
+    sel = Mux(H, 'hffff', Mux(O, ['h00ff','h00ff','hff00','hff00'], ['h000f','h00f0','h0f00','hf000']))
+
+    # 4 x 4 x UInt[16]
+    a = Mux(mulinputb.split()._reshape((4,4)), mulinputa, 'h0000') & sel
+
+    tmp = a[:,0] + a[:,1]<<1 + a[:2]<<2 + a[:3]<<3
+    tmp00 = tmp[0] + tmp[1] << 4
+    tmp11 = tmp[2] + tmp[3] << 4
+    tmp000 = tmp00 + tmp11 << 8 
+
+    tmph = [tmp000[4:8], tmp000[8:12], tmp000[12:16]]
+    tmpo = [tmp00[4:8], tmp11[8:12], tmp11[12:16]]
+    tmpq = [tmp[1][4:8], tmp[2][8:12], tmp[3][12:16]]
+
+    muloutput <==  Cat(tmp[0][0:4], *Mux(H, tmph, Mux(O, tmpo, tmpq)))
+    
+
+@module CPUtop:
+    instruction_in = UInt('18:b0')      @ Input 
+    data_in = UInt('16:b0')             @ Input 
+    data_out = UInt('16:b0')            @ Output 
+    instruction_address = UInt('10:b0') @ Output 
+    data_address = UInt('10:b0')        @ Output 
+    data_R, data_W, done = (0,0,0)      @ Output 
+
+    opcode = instruction_in[12:18]
+    current_state = Reg(Enum['IDLE', 'IF', 'ID', 'EX', 'MEM', 'WB','HALT']())
+    PC = Reg('10:b0')
+    next_PC = Reg('10:b0')
+    current_data_address = Reg('10:b0')
+    rdata_en = Reg(0)
+    wdata_en = Reg(0)
+    data_out_reg = Reg('16:b0') 
+
+    data_out <== data_out_reg 
+    data_R <== rdata_en 
+    data_W <== wdata_en 
+    data_address <== current_data_address 
+
+    # data register 
+    H = Reg((UInt[16]*4)(0))  
+    Oset = Reg((UInt[16]*3)(0)) 
+    Qset = Reg((UInt[16]*3)(0)) 
+    # Loop counter 
+    LC = Reg('10:b0')  
+    im_reg = Reg('10:b0')   
+    
+    # control register
+    CMD_addition = Reg(0)
+    CMD_multiplication = Reg(0)
+    CMD_substruction = Reg(0)
+    CMD_mul_accumulation = Reg(0)
+    CMD_logic_shift_right = Reg(0)
+    CMD_logic_shift_left = Reg(0)
+    CMD_and = Reg(0)
+    CMD_or = Reg(0)
+    CMD_not = Reg(0)
+    CMD_load = Reg(0)
+    CMD_store = Reg(0)
+    CMD_set = Reg(0)
+    CMD_loopjump = Reg(0)
+    CMD_setloop = Reg(0)
+    
+    # cmd type
+    Hreg1,Hreg2,Hreg3,Him,Oreg1,Oreg2,Oreg3,Oim,Qreg1,Qreg2,Qreg3,Qim = (Reg(0) for _ in range(12))
+    
+    # result register
+    result_reg_add = Reg('16:b0')
+    result_reg_sub = Reg('16:b0')
+    result_reg_mul = Reg('16:b0')
+    result_reg_mac = Reg('16:b0')
+    result_reg_Lshift = Reg('16:b0')
+    result_reg_Rshift = Reg('16:b0')
+    result_reg_and = Reg('16:b0')
+    result_reg_or = Reg('16:b0')
+    result_reg_not = Reg('16:b0')
+    result_reg_load = Reg('16:b0')
+    result_reg_store = Reg('16:b0')
+    result_reg_set = Reg('16:b0')
+    R0,R1,R2,R3 = (Reg('00') for _ in range(4))
+
+    comp_input_A = Mux(Hreg1, H[R0], Mux(
+        Hreg2|Hreg3, H[R2], Mux(
+            Oreg1, Oset[R0], Mux(
+                Oreg2|Oreg3, Oset[R2], Mux(
+                    Qreg1, Qset[R0], Qset[R2]
+                )
+            )
+        )
+    ))
+    comp_input_B = Mux(Hreg1, im_reg, Mux(
+        Hreg2|Hreg3, H[R3], Mux(
+            Oreg1, im_reg[0:8]**2, Mux(
+                Oreg2|Oreg3, Oset[R3], Mux(
+                    Qreg1, im_reg[0:4]**4, Qset[R3]
+                )
+            )
+        )
+    ))
+    
+
+    Mul  = SIMDmultiply() 
+    Mul.mulinputa <== comp_input_A 
+    Mul.mulinputb <== comp_input_B 
+    Mul.H <== Hreg1|Hreg2|Hreg3 
+    Mul.O <== Oreg1|Oreg2|Oreg3
+    Mul.Q <== Qreg1|Qreg2|Qreg3
+
+
+    MAC_input_A = Mux(Hreg3, H[R1], Mux(Oreg3, Oset[R1], Qset[R1]))
+    MAC_input_B = Mul.muloutput
+
+    Add = SIMDadd()
+    Add.A <== Mux(CMD_mul_accumulation, MAC_input_A, comp_input_A)
+    Add.B <== Mux(CMD_mul_accumulation, MAC_input_B, comp_input_B)
+    Add.H <== Hreg1|Hreg2|Hreg3 
+    Add.O <== Oreg1|Oreg2|Oreg3
+    Add.Q <== Qreg1|Qreg2|Qreg3 
+    Add.sub <== CMD_substruction
+
+    shift = SIMDshifter() 
+    shift.shiftinput <== Mux(Hreg1, H[R3], Mux(Oreg1, Oset[R3], Qset[R3]))   
+    shift.H <== Hreg1 
+    shift.O <== Oreg1 
+    shift.Q <== Qreg1 
+    shift.left <== CMD_logic_shift_left 
+
+    # some signal 
+    instruction_address <== PC 
+    done <== current_state == 'HALT'
+    
+    when opcode == 63:
+        current_state <== 'HALT'
+    otherwise:
+        switch current_state:
+            once 'IDLE':    current_state <== 'IF'
+            once 'IF':      current_state <== 'ID'
+            once 'ID':      current_state <== 'EX'
+            once 'EX':      current_state <== 'MEM'
+            once 'MEM':     current_state <== 'WB'
+            once 'WB':      
+                current_state <== 'IF'
+                PC <== next_PC 
+
+    # STATE_ID 
+    when current_state == 'IDLE' || current_state == 'IF':
+        cmd = [
+            CMD_addition, CMD_multiplication, CMD_substruction,
+            CMD_mul_accumulation, CMD_logic_shift_right, CMD_logic_shift_left,
+            CMD_and, CMD_or, CMD_not, CMD_load, CMD_store, CMD_set, CMD_loopjump,
+            CMD_setloop, Hreg1, Hreg2, Hreg3, Him, Oreg1, Oreg2, Oreg3, Oim, Qreg1,
+            Qreg2, Qreg3, Qim
+        ]
+        cmd <== 0 
+        im_reg <== 0 
+        R0, R1, R2, R3 <== 0 
+    elsewhen current_state == 'ID':
+        CMD_addition <== (opcode<=5)
+        CMD_substruction <== (opcode>=6)&&(opcode<=11)
+        CMD_multiplication <== (opcode>=12)&&(opcode<=17)                
+        CMD_mul_accumulation <== (opcode>=18)&&(opcode<=20)
+        CMD_logic_shift_left <== (opcode>=21)&&(opcode<=23)
+        CMD_logic_shift_right <== (opcode>=24)&&(opcode<=26)
+        CMD_and <== (opcode>=27)&&(opcode<=29)
+        CMD_or <== (opcode>=30)&&(opcode<=32)
+        CMD_not <== (opcode>=33)&&(opcode<=35)
+        CMD_loopjump <== opcode==36
+        CMD_setloop <== opcode==37
+        CMD_load <== (opcode>=38)&&(opcode<=40)
+        CMD_store <== (opcode>=41)&&(opcode<=43)
+        CMD_set <== (opcode>=44)&&(opcode<=46) 
+    
+        Hreg1 <== Or(opcode==[3,9,15,21,24,33,38,41,44], axis=None)
+        Hreg2 <== Or(opcode==[0,6,12,27,30,18], axis=None)
+        Hreg3 <== opcode==18 
+        Him <== Or(opcode==[3,9,15,38,41,44], axis=None)
+        Oreg1 <== Or(opcode==[4,10,16,22,25,34,39,42,45], axis=None)   
+        Oreg2 <== Or(opcode==[1,7,13,28,31], axis=None)
+        Oreg3 <== opcode==19
+        Oim <== Or(opcode==[4,10,16,39,42,45], axis=None)
+        Qreg1 <== Or(opcode==[5,11,17,23,26,35,40,43,46], axis=None)
+        Qreg2 <== Or(opcode==[2,8,14,29,32], axis=None)
+        Qreg3 <== opcode==20 
+        Qim <== Or(opcode==[5,11,17,40,43,46], axis=None)
+
+        im_reg <== instruction_in[0:10]
+        R0 <== instruction_in[10:12]
+        R1 <== instruction_in[4:6]
+        R2 <== instruction_in[2:4]
+        R3 <== instruction_in[0:2]
+
+# TODO 

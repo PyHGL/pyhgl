@@ -1,5 +1,5 @@
 
-from typing import Any, Dict, List, Set, Union, Tuple
+from typing import Any, Dict, List, Set, Union, Tuple, Literal
 import gmpy2
 import re 
 
@@ -8,6 +8,7 @@ def width_infer(a: Union[int, gmpy2.mpz, gmpy2.xmpz], *, signed = False) -> int:
     """ return positive least number of bits that can represent a
     
     unsigned: 0 -> 1,  1 -> 1,  2 -> 2,  3 -> 2,  4 -> 3, ... 
+             -1 -> 1, -2 -> 2, -3 -> 3, -4 -> 3, -5 -> 4, ...
     signed:   0 -> 1,  1 -> 2,  2 -> 3,  3 -> 3,  4 -> 4, ... 
              -1 -> 1, -2 -> 2, -3 -> 3, -4 -> 3, -5 -> 4, ...
     
@@ -36,15 +37,16 @@ _logic_split = re.compile(r"(.+?)(\.[01x])?(:.+)?$")
 def str2logic(a: str) -> Tuple[int, int, int]:
     """ python str to 3-valued logic, '0' -> 00, '1' -> 10, 'x' -> 01
 
-    return: (value, unknown, width)
-    format: {width}.{prefix}:{sign}{radix}{value}
+    - return: (value, unknown, width)
+    - format: {width}.{prefix}:{sign}{radix}{value}
+    - ex. `32.x:-hffff_xxxx_0000` -> `xxxxffffxxxx0000`
 
-    - both 'x' and '?' regard as 'x'
+    - '?' regard as 'x'
     - split by : or '
     - default width:
-        - '-111000' is 6, so overflow
+        - '-111000' is 6,  
         - '-d1'  is 2 
-        - '-hff' is 8, so overflow
+        - '-hff' is 8,  
     - overflow value is clipped
     - 'x' is only allowed in unsigned bin/hex
 
@@ -170,130 +172,71 @@ def _str2logic(a: str, radix: int = 2) -> Tuple[int, int]:
 
 
 
-def logic2str(v: gmpy2.mpz, x: gmpy2.mpz, width: int = None, prefix: bool=True) -> str:
-    """ 
-    TODO infinate x 
+def logic2str(v, x, width: int = None, prefix: bool=True, radix: Literal['b','h'] = 'h') -> str:
+    """ turn logic value to verilog style literal 
+
+    ex. 4'bxx11, 16'hffff
+
+    - negative value is not allowed 
+    - prefix: 8'h, 4'b
+    - radix: binary or hex 
+    - width: if None, use maximum width of v and x 
+    - radix: use hex only if radix == 'h' and no unknown state
     """
     v = gmpy2.mpz(v) 
     x = gmpy2.mpz(x) 
-    if width is not None:
+    if width is None:
+        assert v >= 0 and x >= 0, 'negative value without width not supported'
+        width = max(width_infer(v), width_infer(x))
+        
+    v = v & gmpy2.bit_mask(width)
+    x = x & gmpy2.bit_mask(width)
+    
+    if radix == 'h' and x == 0:     # return hex only if no `x`
+        ret = hex(v)[2:]
+        return f"{width}'h{ret}" if prefix else ret
+    elif x == 0:                    # return binary
+        ret = bin(v)[2:]
+        return f"{width}'b{ret}" if prefix else ret 
+    else:
         ret = []
-        for i in range(width):
+        for i in range(max(width_infer(v), width_infer(x))):
             if x[i]:
                 ret.append('x')
             else:
-                if v[i]:
-                    ret.append('1')
-                else:
-                    ret.append('0')   
+                ret.append('1' if v[i] else '0') 
         if prefix:
             ret.append(f"{width}'b")
         return ''.join(reversed(ret))
 
-    width = max(width_infer(v, signed=v<0), width_infer(x, signed=x<0)) 
+
+def logic2bin(v, x, width: int) -> str:
+    """ fixed width, without prefix 
+    ex. 0011, 0000xxxx
+    """
+    v = gmpy2.mpz(v) 
+    x = gmpy2.mpz(x)
     ret = []
     for i in range(width):
         if x[i]:
             ret.append('x')
         else:
-            if v[i]:
-                ret.append('1')
-            else:
-                ret.append('0') 
-    if x < 0:
-        ret.append('x...')
-    elif v < 0:
-        ret.append('1...') 
-    if prefix:
-        ret.append(f"{width}'b")
+            ret.append('1' if v[i] else '0') 
     return ''.join(reversed(ret))
 
-
-
-def str2int(a:str) -> Tuple[int, int]:
-    """ initial value of Logic 
-    
-    - support bin/hex/dec 
-    - support sign 
-    - unsigned bin/hex has implict width
-    
-    ex. 8-bit unsigned binary
-        8:1111_0000     
-        b1111_0000   
-        
-    ex. hex & dec 
-        h12ab
-        hff
-        xff
-        d123
-        d123
-    
-    ex. signed 
-        12:+ f
-        5:+hf 
-        6:-hf 
-        7:+hff   error
-        -d5
-        
-    return:
-        (value, width)
-    FIXME overflow 
-    TODO
-    1>0011 
-    1>8:ha
-    x>32:hff
-    """
-    _a = a
-    a = _str_sub.sub('', a.lower())
-    width = None
-    sign = None  
-    radix = None
-    r = _str_split.split(a) 
-    if len(r) > 1:
-        width = int(r[0]) 
-        assert width > 0
-        a = r[1]
-    # signed or not 
-    if a[0] == '+':
-        sign = True  
-        a = a[1:].strip()
-    elif a[0] == '-':
-        sign = False 
-        a = a[1:].strip()
-    # radix 
-    if a[0] == 'd':
-        radix = 10 
-        a = a[1:]
-    elif a[0] == 'b':
-        radix = 2
-        a = a[1:]
-    elif a[0] == 'h':
-        radix = 16 
-        a = a[1:] 
-    else:
-        radix = 2
-    
-    # implict width 
-    if radix == 2:
-        width = width or len(a) 
-    elif radix == 16:
-        width = width or len(a) * 4 
-    # to int 
-    try:
-        a = int(a, radix)
-    except:
-        raise TypeError(_a) 
-    # get value, minimal width
-    if sign is None:
-        v, w = a, width_infer(a)
-    elif sign == True:
-        v, w = a, width_infer(a, signed=True)
-    else:
-        v, w = -a, width_infer(-a, signed=True)  
-    width = width or w
-    
-    v = v & ((1 << width) - 1)
-    return v, width
+def logic2hex(v, x, width: int) -> str:
+    mask = gmpy2.bit_mask(width)
+    v = v & mask 
+    x = x & mask
+    ret = []
+    for i in range((width+3)//4):
+        vi = v[i*4:(i+1)*4]
+        xi = x[i*4:(i+1)*4]
+        if xi:
+            ret.append('x')
+        else:
+            ret.append(hex(vi)[-1])
+    return ''.join(reversed(ret))
 
 
 
@@ -420,16 +363,8 @@ def merge64(l: List[int]) -> gmpy2.xmpz:
         ret[idx*64:(idx+1)*64] = int(v)
     return ret 
 
-def split_uint(v: int, w_in: int, w_out: int) -> List[int]:
-    """ 
-    """
-    ret = [] 
-    v = gmpy2.mpz(v)
-    for idx in range( (w_in+w_out-1) // w_out ):
-        ret.append(v[idx*w_out:(idx+1)*w_out]) 
-    return ret
     
-def split_mem(v: int, shape: Tuple[int,...]) -> List:
+def mem_split(v: int, shape: Tuple[int,...]) -> List:
     """ TODO nd array
     """
     ret = []
@@ -440,15 +375,22 @@ def split_mem(v: int, shape: Tuple[int,...]) -> List:
     return ret
         
 def mem2str(v: int, x: int, shape: Tuple[int]):
-    """ ex. [8'b0, 8'b1, 8'b2]
+    """ ex. [8'hff, 8'hab]
     """
-    v = split_mem(v, shape)
-    x = split_mem(x, shape)
+    v = mem_split(v, shape)
+    x = mem_split(x, shape)
     ret = []
     for vi, xi in zip(v,x):
-        ret.append(logic2str(vi, xi, width=shape[-1]))
+        ret.append(f"{shape[-1]}'h{logic2hex(vi, xi, width=shape[-1])}")
     return ret
 
+def bin2mem(data: bytes, n: int = 1) -> list:
+    """ data: bytes, n: memory data of n bytes 
+    """
+    ret = []
+    for i in range((len(data) + n - 1)//n):
+        ret.append(int.from_bytes(data[i*n:i*n+n], 'little'))
+    return ret
 
 _number = re.compile(r'\s*([0-9a-zA-Z]+).*')
 

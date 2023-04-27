@@ -1,0 +1,769 @@
+# reference: https://github.com/kuopinghsu/srv32
+
+from pyhgl.logic import * 
+from pyhgl.tester import * 
+import pyhgl.logic.utils as utils
+
+from .opcode import *
+
+
+@conf SRV32_config:
+    RV32M_ENABLED = 0
+
+
+read_mem_io = lambda: Bundle(
+    ready   = UInt(0)       @ Output,
+    valid   = UInt(0)       @ Input,
+    addr    = UInt('32:b0') @ Output,
+    resp    = UInt(0)       @ Input,
+    data    = UInt('32:b0') @ Input,
+)
+write_mem_io = lambda: Bundle(
+    ready   = UInt(0)       @ Output,
+    valid   = UInt(0)       @ Input,
+    addr    = UInt('32:b0') @ Output,
+    data    = UInt('32:b0') @ Output,
+    mask    = UInt('4:b0')  @ Output,
+)
+
+
+@module Clint:
+    io = Bundle(
+        timer_en    = UInt(0)   @ Input,
+        timer_irq   = UInt(0)   @ Output @ Reg,
+        sw_irq      = UInt(0)   @ Output @ Reg,
+        ex_irq      = UInt(0)   @ Output @ Reg,
+        w           = FlipIO(write_mem_io()),
+        r           = FlipIO(read_mem_io()),
+    )
+
+    # w/r in one cycle, so always valid
+    io.w.valid, io.r.valid <== 1
+    io.r.resp <== RegNext(io.r.ready)
+
+    mtime       = Reg('64:b0')
+    mtimecmp    = Reg('64:b0')
+    mtime_nxt   = mtime + 1
+    
+    # update timer, ignore mask 
+    when io.w.ready:
+        when     io.w.addr == MTIME_BASE        : mtime[:32] <== io.w.data 
+        elsewhen io.w.addr == MTIME_BASE_4      : mtime[32:] <== io.w.data
+        elsewhen io.w.addr == MTIMECMP_BASE     : mtimecmp[:32] <== io.w.data 
+        elsewhen io.w.addr == MTIMECMP_BASE_4   : mtimecmp[32:] <== io.w.data
+    elsewhen io.timer_en:
+        mtime <== mtime_nxt
+
+    # IRQ generation 
+    io.timer_irq <== mtime_nxt >= mtimecmp
+
+    # MSIP is used to trigger an interrupt. The external interrupt is at D[16],
+    # defined by srv32 core. This is used for software self-test, it connects
+    # ex_irq to the interrupt pin at top level of RTL code.
+    when io.w.ready && io.w.addr == MSIP_BASE:
+        io.sw_irq <== io.w.data[0]     # software interrupt
+        io.ex_irq <== io.w.data[16]    # external interrupt 
+
+    Reg(io.r.data)      # output next cycle
+    when io.r.ready:
+        switch io.r.addr:
+            once MTIME_BASE      : io.r.data <== mtime[:32]
+            once MTIME_BASE_4    : io.r.data <== mtime[32:]
+            once MTIMECMP_BASE   : io.r.data <== mtimecmp[:32]
+            once MTIMECMP_BASE_4 : io.r.data <== mtimecmp[32:]
+            once MSIP_BASE       : io.r.data <== Cat(io.sw_irq,'15:b0',io.ex_irq,'15:b0')
+
+
+@module Top:
+    stall       = UInt(0)       @ Input
+    interrupt   = UInt(0)       @ Input
+    exception   = UInt(0)       @ Output
+    ex_irq      = UInt(0)       @ Output
+    imem        = read_mem_io()
+    dmem        = Bundle(w = write_mem_io(), r = read_mem_io())
+
+    clint = Clint()
+    riscv = Riscv()
+
+    ex_irq <=> clint.io.ex_irq
+    stall, interrupt, exception <=> riscv.io[['stall','interrupt','exception']]
+    riscv.io[['timer_en','timer_irq','sw_irq']] <=> clint.io[['timer_en','timer_irq','sw_irq']] 
+
+    imem <=> riscv.io.imem  
+    dmem <=> riscv.io.dmem 
+
+    clint.io.w[['addr', 'data', 'mask']] <== riscv.io.dmem.w[['addr', 'data', 'mask']]
+    clint.io.r.addr <== riscv.io.dmem.r.addr
+
+    read_data_sel = RegNext(riscv.io.dmem.r.addr[28:] == MMIO_BASE)
+    riscv.io.dmem.r.resp <== 1
+    riscv.io.dmem.r.data <== Mux(read_data_sel, clint.io.r.data, dmem.r.data)
+
+    when riscv.io.dmem.w.addr[28:] == MMIO_BASE:
+        dmem.w.ready <== 0 
+        riscv.io.dmem.w.valid <== clint.io.w.valid 
+        clint.io.w.ready <== riscv.io.dmem.w.ready
+
+    when riscv.io.dmem.r.addr[28:] == MMIO_BASE: 
+        dmem.r.ready <== 0 
+        riscv.io.dmem.r.valid <== clint.io.r.valid
+        clint.io.r.ready <== riscv.io.dmem.r.ready
+
+
+
+@module Riscv: 
+    io = Bundle(
+        stall       = UInt(0)       @ Input,
+        interrupt   = UInt(0)       @ Input,
+        exception   = UInt(0)       @ Output,
+        timer_en    = UInt(0)       @ Output,
+
+        timer_irq   = UInt(0)       @ Input,
+        sw_irq      = UInt(0)       @ Input,
+ 
+        imem        = read_mem_io(),
+        dmem        = Bundle(w = write_mem_io(), r = read_mem_io()),
+    )
+
+    stall_r     = RegNext(io.stall, reset_value=1)  
+    flush       = RegNext(stall_r, reset_value=1)         
+    pipefill    = Reg('2:b0') 
+    pc          = Reg(RESETVEC)
+
+    fetch = Bundle(
+        stall   = stall_r || !io.imem.valid,
+        pc      = Reg(RESETVEC),
+        insn    = io.imem.data,   # fetch.insn = imem[fetch.pc]
+    )
+
+    ex = Bundle( 
+        stall = UInt(0),  # wire
+        flush = UInt('0'),      # wire
+        pc = Reg(RESETVEC),         # reg
+        insn = Reg(NOP),   # reg
+        imm = Reg('32:b0'),   # reg
+        imm_sel = Reg('0'),   # reg
+        rs1 = Reg('5:b0'),  # reg
+        rs2 = Reg('5:b0'),  # reg
+        rd = Reg('5:b0'),  # reg
+        alu_op = Reg('3:b0'),  # reg
+        subtype = Reg(0),  # reg
+
+        memwr = Reg(0),    # dmem enable   reg
+        mem2reg = Reg(0),  # load from dmem reg
+        memaddr = UInt('32:b0'), # wire
+        ret_pc = Wire('31:b0'), # wire
+
+        alu = Reg('0'),     # reg
+        csr = Reg('0'),     # reg
+        csr_wr = Reg('0'),      # reg
+        lui = Reg('0'),     # reg
+        auipc = Reg('0'),       # reg
+        jal = Reg('0'),     # reg
+        jalr = Reg('0'),        # reg
+        branch = Reg('0'),      # reg
+        system = Reg('0'),      # reg
+        system_op = Reg('0'),       # reg
+        mul = Reg('0'),     # reg
+
+        branch_taken = UInt(0), # wire
+        result = UInt('32:b0'), # wire
+
+        systemcall = Wire('0'), # wire
+        csr_read = Wire('32:b0'), # wire
+        trap = Wire('0'),   # wire
+        trap_pc = Wire('32:b0'),    # wire
+        csr_data = Wire('32:b0'),   # wire
+        mcause = Wire('32:b0'),  # wire
+        ill = Bundle(
+            inst = Reg(0),     # reg
+            branch = UInt(0),  # wire
+            csr = UInt(0),   # wire
+        ),
+        excp = Bundle(
+            ld_align = UInt(0),  # wire
+            st_align = UInt(0),  # wire
+            inst_ill = UInt(0),  # wire
+            inst_align = UInt(0),# wire
+        ),
+        timer_irq = UInt(0),    # wire
+        sw_irq = UInt(0),   # wire
+        interrupt = UInt(0),    # wire
+    )
+        
+    wb = Bundle(
+        stall = UInt(0),  # wire
+        flush = UInt('0'),   # wire
+        alu2reg = Reg('0'),   # write alu output to regfile # reg
+        result = Reg('32:b0'),  # reg
+        alu_op = Reg('3:b0'),   # reg
+        memwr = Reg('0'),       # reg
+        mem2reg = Reg('0'), # reg
+        rd = Reg('5:b0'),  # reg
+        branch = Reg('0'),      # reg
+        branch_nxt = Reg('0'),  # reg
+        nop = Reg('0'),         # reg
+        nop_more = Reg('0'),    # reg
+        waddr = Reg('32:b0'),   # reg
+        raddr = Reg('00'),      # reg
+        wmask = Reg('4:b0'),    # reg
+        wdata = Reg('32:b0'),   # reg
+        rdata = Wire('32:b0'), # wire
+    )
+
+    csr = Bundle(
+        cycle = Reg('64:b0'),
+        instret = Reg('64:b0'),
+
+        mscratch = Reg('32:b0'),
+        mstatus = Reg('32:b0'),
+        misa = Reg('32:b0'),
+        mie = Reg('32:b0'),
+        mip = Reg('32:b0'),
+        mtvec = Reg('32:b0'),
+        mepc = Reg('32:b0'),
+        mcause = Reg('32:b0'),
+        mtval = Reg('32:b0'),
+    )
+
+    # register files and operands
+    regs = Reg(Vec[32,32](0)) 
+    reg_rdata1, reg_rdata2, alu_op1, alu_op2 = UInt[32].zeros(4)
+    regfile = UInt(regs).split(32)  # for testbench
+
+    io.exception    <== RegNext(Or(ex.excp))
+    io.timer_en     <== pipefill == '10'
+    io.imem.addr    <== pc 
+    io.imem.ready   <== !stall_r && !wb.stall
+    io.dmem.r[['addr','ready']] <== ex[['memaddr','mem2reg']]
+    io.dmem.w[['addr','data','mask','ready']] <== wb[['waddr','wdata','wmask','memwr']]
+
+
+    ###############################################################
+    #      F/D  E   W
+    #          F/D  E   W
+    #              F/D  E  W
+    ###############################################################
+    # stage 1: fetch/decode
+    ###############################################################
+
+    inst = Mux(flush, NOP, io.imem.data)
+    inst = Bundle(
+        v           = inst,
+        op          = inst[OPCODE],
+        f3          = inst[FUNC3],
+        f7          = inst[FUNC7],
+        subtype     = inst[SUBTYPE],
+        rd          = inst[RD],
+        rs1         = inst[RS1],
+        rs2         = inst[RS2],
+    )
+
+    imm_i = inst.v[20:32].sext(32)
+    imm_s = Cat(inst.v[7:12], inst.v[25:32]).sext(32)
+    imm_b = Cat(0, inst.v[8:12], inst.v[25:31], inst.v[7], inst.v[31]).sext(32) 
+    imm_u = Cat('12:b0', inst.v[12:32])
+    imm_j = Cat(0, inst.v[21:31], inst.v[20], inst.v[12:20], inst.v[31]).sext(32) 
+    
+    imm = MuxSwitch(inst.op,
+        [(OP_AUIPC,OP_LUI)  , imm_u],
+        [OP_JAL             , imm_j],
+        [(OP_JALR,OP_LOAD)  , imm_i],
+        [OP_BRANCH          , imm_b],
+        [OP_STORE           , imm_s],
+        [OP_ARITHI          , Mux(inst.f3.inside(OP_SLL,OP_SR), inst.v[20:25], imm_i)],
+        [OP_SYSTEM          , inst.v[20:32].zext(32)],
+        [...                , '32:b0'],
+    )
+
+
+    when !wb.stall: fetch.pc <== pc
+
+    when !fetch.stall:
+        ex.insn     <== inst.v
+        ex.imm      <== imm 
+        ex.imm_sel  <== inst.op.inside(OP_JALR, OP_LOAD, OP_ARITHI)  
+        ex.rs1 <== inst.rs1 
+        ex.rs2 <== inst.rs2 
+        ex.rd  <== inst.rd 
+        ex.alu_op   <== inst.f3 
+        ex.subtype  <== inst.subtype && !(inst.op == OP_ARITHI && inst.f3 == OP_ADD)
+        ex.memwr    <== inst.op == OP_STORE
+        ex.alu      <== inst.op == OP_ARITHI || ( inst.op == OP_ARITHR && inst.f7.inside('7:h0', '7:h20')) 
+        ex.mul      <== inst.op == OP_ARITHR && inst.f7 == 1
+        ex.csr      <== inst.op == OP_SYSTEM && inst.f3 != OP_ECALL
+        ex.csr_wr   <== inst.op == OP_SYSTEM && inst.f3 != OP_ECALL && !(
+            inst.f3 != OP_CSRRW && inst.f3 != OP_CSRRWI && inst.rs1 == 0
+        )
+        ex.lui          <== inst.op == OP_LUI
+        ex.auipc        <== inst.op == OP_AUIPC
+        ex.jal          <== inst.op == OP_JAL
+        ex.jalr         <== inst.op == OP_JALR
+        ex.branch       <== inst.op == OP_BRANCH
+        ex.system       <== inst.op == OP_SYSTEM && inst.f3 == 0
+        ex.system_op    <== inst.op == OP_SYSTEM
+        ex.pc           <== fetch.pc 
+        ex.ill.inst     <== !(
+            inst.op.inside(OP_AUIPC, OP_LUI, OP_JAL, OP_JALR, OP_BRANCH, OP_ARITHI, OP_FENCE, OP_SYSTEM) ||
+            inst.op == OP_LOAD && inst.f3.inside(OP_LB, OP_LH, OP_LW, OP_LBU, OP_LHU) || 
+            inst.op == OP_STORE && inst.f3.inside(OP_SB, OP_SH, OP_SW) ||
+            inst.op == OP_ARITHR && inst.f7.inside(0, 1, '7:h20')
+        )
+
+    when inst.op == OP_LOAD:
+        ex.mem2reg <== 1 
+    elsewhen ex.mem2reg && io.dmem.r.valid:
+        ex.mem2reg <== 0
+
+    #############################################################
+    # stage 2: execute
+    #############################################################
+    next_pc = pc + 4
+
+    # Trap Exception 
+    ex.excp.ld_align <== ex.mem2reg && !ex.flush && (
+        ex.alu_op.inside(OP_LH, OP_LHU) && ex.memaddr[0] || 
+        ex.alu_op == OP_LW && ex.memaddr[0:2] 
+    )
+    ex.excp.st_align <== ex.memwr && !ex.flush && (
+        ex.alu_op == OP_SH && ex.memaddr[0] || 
+        ex.alu_op == OP_SW && ex.memaddr[0:2]
+    )
+    ex.excp.inst_ill <== !ex.flush && Or(ex.ill)
+    ex.excp.inst_align <== !ex.flush && next_pc[0:2]
+    ex.timer_irq <== io.timer_irq && csr.mstatus[MIE] && csr.mie[MTIE] && !ex.system_op && !ex.flush
+    ex.sw_irq <== io.sw_irq && csr.mstatus[MIE] && csr.mie[MSIE] && !ex.system_op && !ex.flush
+    ex.interrupt <== io.interrupt && csr.mstatus[MIE] && csr.mie[MEIE] && !ex.system_op && !ex.flush
+    ex.stall <== stall_r || fetch.stall || (ex.mem2reg && !io.dmem.r.valid)
+
+    alu_op1 <== reg_rdata1 
+    alu_op2 <== Mux(ex.imm_sel, ex.imm, reg_rdata2)
+    result_subs = alu_op1.sext(33) - alu_op2.sext(33)
+    result_subu = alu_op1.zext(33) - alu_op2.zext(33)
+
+    ex.memaddr <== alu_op1 + ex.imm 
+    ex.flush <== wb.branch || wb.branch_nxt  # branch penalty: 2 cycles
+    ex.systemcall <== ex.system && !ex.flush
+
+
+    branch_taken = ex.branch && Or(
+        ex.alu_op == OP_BEQ && result_subs == 0,
+        ex.alu_op == OP_BNE && result_subs != 0,
+        ex.alu_op == OP_BLT && result_subs[-1],
+        ex.alu_op == OP_BGE && !result_subs[-1],
+        ex.alu_op == OP_BLTU && result_subu[-1],
+        ex.alu_op == OP_BGEU && !result_subu[-1],
+    )
+    ex.ill.branch <== ex.branch && !ex.alu_op.inside(OP_BEQ, OP_BNE, OP_BLT, OP_BGE, OP_BLTU, OP_BGEU) 
+    when ex.ill.branch:
+        next_pc <== pc
+    elsewhen branch_taken || ex.jal:
+        next_pc <== ex.pc + ex.imm 
+    elsewhen ex.jalr:
+        next_pc <== alu_op1 + ex.imm 
+
+    ex.branch_taken <== !ex.flush && (branch_taken || ex.jal || ex.jalr)
+
+
+    result_alu = MuxSwitch(ex.alu_op,
+        [OP_ADD , Mux(ex.subtype, alu_op1 - alu_op2, alu_op1 + alu_op2)     ],
+        [OP_SLL , alu_op1 << alu_op2[0:5]                                   ],
+        [OP_SLT , Mux(result_subs[-1], '32:-b1', '32:b0')                   ],
+        [OP_SLTU, Mux(result_subu[-1], '32:-b1', '32:b0')                   ],
+        [OP_XOR , alu_op1 ^ alu_op2                                         ],
+        [OP_SR  , Mux(ex.subtype, SInt(alu_op1) >> alu_op2[0:5], alu_op1 >> alu_op2[0:5])],
+        [OP_OR  , alu_op1 | alu_op2                                         ],
+        [...    , alu_op1 & alu_op2                                         ],
+    )
+
+    result_mul      = SInt(alu_op1.sext(64)) * SInt(alu_op2.sext(64))
+    result_mulu     = alu_op1.zext(64) * alu_op2.zext(64)
+    result_mulsu    = SInt(alu_op1.sext(64)) * alu_op2.zext(64)
+    result_div      = MuxWhen(
+        [alu_op2 == 0                                       , '32:hffff_ffff'],
+        [alu_op1 == '32:h8000_0000' && alu_op2 == '32:-1'   , '32:h8000_0000'],
+        [...                                                , SInt(alu_op1) // SInt(alu_op2)],
+    )
+    result_divu     = Mux(alu_op2 == 0, '32:hffff_ffff', alu_op1//alu_op2)
+    result_rem      = MuxWhen(
+        [alu_op2 == 0                                       , '32:hffff_ffff'],
+        [alu_op1 == '32:h8000_0000' && alu_op2 == '32:-1'   , 0],
+        [...                                                , SInt(alu_op1) % SInt(alu_op2)],
+    )
+    result_remu     = Mux(alu_op2 == 0, alu_op1, alu_op1 % alu_op2)
+
+    result_rv32m = MuxSwitch(ex.alu_op, 
+        (OP_MUL, result_mul[0:32]),         (OP_MULH, result_mul[32:64]),
+        (OP_MULSU, result_mulsu[32:64]),    (OP_MULU, result_mulu[32:64]),
+        (OP_DIV, result_div),               (OP_DIVU, result_divu), 
+        (OP_REM, result_rem),               (..., result_remu)
+    )
+
+    ex.result <== MuxWhen( 
+        [ex.memwr,          alu_op2     ], 
+        [(ex.jal, ex.jalr), ex.pc + 4   ],
+        [ex.lui,            ex.imm      ],
+        [ex.auipc,          ex.pc + ex.imm],
+        [ex.csr,            ex.csr_read ],
+        [ex.mul,            result_rv32m],
+        [ex.alu,            result_alu  ],
+        [...,               '32:b0'],
+    )
+        
+    when !ex.stall:
+        pc <== MuxWhen(
+            [ex.flush, pc+4],
+            [ex.trap, ex.trap_pc],
+            [..., Cat(0, next_pc[1:])]
+        )
+        wb.result <== ex.result 
+        wb.alu2reg <== Or(ex.alu, ex.lui, ex.auipc, ex.jal, ex.jalr, ex.csr, ex.mul, ex.mem2reg && !ex.excp.ld_align)
+        wb.rd <== ex.rd 
+        wb.branch <== ex.branch_taken || ex.trap 
+        wb.branch_nxt <== wb.branch 
+        wb.mem2reg <== ex.mem2reg 
+        wb.raddr <== io.dmem.r.addr[0:2]
+        wb.alu_op <== ex.alu_op 
+
+    when ex.memwr && !ex.flush && !ex.excp.st_align:
+        wb.memwr <== 1 
+    elsewhen wb.memwr && io.dmem.w.valid:
+        wb.memwr <== 0 
+
+    when !ex.stall && ex.memwr:
+        wb.waddr <== ex.memaddr 
+        switch ex.alu_op:
+            once OP_SB:
+                wb.wdata <== alu_op2[0:8] ** 4 
+                wb.wmask <== MuxSwitch(ex.memaddr[0:2], [0, '0001'], [1, '0010'], [2, '0100'], [..., '1000'])  
+            once OP_SH:
+                wb.wdata <== alu_op2[0:16] ** 2 
+                wb.wmask <== Mux(ex.memaddr[1], '1100', '0011') # mask of SH 
+            once OP_SW: 
+                wb.wdata <== alu_op2 
+                wb.wmask <== '1111'
+            once ...:
+                wb.wdata <== 0 
+                wb.wmask <== '1111'
+    
+    #####################################################
+    # stage 3: write back
+    #####################################################
+
+    wb.stall <== stall_r || (wb.memwr && !io.dmem.w.valid) || (wb.mem2reg && !io.dmem.r.resp)
+    wb.flush <== wb.nop || wb.nop_more 
+
+    when !ex.stall && !(wb.memwr && !io.dmem.w.valid):
+        wb.nop <== wb.branch 
+        wb.nop_more <== wb.nop 
+
+    switch wb.alu_op:
+        once OP_LB: 
+            wb.rdata <== Vec[4,8](io.dmem.r.data)[wb.raddr].sext(32)  
+        once OP_LH:
+            wb.rdata <== Mux(wb.raddr[1], io.dmem.r.data[16:].sext(32), io.dmem.r.data[:16].sext(32))  
+        once OP_LW:
+            wb.rdata <== io.dmem.r.data 
+        once OP_LBU:
+            wb.rdata <== Vec[4,8](io.dmem.r.data)[wb.raddr] 
+        once OP_LHU:
+            wb.rdata <== Mux(wb.raddr[1], io.dmem.r.data[16:], io.dmem.r.data[:16])
+
+    #######################################################
+    # Trap CSR
+    #######################################################
+    # Trap CSR @ execution stage
+    ex.trap <== !ex.flush && Or(*ex.excp, ex.timer_irq, ex.sw_irq, ex.interrupt, ex.systemcall)
+    ex.trap_pc <== MuxWhen(
+        [ex.systemcall && ex.imm[0:2] == '10', csr.mepc],
+        [csr.mtvec[0], Cat('00', csr.mtvec[2:32]) + Cat('00',ex.mcause[0:4])],
+        [..., Cat('00', csr.mtvec[2:32])]
+    )
+    ex.csr_data <== Mux(ex.alu_op[2], ex.rs1, reg_rdata1)
+    ex.mcause <== MuxWhen(
+        [ex.excp.inst_ill,  TRAP_INST_ILL],
+        [ex.excp.inst_align, TRAP_INST_ALIGN],
+        [ex.excp.ld_align, TRAP_LD_ALIGN],
+        [ex.excp.st_align, TRAP_ST_ALIGN],
+        [ex.timer_irq, INT_MTIME],
+        [ex.sw_irq, INT_MSI],
+        [ex.systemcall, MuxSwitch(ex.imm[0:2],  [0, TRAP_ECALL], 
+                                                [1, TRAP_BREAK], 
+                                                [2, csr.mcause], 
+                                                [..., TRAP_INST_ILL],)],
+        [..., '32:b0']
+    )
+    ex.ret_pc <== Mux(ex.jal || ex.jalr || ex.branch && ex.branch_taken, next_pc[1:], ex.pc[1:]+2)
+    
+
+    def csr_update(csr_reg):
+        return MuxWhen(
+            [!ex.alu_op[1]  , ex.csr_data           ], # CSRRW
+            [!ex.alu_op[0]  , csr_reg | ex.csr_data ], # CSRRS
+            [...            , csr_reg & ~ex.csr_data], # CSRRC
+        )
+
+    when !ex.stall && !ex.flush:
+        switch 1:
+            once ex.excp.inst_ill:
+                csr.mcause <== TRAP_INST_ILL 
+                csr.mtval <== ex.insn 
+                csr.mepc <== Cat(0, ex.pc[1:]) 
+                csr.mstatus[MPIE] <== csr.mstatus[MIE]
+                csr.mstatus[MIE] <== 0 
+            once ex.csr_wr:
+                switch ex.imm[0:12]:
+                    once CSR_MEPC       : csr.mepc <== csr_update(csr.mepc)
+                    once CSR_MCAUSE     : csr.mcause <== csr_update(csr.mcause)
+                    once CSR_MTVAL      : csr.mtval <== csr_update(csr.mtval)
+                    once CSR_MSTATUS    : csr.mstatus <== csr_update(csr.mstatus)
+                    once CSR_MIP        : csr.mip <== csr_update(csr.mip) 
+                    once CSR_MSCRATCH   : csr.mscratch <== csr_update(csr.mscratch)
+                    once CSR_MISA       : csr.misa <== csr_update(csr.misa) 
+                    once CSR_MIE        : csr.mie <== csr_update(csr.mie)
+                    once CSR_MTVEC      : csr.mtvec <== csr_update(csr.mtvec)
+            once ex.excp.inst_align:
+                csr.mcause <== TRAP_INST_ALIGN 
+                csr.mtval <== next_pc 
+                csr.mepc <== Cat(0, ex.pc[1:]) 
+                csr.mstatus[MPIE] <== csr.mstatus[MIE]
+                csr.mstatus[MIE] <== 0 
+            once ex.excp.ld_align:
+                csr.mcause <== TRAP_LD_ALIGN
+                csr.mtval <== 0 
+                csr.mepc <== Cat(0, ex.pc[1:]) 
+                csr.mstatus[MPIE] <== csr.mstatus[MIE]
+                csr.mstatus[MIE] <== 0 
+            once ex.excp.st_align:
+                csr.mcause <== TRAP_ST_ALIGN
+                csr.mtval <== ex.memaddr 
+                csr.mepc <== Cat(0, ex.pc[1:]) 
+                csr.mstatus[MPIE] <== csr.mstatus[MIE]
+                csr.mstatus[MIE] <== 0 
+            once ex.timer_irq:
+                csr.mcause <== INT_MTIME 
+                csr.mepc  <== Cat(0, ex.ret_pc[1:])
+                csr.mtval <== 0 
+                csr.mstatus[MPIE] <== csr.mstatus[MIE]
+                csr.mstatus[MIE] <== 0 
+                csr.mip[MSIP] <== 1 
+            once ex.sw_irq:
+                csr.mcause <== INT_MSI 
+                csr.mepc  <== Cat(0, ex.ret_pc[1:])
+                csr.mtval <== 0 
+                csr.mstatus[MPIE] <== csr.mstatus[MIE]
+                csr.mstatus[MIE] <== 0 
+                csr.mip[MSIP] <== 1 
+            once ex.interrupt:
+                csr.mcause <== INT_MEI 
+                csr.mepc  <== Cat(0, ex.ret_pc[1:])
+                csr.mtval <== 0  
+                csr.mstatus[MPIE] <== csr.mstatus[MIE]
+                csr.mstatus[MIE] <== 0 
+                csr.mip[MEIP] <== 1  
+            once ex.systemcall:
+                csr.mepc <== Cat(0, ex.pc[1:]) 
+                switch ex.imm[0:2]:
+                    once 0:
+                        csr.mcause <== TRAP_ECALL 
+                        csr.mtval <== 0 
+                        csr.mstatus[MPIE] <== csr.mstatus[MIE]
+                        csr.mstatus[MIE] <== 0 
+                    once 1:
+                        csr.mcause <== TRAP_BREAK 
+                        csr.mtval <== 0
+                        csr.mstatus[MPIE] <== csr.mstatus[MIE]
+                        csr.mstatus[MIE] <== 0 
+                    once 2:  # URET, SRET, MRET
+                        csr.mtval <== 0 
+                        csr.mstatus[MIE] <== csr.mstatus[MPIE]
+                    once ...:
+                        csr.mcause <== TRAP_INST_ILL 
+                        csr.mtval <== ex.insn 
+
+    ##########################################################
+    # CSR file
+    ##########################################################
+    # CSR read @ execution stage
+    when ex.csr && !ex.flush:
+        switch ex.imm[0:12]:
+            once CSR_MVENDORID  : ex.csr_read <== MVENDORID
+            once CSR_MARCHID    : ex.csr_read <== MARCHID
+            once CSR_MIMPID     : ex.csr_read <== MIMPID
+            once CSR_MHARTID    : ex.csr_read <== MHARTID
+            once CSR_MSCRATCH   : ex.csr_read <== csr.mscratch
+            once CSR_MSTATUS    : ex.csr_read <== csr.mstatus
+            once CSR_MISA       : ex.csr_read <== csr.misa
+            once CSR_MIE        : ex.csr_read <== csr.mie
+            once CSR_MIP        : ex.csr_read <== csr.mip
+            once CSR_MTVEC      : ex.csr_read <== csr.mtvec
+            once CSR_MEPC       : ex.csr_read <== csr.mepc
+            once CSR_MCAUSE     : ex.csr_read <== csr.mcause 
+            once CSR_MTVAL      : ex.csr_read <== csr.mtval
+            once CSR_RDCYCLE    : ex.csr_read <== csr.cycle[:32]
+            once CSR_RDCYCLEH   : ex.csr_read <== csr.cycle[32:]
+            once CSR_RDINSTRET  : ex.csr_read <== csr.instret[:32]
+            once CSR_RDINSTRETH : ex.csr_read <== csr.instret[32:]
+            once ...            : ex.ill.csr <== 1
+
+    
+    when !stall_r:
+        when pipefill != '10':
+            pipefill <== pipefill + 1 
+        otherwise:
+            csr.cycle <== csr.cycle + 1 
+            when !ex.stall && !ex.flush:
+                csr.instret <== csr.instret + 1
+
+    #####################################################
+    # Register file
+    #####################################################
+    reg_rdata1 <== MuxWhen(
+        [ex.rs1 == 0, 0],
+        [!wb.flush && wb.alu2reg && wb.rd == ex.rs1, Mux(wb.mem2reg, wb.rdata, wb.result)],  #  register forwarding
+        [..., regs[ex.rs1]],
+    )
+    reg_rdata2 <== MuxWhen(
+        [ex.rs2 == 0, 0],
+        [!wb.flush && wb.alu2reg && wb.rd == ex.rs2, Mux(wb.mem2reg, wb.rdata, wb.result)],  #  register forwarding
+        [..., regs[ex.rs2]],
+    )
+
+    # register writing @ write back stage
+    when wb.alu2reg && !stall_r && !(wb.stall || wb.flush):
+        regs[wb.rd] <== Mux(wb.mem2reg, wb.rdata, wb.result)
+
+
+@module Testbench(imem_size, imem_init, dmem_size, dmem_init):
+    imem = Reg(MemArray[imem_size, 32](imem_init), reset=None)
+    dmem = Reg(MemArray[dmem_size, 32](dmem_init), reset=None)
+    dut = Top() 
+
+    test_dmem_read_addr = UInt('32:b0')
+    test_dmem_read_data = dmem[test_dmem_read_addr]
+
+    dut.imem.resp <== 1 
+    dut.imem.valid <== 1
+    Reg(dut.imem.data) 
+    when dut.imem.ready:
+        dut.imem.data <== imem[dut.imem.addr[2:]]
+    
+    dut.dmem.r.resp <== 1 
+    dut.dmem.r.valid <== 1
+    Reg(dut.dmem.r.data)
+    when dut.dmem.r.ready:
+        dut.dmem.r.data <== dmem[dut.dmem.r.addr[2:]-imem_size]
+    
+    real_dmem_waddr = dut.dmem.w.addr[2:]-imem_size
+    dut.dmem.w.valid <== 1
+    dmem_waddr_odd_data = dmem[real_dmem_waddr]
+    mask_32 = Cat(dut.dmem.w.mask.split() ** 8)  # 4bit to 32bit
+    when dut.dmem.w.ready:
+        dmem[real_dmem_waddr] <== (dmem_waddr_odd_data & ~mask_32) | (dut.dmem.w.data & mask_32)
+
+
+    
+
+test_imem = [
+    0x00108093, # ADDI x1, x1, 1
+    0x00208093, # ADDI x1, x1, 2
+    0x00106193, # ori x3, x0, 1
+    0xfff18193, # addi x3, x3, -1
+    0xffdff26f, # jal x4, -4
+    0xfe000ee3, # BEQ  x0, x0, -4
+]
+test_imem = [
+    0x00800093,  # addi x1, x0, 8
+    0x0000a103,  # lw x2, 0(x1)
+    0x00008183,  # lb x3, 0(x1)
+    0x00009203,  # lh x4, 0(x1)
+    0x00a04283,  # lbu x5, 10(x0)
+    0x00a05283,  # lhu x5, 10(x0)
+    0x0040a423,  # sw x4, 8(x1)
+    0x00409623,  # sh x4, 12(x1)
+    0x00408823,  # sb x4, 16(x1)
+    0x0080a283,  # lw x5, 8(x1)
+    0x00c0a303,  # lw x6, 12(x1)
+    0x0100a383,  # lw x7, 16(x1)
+    0x0001f193,  # andi x3, x3, 0
+    0xfff18193,  # addi x3, x3, -1
+    0xffdff26f,  # jal x4, -4
+    0x00730133,  # add x2, x6, x7
+]
+
+test_dmem = [
+    0xfff18193,  
+    0xffdff26f,  
+    0x12345678, 
+    0xabababab,
+    0xff00ff00,
+    0xffff0000,
+    0x0000ffff,
+]
+
+def print_none_zero_signal(s):
+    if getv(s) != 0:
+        name, value = str(s).split('=')
+        print(f'{name:>20} -- {value}')
+
+def print_mem(mem, shape):
+    mem = getv(mem)
+    mem = utils.mem2str(mem.v, mem.x, shape=shape)
+    for i in range((len(mem) + 7)//8):
+        print(' '.join(mem[i*8:i*8+8]))
+
+
+@task test_dmem(self, tb):
+    for i in range(1500):
+        setv(tb.test_dmem_read_addr, i*32) 
+        yield self.clock_n()
+
+@task test_srv32(self, tb):
+    riscv = tb.dut.riscv
+    yield self.reset()
+    yield self.clock_n(1500)
+    return 
+    # for i in range(30):
+    #     regs = getv(riscv.regs)
+    #     regs = utils.mem2str(regs.v, regs.x, shape=(32,32))
+    #     print(f'-------------------- cycle {i} ---------------------')
+    #     print(riscv.pc, riscv.stall_r, riscv.flush, riscv.next_pc)
+    #     print('_____if_____')
+    #     for s in riscv.fetch._flat: print_none_zero_signal(s)
+    #     print('_____ex_____')
+    #     for s in riscv.ex._flat: print_none_zero_signal(s)
+    #     print('_____wb_____')
+    #     for s in riscv.wb._flat: print_none_zero_signal(s)
+    #     print(', '.join(f'x{i}={v}' for i,v in enumerate(regs[:8])))
+    #     print_mem(tb.dmem, shape=(16,32))
+    #     yield self.clock_n()
+
+
+@tester SRV32_tb(self):
+    with Session(SRV32_config()) as sess:
+
+        with open(utils.relative_path('./sim/hello/imem.bin'), 'rb') as f:
+            bin_imem = utils.bin2mem(f.read(), 4)
+        with open(utils.relative_path('./sim/hello/dmem.bin'), 'rb') as f:
+            bin_dmem = utils.bin2mem(f.read(), 4)
+
+        tb = Testbench(
+            imem_size = 32*1024, 
+            imem_init = bin_imem,
+            dmem_size = 32*1024,
+            dmem_init = bin_dmem,
+        )
+        sess.track(tb.dut.riscv, tb.dut.dmem, tb.test_dmem_read_addr, tb.test_dmem_read_data) 
+        sess.join(test_srv32(tb), test_dmem(tb))
+
+        print(sess)
+        sess.dumpVCD('SRV32.vcd')
+        
+        # @blackbox testbench(builder):
+        #     builder.append('initial begin\n$dumpfile("SRV32_iverilog.vcd");$dumpvars(0);') 
+        #     builder.append('# 1000;') 
+        #     builder.append('$finish;\nend')
+
+        sess.dumpVerilog('SRV32.sv', delay=True, top = True) 
+        sess.dumpGraph('SRV32.gv')
+

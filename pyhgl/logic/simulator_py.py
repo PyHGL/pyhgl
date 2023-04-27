@@ -136,7 +136,7 @@ class Simulator(HGL):
                 self.sensitive_data[i._cpp_data[1]] = data
 
                
-    def step(self, n: int = 1):
+    def step(self):
         """ step 1 timescale
         
         each signal should not updated more than once in 1 step
@@ -144,88 +144,85 @@ class Simulator(HGL):
         """
         time_wheel = self.time_wheel 
         queue = self.priority_queue
+        next_t = self.t + 1
         
-        for next_t in range(self.t + 1, self.t + n + 1):                    # 100ms
+        signal_events, coroutine_events = time_wheel[0]    # 200ms 
+        gate_events = self.changed_gates
+        
+        if signal_events or gate_events or coroutine_events:            # 200ms  
+            # insert triggered coroutine events to next step
+            coroutine_events_next = time_wheel[1][1]                    # 80ms
+            #------------------------------------------
+            if self.sess.verbose_sim:
+                _signal = ','.join(self._show_signal_event(i) for i in signal_events)
+                self.sess.print(f't={self.t}, signals: {_signal}')
+            #------------------------------------------
             
-            signal_events, coroutine_events = time_wheel[0]    # 200ms 
-            gate_events = self.changed_gates
+            # 1. exec user tasks
+            for g in coroutine_events:                                  # 400ms clock
+                try:
+                    ret = next(g)
+                    # stop task
+                    if ret is None:
+                        pass
+                    # delay time step
+                    elif isinstance(ret, int):
+                        self.insert_coroutine_event(ret, g)
+                    # wait signal change
+                    elif isinstance(ret, hgl_core.Reader):  
+                        self.add_sensitive(ret._data) 
+                        ret._data.events.append(g)
+                    # wait signal change
+                    elif isinstance(ret, hgl_core.SignalData):
+                        self.add_sensitive(ret)
+                        ret.events.append(g)
+                    else:
+                        self.sess.log.warning(f'{ret} is not valid trigger, stop task {g}')
+                except:
+                    pass   
+            coroutine_events.clear()  
             
-            if signal_events or gate_events or coroutine_events:            # 200ms  
-                # insert triggered coroutine events to next step
-                coroutine_events_next = time_wheel[1][1]                    # 80ms
-                #------------------------------------------
-                if self.sess.verbose_sim:
-                    _signal = ','.join(self._show_signal_event(i) for i in signal_events)
-                    self.sess.print(f't={self.t}, signals: {_signal}')
-                #------------------------------------------
+            # 2. update signal values
+            for e in signal_events:
                 
-                # 1. exec user tasks
-                for g in coroutine_events:                                  # 400ms clock
-                    try:
-                        ret = next(g)
-                        # stop task
-                        if ret is None:
-                            pass
-                        # delay time step
-                        elif isinstance(ret, int):
-                            self.insert_coroutine_event(ret, g)
-                        # wait signal change
-                        elif isinstance(ret, hgl_core.Reader):  
-                            self.add_sensitive(ret._data) 
-                            ret._data.events.append(g)
-                        # wait signal change
-                        elif isinstance(ret, hgl_core.SignalData):
-                            self.add_sensitive(ret)
-                            ret.events.append(g)
-                        else:
-                            self.sess.log.warning(f'{ret} is not valid trigger, stop task {g}')
-                    except StopIteration:
-                        pass   
-                    except:
-                        self.sess.log.warning(traceback.format_exc())
-                coroutine_events.clear()  
+                target: hgl_core.SignalData 
+                value:  hgl_core.LogicData 
                 
-                # 2. update signal values
-                for e in signal_events:
-                    
-                    target: hgl_core.SignalData 
-                    value:  hgl_core.LogicData 
-                    
-                    target, value, trace = e
-                    # cannot update signal twice
-                    if target._update_py(value):        # value changed 
-                        if target.tracker is not None:  # record history
-                            target.tracker.record()
-                        for reader in target.reader: 
-                            # triggered gates 
-                            gate_events.update(reader._driven)
-                            # triggered events 
-                            if (ces:=target.events) is not None:
-                                coroutine_events_next.extend(ces)
-                                ces.clear()
-                signal_events.clear() 
-                
-                #------------------------------------------
-                if self.sess.verbose_sim:
-                    _gate = ','.join(f'{i}' for i in gate_events)
-                    self.sess.print(f't={self.t}, gates: {_gate}')
-                #------------------------------------------
-                
-                # 3. execute gate
-                for g in gate_events: 
-                    g.forward() 
-                self.sess.log.n_exec_gates += len(gate_events)
-                gate_events.clear() 
-                
-                    
-            time_wheel.append(time_wheel.pop(0))        # 700ms
+                target, value, trace = e
+                # cannot update signal twice
+                if target._update_py(value):        # value changed 
+                    if target.tracker is not None:  # record history
+                        target.tracker.record()
+                    for reader in target.reader: 
+                        # triggered gates 
+                        gate_events.update(reader._driven)
+                        # triggered events 
+                        if (ces:=target.events) is not None:
+                            coroutine_events_next.extend(ces)
+                            ces.clear()
+            signal_events.clear() 
             
-            if queue:                                   # 80ms
-                t0 = next_t + len(time_wheel) - 1
-                if queue.keys()[0] == t0:
-                    self.time_wheel[-1] = queue.pop(t0) 
-            # update time
-            self.t = next_t                             # 120ms
+            #------------------------------------------
+            if self.sess.verbose_sim:
+                _gate = ','.join(f'{i}' for i in gate_events)
+                self.sess.print(f't={self.t}, gates: {_gate}')
+            #------------------------------------------
+            
+            # 3. execute gate
+            for g in gate_events: 
+                g.forward() 
+            self.sess.log.n_exec_gates += len(gate_events)
+            gate_events.clear() 
+            
+                
+        time_wheel.append(time_wheel.pop(0))        # 700ms
+        
+        if queue:                                   # 80ms
+            t0 = next_t + len(time_wheel) - 1
+            if queue.keys()[0] == t0:
+                time_wheel[-1] = queue.pop(t0) 
+        # update time
+        self.t = next_t                             # 120ms
             
     def step_cpp(self, n: int = 1):
         """
@@ -274,6 +271,7 @@ class _Task(HGL):
     """
     def __init__(self, f: Callable) -> None:
         # test function
+        assert inspect.isgeneratorfunction(f)
         self.f = f 
         self.sess: _session.Session = None 
         # arguments of test function
@@ -319,46 +317,40 @@ class _Task(HGL):
         return self.it
 
     def _iter(self):
-        # new iterator
-        it = self.f(self, *self.args, **self.kwargs)
-        while 1: 
-            ret = None
-            try:
-                ret = next(it) 
-            except StopIteration:
-                break
-            except:
-                self.test_node.exception = traceback.format_exc()
-                print(traceback.format_exc())
-                break  
-
-            if ret is None:
-                break
-            elif isinstance(ret, (int, hgl_core.Reader)):  # timestep or sensitive
-                yield ret 
-            elif isinstance(ret, str): # ex. '50ns'
-                yield self.sess.timing._get_timestep(ret)  
-            elif inspect.isgenerator(ret):
-                yield from ret 
-            elif isinstance(ret, _Task): # ex. task1()
-                yield from self.join(ret)
-            else:                       # ex. [task1(), task2()]
-                yield from self.join(*ret)
-
-        if self.callback is not None:
-            self.callback() 
-        self.test_node.finish()
-
+        try:
+            assert self.args is not None, 'uninitialized task'   
+            for ret in self.f(self, *self.args, **self.kwargs): # new iterator   
+                if ret is None:
+                    break
+                elif isinstance(ret, (int, hgl_core.Reader)):  # timestep or sensitive
+                    yield ret 
+                elif isinstance(ret, str):          # ex. '50ns'
+                    yield self.sess.timing._get_timestep(ret)  
+                elif inspect.isgenerator(ret):
+                    yield from ret 
+                elif isinstance(ret, _Task):        # ex. task1()
+                    yield from self.join(ret)
+                elif isinstance(ret, (tuple,list,Array)): # ex. [task1(), task2()]
+                    for i in ret:
+                        yield from self.join(i)
+                else:                               
+                    raise TypeError(f'{ret}')
+        except Exception:                       # ignore GeneratorExit
+            self.test_node.exception = traceback.format_exc()
+        finally:
+            if self.callback is not None:
+                self.callback() 
+            self.test_node.finish(f'step={self.t}')
 
     @property 
     def t(self):
-        return self.sess.sim_py.t
-
+        return self.sess.sim_py.t 
+        
     def join(self, *args: _Task):
         """ blocked until all tasks finished
         """
         for i in args:
-            assert isinstance(i, _Task) and i.args is not None, 'uninitialized task'
+            assert isinstance(i, _Task) 
         n_finished = 0
         n_total = len(args)
         def join_callback():
@@ -375,7 +367,7 @@ class _Task(HGL):
         """ no block
         """
         for i in args:
-            assert isinstance(i, _Task) and i.args is not None, 'uninitialized task'
+            assert isinstance(i, _Task)
             i._init(father=self)
             self.sess.sim_py.insert_coroutine_event(0, iter(i))
         yield from []
@@ -384,7 +376,7 @@ class _Task(HGL):
         """ blocked until one task finished
         """
         for i in args:
-            assert isinstance(i, _Task) and i.args is not None, 'uninitialized task'
+            assert isinstance(i, _Task)
         n_finished = 0
         n_total = len(args)
         def join_callback():
@@ -438,7 +430,8 @@ class _Task(HGL):
     def Eq(self, a, b):
         tester_runner._AssertEq((a,b), self.test_node)
     
-
+    def AssertEq(self, a, b):
+        tester_runner._AssertEq((a,b), self.test_node, msg=f'  step={self.t}')
 
 # ------------
 # vcd writer 
@@ -544,7 +537,7 @@ class VCD(HGL):
             width = len(tracker.input_data)
             for t, v in zip(tracker.timestamps, tracker.values):
                 if not isinstance(v, str):  # Logic 
-                    v = utils.logic2str(v.v, v.x, width, prefix=False)
+                    v = utils.logic2str(v.v, v.x, width=width, prefix=False, radix='b')
                 values.append((t, v, var))
         values.sort(key=lambda _:_[0]) 
         for t, v, var in values:
@@ -561,11 +554,10 @@ class VCD(HGL):
         else:
             var_type = 'wire'
             size = len(tracker.input_data)
-            init = utils.logic2str(init.v, init.x, size, prefix=False)
         try:
-            return writer.register_var(scope, name, var_type, size=size, init=init) 
+            return writer.register_var(scope, name, var_type, size=size) 
         except KeyError:
             name = f'{name}@{id(tracker)}'
-            return writer.register_var(scope, name, var_type, size=size, init=init)
+            return writer.register_var(scope, name, var_type, size=size)
 
 
