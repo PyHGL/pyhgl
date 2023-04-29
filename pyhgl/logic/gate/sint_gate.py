@@ -64,9 +64,7 @@ class _Lshift(Gate):
         self.output: Writer = self.write(ret)
         return ret
 
-    def sim_init(self):
-        super().sim_init() 
-        self.sim_x_count -= 1000
+
 
     def sim_vx(self):
         delay = self.timing['delay']
@@ -116,7 +114,7 @@ class _Lshift(Gate):
     def dump_sv(self, builder: sv.ModuleSV):
         x = f"$signed({builder.get_name(self.a)}) {self._op} {builder.get_name(self.b)}"
         y = builder.get_name(self.output) 
-        builder.Assign(self, y, x, delay=self.delay) 
+        builder.Assign(self, y, x, delay=self.timing['delay']) 
     
 
 class _GateSigned2(Gate):
@@ -167,7 +165,7 @@ class _GateSigned2(Gate):
         
         x = f"$signed({name_a} {self._op} {name_b})"
         y = builder.get_name(self.output) 
-        builder.Assign(self, y, x, delay=self.delay) 
+        builder.Assign(self, y, x, delay=self.timing['delay']) 
 
 
 @dispatch('Mul', SIntType, SIntType)
@@ -186,9 +184,7 @@ class _SMul(_GateSigned2):
     """
 
 
-    def sim_init(self):
-        super().sim_init() 
-        self.sim_x_count -= 1000
+
 
     def sim_vx(self):
         delay = self.timing['delay']

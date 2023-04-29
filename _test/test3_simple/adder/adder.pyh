@@ -9,7 +9,7 @@ import sys
     @conf RippleCarry:
         w = 5
     @conf KoggeStone:
-        w = 16
+        w = 512
 
 AdderIO = lambda w: Bundle(
     x   = UInt[w](0)    @ Input,
@@ -51,9 +51,10 @@ AdderIO = lambda w: Bundle(
 
         adder1 = RippleCarry()
         adder2 = KoggeStone()
-        sess.track(adder1.io, adder2.io)  
+        # sess.track(adder1.io, adder2.io)  
 
-        test_data = []
+        test_data = [] 
+        t = time.time()
         for i in range(100):
             x, y = setr(adder1.io[['x','y']]) 
             test_data.append((x,y))
@@ -61,6 +62,7 @@ AdderIO = lambda w: Bundle(
             sess.step(100)
             self.AssertEq(getv(adder1.io.out), x + y) 
             self.AssertEq(getv(adder2.io.out), x + y)
+        print('pyhgl cost: ', time.time()-t)
         sess.dumpVCD('Adder.vcd') 
         sess.dumpGraph('Adder.gv')
         print(sess)

@@ -54,15 +54,13 @@ class Session(HGL):
             verbose_conf = False,
             verbose_hardware = False,
             verbose_verilog = False,
-            verbose_sim = False,
-            verbose_trace = False,
+            verbose_sim = False
         ) -> None:
         
         self.verbose_conf       = verbose_conf 
         self.verbose_hardware   = verbose_hardware 
         self.verbose_verilog    = verbose_verilog
         self.verbose_sim        = verbose_sim  
-        self.verbose_trace      = verbose_trace
         self.enable_assert = False 
         self.backend = backend 
         self.build_dir = tester_utils.relative_path(build_dir, 2) 
@@ -99,7 +97,11 @@ class Session(HGL):
             m._conf = type("Conf_Global", (config.ModuleConf,), {})
             self.module = m 
 
-            m._conf.dispatcher = default_dispatcher.copy # default dispatcher
+            # default dispatcher
+            m._conf.dispatcher = default_dispatcher.copy 
+            # generate default clk & rst
+            m._conf.reset = (hgl_core.Wire(hgl_core.UInt(0, name='reset')), 1)
+            m._conf.clock = (hgl_core.Clock(), 1)
 
             if conf is None:
                 conf_ret = ({},{})       # parameter, subconfig

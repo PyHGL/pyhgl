@@ -113,6 +113,7 @@ import itertools
     @blackbox testbench(builder):
         dut_name = builder.get_name(dut)
         reset = builder.get_name(dut.reset[0])
+        print(conf.reset)
         x = builder.get_name(dut.io.x)
         y = builder.get_name(dut.io.y)
         q = builder.get_name(dut.io.q)

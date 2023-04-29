@@ -70,7 +70,7 @@ class _GateN(Gate):
         op1, op2 = self._op
         x = f' {op2} '.join(x) 
         x = f'{op1}({x})'
-        builder.Assign(self, y, x, delay=self.delay)
+        builder.Assign(self, y, x, delay=self.timing['delay'])
      
         
         
@@ -85,9 +85,6 @@ class _Not(_GateN):
     id = 'Not'
     _op = ('~', '')
 
-    def sim_init(self):
-        super().sim_init() 
-        self.sim_x_count -= 1000
 
     def sim_vx(self):
         delay = self.timing['delay']
@@ -119,9 +116,9 @@ class _Not(_GateN):
         for i in range(len(output_v)):
             node = cpp.Node(name='not_exec')
             node.dump_value() 
-            node.Not(input_v[i], target=output_v[i], width=len(output_v[i]), delay=self.delay)
+            node.Not(input_v[i], target=output_v[i], width=len(output_v[i]), delay=self.timing['delay'])
             node.dump_unknown()
-            node.Not(input_x[i], target=output_x[i], width=len(output_x[i]), delay=self.delay)
+            node.Not(input_x[i], target=output_x[i], width=len(output_x[i]), delay=self.timing['delay'])
         
 
     
@@ -131,9 +128,7 @@ class _And(_GateN):
     id = 'And'
     _op = ('', '&')
     
-    def sim_init(self):
-        super().sim_init() 
-        self.sim_x_count -= 1000
+
 
     def sim_vx(self):
         delay = self.timing['delay']
@@ -181,7 +176,7 @@ class _And(_GateN):
                     in_x_i.append(x[i])
             node = cpp.Node(name='and_exec')
             node.dump_value() 
-            node.And(*in_v_i, target=output_v[i], delay=self.delay) 
+            node.And(*in_v_i, target=output_v[i], delay=self.timing['delay']) 
             node.dump_unknown()
             out_v_i = in_v_i[0]
             out_x_i = in_x_i[0]
@@ -193,7 +188,7 @@ class _And(_GateN):
                     node.And(in_x, out_v_i), 
                     node.And(in_v, out_x_i),
                 ) 
-            node.And(out_x_i, target=output_x[i], delay=self.delay)
+            node.And(out_x_i, target=output_x[i], delay=self.timing['delay'])
 
 
     
@@ -203,9 +198,7 @@ class _Or(_GateN):
     id = 'Or'
     _op = ('', '|')
 
-    def sim_init(self):
-        super().sim_init() 
-        self.sim_x_count -= 1000
+
 
     def sim_vx(self):
         delay = self.timing['delay']
@@ -254,7 +247,7 @@ class _Or(_GateN):
                     in_x_i.append(x[i])
             node = cpp.Node(name='and_exec')
             node.dump_value() 
-            node.Or(*in_v_i, target=output_v[i], delay=self.delay) 
+            node.Or(*in_v_i, target=output_v[i], delay=self.timing['delay']) 
             node.dump_unknown()
             out_v_i = in_v_i[0]
             out_x_i = in_x_i[0]
@@ -266,7 +259,7 @@ class _Or(_GateN):
                     node.And(in_x, node.Not(out_v_i)), 
                     node.And(out_x_i, node.Not(in_v)),
                 ) 
-            node.And(out_x_i, target=output_x[i], delay=self.delay)
+            node.And(out_x_i, target=output_x[i], delay=self.timing['delay'])
 
 
 @dispatch('Xor', Any, [Any, None])
@@ -275,9 +268,7 @@ class _Xor(_GateN):
     id = 'Xor'
     _op = ('', '^')
         
-    def sim_init(self):
-        super().sim_init() 
-        self.sim_x_count -= 1000
+
 
     def sim_vx(self):
         delay = self.timing['delay']
@@ -325,9 +316,9 @@ class _Xor(_GateN):
                     in_x_i.append(x[i])
             node = cpp.Node(name='and_exec')
             node.dump_value() 
-            node.Xor(*in_v_i, target=output_v[i], delay=self.delay) 
+            node.Xor(*in_v_i, target=output_v[i], delay=self.timing['delay']) 
             node.dump_unknown()
-            node.Or(*in_x_i, target=output_x[i], delay=self.delay)
+            node.Or(*in_x_i, target=output_x[i], delay=self.timing['delay'])
 
     
 @dispatch('Nand', Any, [Any, None])
@@ -337,9 +328,7 @@ class _Nand(_GateN):
     _op = ('~', '&')
 
 
-    def sim_init(self):
-        super().sim_init() 
-        self.sim_x_count -= 1000
+
 
     def sim_vx(self):
         delay = self.timing['delay']
@@ -385,8 +374,8 @@ class _Nand(_GateN):
                     in_x_i.append(x[i])
             node = cpp.Node(name='and_exec')
             node.dump_value() 
-            temp = node.And(*in_v_i, delay=self.delay) 
-            node.Not(temp, target=output_v[i], delay = self.delay)
+            temp = node.And(*in_v_i, delay=self.timing['delay']) 
+            node.Not(temp, target=output_v[i], delay = self.timing['delay'])
             node.dump_unknown()
             out_v_i = in_v_i[0]
             out_x_i = in_x_i[0]
@@ -398,7 +387,7 @@ class _Nand(_GateN):
                     node.And(in_x, out_v_i), 
                     node.And(in_v, out_x_i),
                 ) 
-            node.And(out_x_i, target=output_x[i], delay=self.delay)  # x does not change
+            node.And(out_x_i, target=output_x[i], delay=self.timing['delay'])  # x does not change
     
     
 @dispatch('Nor', Any, [Any, None])
@@ -407,9 +396,7 @@ class _Nor(_GateN):
     id = 'Nor'
     _op = ('~', '|')
         
-    def sim_init(self):
-        super().sim_init() 
-        self.sim_x_count -= 1000
+
 
     def sim_vx(self):
         delay = self.timing['delay']
@@ -455,8 +442,8 @@ class _Nor(_GateN):
                     in_x_i.append(x[i])
             node = cpp.Node(name='and_exec')
             node.dump_value() 
-            temp = node.Or(*in_v_i, delay=self.delay) 
-            node.Not(temp, target=output_v[i], delay = self.delay)
+            temp = node.Or(*in_v_i, delay=self.timing['delay']) 
+            node.Not(temp, target=output_v[i], delay = self.timing['delay'])
             node.dump_unknown()
             out_v_i = in_v_i[0]
             out_x_i = in_x_i[0]
@@ -468,7 +455,7 @@ class _Nor(_GateN):
                     node.And(in_x, node.Not(out_v_i)), 
                     node.And(out_x_i, node.Not(in_v)),
                 ) 
-            node.And(out_x_i, target=output_x[i], delay=self.delay)
+            node.And(out_x_i, target=output_x[i], delay=self.timing['delay'])
 
 
 @dispatch('Nxor', Any, [Any, None])
@@ -477,9 +464,7 @@ class _Nxor(_GateN):
     id = 'Nxor'
     _op = ('~', '^')
         
-    def sim_init(self):
-        super().sim_init() 
-        self.sim_x_count -= 1000
+
 
     def sim_vx(self):
         delay = self.timing['delay']
@@ -525,10 +510,10 @@ class _Nxor(_GateN):
                     in_x_i.append(x[i])
             node = cpp.Node(name='and_exec')
             node.dump_value() 
-            temp = node.Xor(*in_v_i, delay=self.delay) 
-            node.Not(temp, target=output_v[i], delay=self.delay)
+            temp = node.Xor(*in_v_i, delay=self.timing['delay']) 
+            node.Not(temp, target=output_v[i], delay=self.timing['delay'])
             node.dump_unknown() 
-            node.Or(*in_x_i, target=output_x[i], delay=self.delay)
+            node.Or(*in_x_i, target=output_x[i], delay=self.timing['delay'])
 
 
 class _Reduce(_GateN):
@@ -548,7 +533,7 @@ class _Reduce(_GateN):
         y = builder.get_name(self.output) 
         op1, op2 = self._op
         x = f'{op1}{x}'
-        builder.Assign(self, y, x, delay=self.delay)
+        builder.Assign(self, y, x, delay=self.timing['delay'])
         
 
 @dispatch('AndR', Any) 
@@ -557,9 +542,7 @@ class _AndR(_Reduce):
     id = 'AndR'
     _op = ('&', '')
     
-    def sim_init(self):
-        super().sim_init() 
-        self.sim_x_count -= 1000
+
 
     def sim_vx(self):
         delay = self.timing['delay']
@@ -605,7 +588,7 @@ class _AndR(_Reduce):
         
         node = cpp.Node(name='andr_exec')
         node.dump_value() 
-        node.AndR(*input_v, target=output_v, delay=self.delay)
+        node.AndR(*input_v, target=output_v, delay=self.timing['delay'])
         node.dump_unknown()  
 
 
@@ -616,9 +599,7 @@ class _OrR(_Reduce):
     id = 'OrR'
     _op = ('|', '')
     
-    def sim_init(self):
-        super().sim_init() 
-        self.sim_x_count -= 1000
+
 
     def sim_vx(self):
         delay = self.timing['delay']
@@ -663,9 +644,7 @@ class _XorR(_Reduce):
     _op = ('^', '')
     
 
-    def sim_init(self):
-        super().sim_init() 
-        self.sim_x_count -= 1000
+
 
     def sim_vx(self):
         delay = self.timing['delay']
@@ -753,7 +732,7 @@ class _Cat(Gate):
         x = [builder.get_name(i) for i in reversed(self.inputs)]
         y = builder.get_name(self.output) 
         x = f"{{{','.join(x)}}}"
-        builder.Assign(self, y, x, delay=self.delay) 
+        builder.Assign(self, y, x, delay=self.timing['delay']) 
 
     
 @dispatch('Pow', Any, int)
@@ -781,9 +760,7 @@ class _LogicNot(_Reduce):
     id = 'LogicNot'
     _op = ('!', '')
     
-    def sim_init(self):
-        super().sim_init() 
-        self.sim_x_count -= 1000
+
 
     def sim_vx(self):
         delay = self.timing['delay']
@@ -836,9 +813,7 @@ class _LogicAnd(Gate):
         self.output: Writer = self.write(ret)                       # write 
         return ret
 
-    def sim_init(self):
-        super().sim_init() 
-        self.sim_x_count -= 1000
+
 
     def sim_vx(self):
         delay = self.timing['delay']
@@ -892,7 +867,7 @@ class _LogicAnd(Gate):
     def dump_sv(self, builder: sv.ModuleSV):
         x = self._op.join(builder.get_name(i) for i in self.inputs)
         y = builder.get_name(self.output) 
-        builder.Assign(self, y, x, delay=self.delay) 
+        builder.Assign(self, y, x, delay=self.timing['delay']) 
     
     
 @dispatch('LogicOr', Any, [Any, None])
@@ -901,9 +876,7 @@ class _LogicOr(_LogicAnd):
     id = 'LogicOr'
     _op = '||'
     
-    def sim_init(self):
-        super().sim_init() 
-        self.sim_x_count -= 1000
+
 
     def sim_vx(self):
         delay = self.timing['delay']
@@ -969,9 +942,7 @@ class _Lshift(Gate):
         self.output: Writer = self.write(ret)
         return ret
     
-    def sim_init(self):
-        super().sim_init() 
-        self.sim_x_count -= 1000
+
 
     def sim_vx(self):
         delay = self.timing['delay']
@@ -1018,7 +989,7 @@ class _Lshift(Gate):
     def dump_sv(self, builder: sv.ModuleSV):
         x = f"{builder.get_name(self.a)} {self._op} {builder.get_name(self.b)}"
         y = builder.get_name(self.output) 
-        builder.Assign(self, y, x, delay=self.delay) 
+        builder.Assign(self, y, x, delay=self.timing['delay']) 
     
     
 @dispatch('Rshift', Any, Any) 
@@ -1027,9 +998,7 @@ class _Rshift(_Lshift):
     id = 'Rshift'
     _op = '>>'
     
-    def sim_init(self):
-        super().sim_init() 
-        self.sim_x_count -= 1000
+
 
     def sim_vx(self):
         delay = self.timing['delay']
@@ -1079,9 +1048,7 @@ class _Pos(_GateN):
     id = 'Pos'
     _op = ('+', '')
     
-    def sim_init(self):
-        super().sim_init() 
-        self.sim_x_count -= 1000
+
 
     def sim_vx(self):
         delay = self.timing['delay']
@@ -1110,9 +1077,7 @@ class _Neg(_GateN):
     id = 'Neg'
     _op = ('-', '')
     
-    def sim_init(self):
-        super().sim_init() 
-        self.sim_x_count -= 1000
+
 
     def sim_vx(self):
         delay = self.timing['delay']
@@ -1151,9 +1116,7 @@ class _Add(_GateN):
     _op = ('', '+')
     
 
-    def sim_init(self):
-        super().sim_init() 
-        self.sim_x_count -= 1000
+
 
     def sim_vx(self):
         delay = self.timing['delay']
@@ -1203,9 +1166,7 @@ class _AddFull(_GateN):
         self.output: Writer = self.write(ret)
         return ret
 
-    def sim_init(self):
-        super().sim_init() 
-        self.sim_x_count -= 1000
+
 
     def sim_vx(self):
         delay = self.timing['delay']
@@ -1242,7 +1203,7 @@ class _AddFull(_GateN):
     def dump_sv(self, builder: sv.ModuleSV):
         x = f"{builder.get_name(self.a)} + {builder.get_name(self.b)}"
         y = builder.get_name(self.output) 
-        builder.Assign(self, y, x, delay=self.delay) 
+        builder.Assign(self, y, x, delay=self.timing['delay']) 
 
 
 @dispatch('Sub', Any, [Any, None])
@@ -1251,9 +1212,7 @@ class _Sub(_GateN):
     id = 'Sub'
     _op = ('', '-')
 
-    def sim_init(self):
-        super().sim_init() 
-        self.sim_x_count -= 1000
+
 
     def sim_vx(self):
         delay = self.timing['delay']
@@ -1300,9 +1259,7 @@ class _Mul(_GateN):
     id = 'Mul'
     _op = ('', '*')
     
-    def sim_init(self):
-        super().sim_init() 
-        self.sim_x_count -= 1000
+
 
     def sim_vx(self):
         delay = self.timing['delay']
@@ -1360,9 +1317,7 @@ class _MulFull(Gate):
         self.output: Writer = self.write(ret)
         return ret
     
-    def sim_init(self):
-        super().sim_init() 
-        self.sim_x_count -= 1000
+
 
     def sim_vx(self):
         delay = self.timing['delay']
@@ -1398,7 +1353,7 @@ class _MulFull(Gate):
     def dump_sv(self, builder: sv.ModuleSV):
         x = f"{builder.get_name(self.a)} * {builder.get_name(self.b)}"
         y = builder.get_name(self.output) 
-        builder.Assign(self, y, x, delay=self.delay) 
+        builder.Assign(self, y, x, delay=self.timing['delay']) 
     
 class _Gate2(Gate):
     """ binary 
@@ -1423,7 +1378,7 @@ class _Gate2(Gate):
     def dump_sv(self, builder: sv.ModuleSV):
         x = f"{builder.get_name(self.a)} {self._op} {builder.get_name(self.b)}"
         y = builder.get_name(self.output) 
-        builder.Assign(self, y, x, delay=self.delay) 
+        builder.Assign(self, y, x, delay=self.timing['delay']) 
      
         
     
@@ -1510,9 +1465,7 @@ class Mux(Gate):
         self.output: Writer = self.write(ret)
         return ret
 
-    def sim_init(self):
-        super().sim_init() 
-        self.sim_x_count -= 1000
+
 
     def sim_vx(self):
         delay = self.timing['delay']
@@ -1557,5 +1510,5 @@ class Mux(Gate):
     def dump_sv(self, builder: sv.ModuleSV):
         x = f"{builder.get_name(self.sel)} ? {builder.get_name(self.a)} : {builder.get_name(self.b)}"
         y = builder.get_name(self.output) 
-        builder.Assign(self, y, x, delay=self.delay) 
+        builder.Assign(self, y, x, delay=self.timing['delay']) 
 

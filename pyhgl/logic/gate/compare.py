@@ -51,9 +51,7 @@ class _Eq(Gate):
             self.right: Union[BitPat, Logic] = self.left._type._eval(right)
             return ret
 
-    def sim_init(self):
-        super().sim_init() 
-        self.sim_x_count -= 1000
+
 
     def sim_vx(self):
         delay = self.timing['delay']
@@ -139,7 +137,7 @@ class _Eq(Gate):
             op = '=='
         x = f"{left} {op} {right}"
         y = builder.get_name(self.output) 
-        builder.Assign(self, y, x, delay=self.delay) 
+        builder.Assign(self, y, x, delay=self.timing['delay']) 
         
         
         
@@ -148,9 +146,7 @@ class _Ne(_Eq):
     
     id = 'Ne'
 
-    def sim_init(self):
-        super().sim_init() 
-        self.sim_x_count -= 1000
+
 
     def sim_vx(self):
         delay = self.timing['delay']
@@ -231,7 +227,7 @@ class _Ne(_Eq):
             op = '!='
         x = f"{left} {op} {right}"
         y = builder.get_name(self.output) 
-        builder.Assign(self, y, x, delay=self.delay) 
+        builder.Assign(self, y, x, delay=self.timing['delay']) 
 
 
 @dispatch('Lt', Any, Any) 
@@ -256,9 +252,7 @@ class _Lt(Gate):
             assert not isinstance(self.right, BitPat)
             return ret
     
-    def sim_init(self):
-        super().sim_init() 
-        self.sim_x_count -= 1000
+
 
     def sim_vx(self):
         delay = self.timing['delay']
@@ -302,7 +296,7 @@ class _Lt(Gate):
         right = builder.get_name(self.right)
         x = f"{left} {self._op} {right}"
         y = builder.get_name(self.output) 
-        builder.Assign(self, y, x, delay=self.delay) 
+        builder.Assign(self, y, x, delay=self.timing['delay']) 
 
         
 @dispatch('Gt', Any, Any) 
@@ -311,9 +305,7 @@ class _Gt(_Lt):
     id = 'Gt' 
     _op = '>'
     
-    def sim_init(self):
-        super().sim_init() 
-        self.sim_x_count -= 1000
+
 
     def sim_vx(self):
         delay = self.timing['delay']
@@ -358,9 +350,7 @@ class _Le(_Lt):
     id = 'Le'
     _op = '<='
     
-    def sim_init(self):
-        super().sim_init() 
-        self.sim_x_count -= 1000
+
 
     def sim_vx(self):
         delay = self.timing['delay']
@@ -404,9 +394,7 @@ class _Ge(_Lt):
     id = 'Ge'
     _op = '>='
     
-    def sim_init(self):
-        super().sim_init() 
-        self.sim_x_count -= 1000
+
 
     def sim_vx(self):
         delay = self.timing['delay']

@@ -443,7 +443,6 @@ def addroundkey(data, rkey): return data ^ rkey
         yield self.reset()
         yield test_enc_dec(dut, '128enc', aes128_key1, plaintext0, _128_enc_expected0)
         yield test_enc_dec(dut, '128enc', aes128_key1, plaintext1, _128_enc_expected1)
-        return 
         yield test_enc_dec(dut, '128enc', aes128_key1, plaintext2, _128_enc_expected2)
         yield test_enc_dec(dut, '128enc', aes128_key1, plaintext3, _128_enc_expected3)
         yield test_enc_dec(dut, '128enc', aes128_key2, plaintext4, _128_enc_expected4)
@@ -470,7 +469,8 @@ def addroundkey(data, rkey): return data ^ rkey
     sess.join(aes_tests())
  
     print(sess)
-    sess.dumpVCD('AES.vcd')
+    sess.dumpVCD('AES.vcd') 
+    print(dut.reset)
     
     # @blackbox testbench(builder):
     #     builder.append('initial begin\n$dumpfile("AES_iverilog.vcd");$dumpvars(0);') 

@@ -91,7 +91,10 @@ def test_boolean_shift_cmp_arith(self):
     # simple slicing 
     out_sliced = inputs[:,-3:] 
     # mux 
-    out_mux = Mux(inputs[0], inputs[1], inputs[2])
+    out_mux = Mux(inputs[0], inputs[1], inputs[2]) 
+
+    # slice 
+    out_slice = inputs[0][inputs[1]::2]
     
     sess.step(10)  
     # tests

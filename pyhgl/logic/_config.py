@@ -111,22 +111,24 @@ class _Conf(HGL):
 
     @property 
     def clock(self):  
-        if not hasattr(self._sess.module._conf, 'clock'):
-            self._sess.module._conf.clock = (hgl_core.Clock(), 1)
         return self._sess.module._conf.clock 
 
     @clock.setter
-    def clock(self, v):
+    def clock(self, v): 
+        signal, edge = v 
+        assert isinstance(signal, hgl_core.Reader) and len(signal) == 1 
+        assert edge in [0,1]
         self._sess.module._conf.clock = v 
     
     @property 
-    def reset(self):
-        if not hasattr(self._sess.module._conf, 'reset'):
-            self._sess.module._conf.reset = (hgl_core.Wire(hgl_core.UInt(0, name='reset')), 1)
-        return self._sess.module._conf.reset 
+    def reset(self): 
+        return self._sess.module._conf.reset
 
     @reset.setter
     def reset(self, v):
+        signal, edge = v 
+        assert isinstance(signal, hgl_core.Reader) and len(signal) == 1 
+        assert edge in [0,1]
         self._sess.module._conf.reset = v 
 
     @property 

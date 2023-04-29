@@ -24,15 +24,15 @@ from _test import test5_SRV32
 from _test import test6_AES
 from _test import test7_chisel_examples
 from _test import test8_basic_simd
-# from . import test2_assign
-# from . import test3_async
-# from . import test4_riscv 
-# from . import test5_picorv32
-# from . import t2_conf
-# from . import t4_comb
-# from . import t5_cond
-# from . import t6_comb_reg
-# from . import t7_gate 
+# from _test import test2_assign
+# from _test import test3_async
+# from _test import test4_riscv 
+# from _test import test5_picorv32
+# from _test import t2_conf
+# from _test import t4_comb
+# from _test import t5_cond
+# from _test import t6_comb_reg
+# from _test import t7_gate 
 
 
 tester.summary()

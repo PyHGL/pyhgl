@@ -1,49 +1,71 @@
-from pyhgl.logic import * 
-from pyhgl.tester import tester  
+from pyhgl.logic import *
+from pyhgl.tester import *  
 
 import random
 
-@module TestReg:
-    x = Input(UInt('0000'))
-    y = Input(UInt('0000'))
-
-    a = Reg(UInt('0000'))
-    b = Reg(UInt('0000'))
-
-    a <== x | y 
-    b <== a & x
-
-with Session() as sess:
-
-    dut = TestReg() 
-    # check_a = Assert(
-    #     >>> {'x':dut.x, 'y':dut.y} 
-    #     >>> 1 
-    #     >>> {'a': dut.a} 
-    #     >>> (lambda s: s['a'][0] == s['x'][0] | s['y'][0])
-    # )
-    # check_b = Assert(
-    #     >>> {'x':dut.x, 'a':dut.a} 
-    #     >>> 1 
-    #     >>> (lambda s: s['x'][0] & s['a'][0] == dut.b._getval())
-    # )
-    sess.track(dut.clock[0], dut.reset[0], dut.x, dut.y, dut.a, dut.b)
-    sess.step(10)
-
-    for _ in range(50):
-        setv(dut.x, random.randint(0,15))
-        setv(dut.y, random.randint(0,15))
-        sess.step(30)
-
-    setv(dut.reset[0], 1)
-    sess.step(100)
-    setv(dut.reset[0], 0)
-    sess.step(100)
-    setv(dut.reset[0], 1)
-    sess.step(100)
 
 
-sess.dumpVCD('./reg.vcd')
-sess.dumpVerilog() 
-# print(check_a.show())
-# print(check_b.show())
+@module DLatch(en, D):
+    """ en = 1: hold; en = 0: Q <== D
+    """
+    Q = UInt()  
+    up = (~en) | Q 
+    down = en | D 
+    Q <== up & down
+
+
+@module MyReg: 
+    data, clk, set, reset   = UInt[1].zeros(4) @ Input 
+    Q, Qn                   = UInt[1].zeros(2) @ Output
+
+    nand1, nand2, nand3, nand4 = UInt[1].zeros(4)
+    nand1 <== Nand(set, nand4, nand2)
+    nand2 <== Nand(nand1, clk, reset)
+    nand3 <== Nand(nand2, clk, nand4)
+    nand4 <== Nand(nand3, data, reset)
+    Q <== Nand(set, nand2, Qn)
+    Qn <== Nand(Q, nand3, reset)
+
+
+
+@module ShiftRegs(n = 1): 
+    data, set_n, reset_n = UInt[1].zeros(3)     @ Input
+    clock = conf.clock[0]
+
+    regs = Array(MyReg() for i in range(n))
+    regs[:, 'clk'] <== clock  
+    regs[:, 'set'] <== set_n 
+    regs[:, 'reset'] <== reset_n 
+
+    regs[0].data <== data
+    regs[1:, 'data'] <== regs[:-1, 'Q']
+
+    out = regs[-1].Q             
+    out_n = regs[-1].Qn   
+    state = Cat(regs[:,'Q'])      
+
+@task data_gen(self, dut):
+    yield 10 
+    setv(dut.set_n, 1) 
+    yield 10 
+    setv(dut.reset_n, 1)
+    
+    for _ in range(100):
+        yield self.clock_n()
+        setr(dut.data)
+
+
+
+
+@tester test_reg(self):
+    with Session() as sess:
+        dut = ShiftRegs(10)
+
+        sess.dumpVerilog('reg.sv', delay=True, top=True)
+        sess.track(dut) 
+        sess.join(data_gen(dut))
+
+        sess.dumpVCD('reg.vcd')
+        sess.dumpGraph('reg.gv')
+        print(sess)
+

@@ -15,6 +15,36 @@ from pyhgl.tester import *
     res_div = SInt(a) // SInt(b)
     res_rem = SInt(a) % SInt(b) 
     res_rshift = SInt(a) >> b[:4]
+
+
+    vec_t = UInt[8]*3
+    v = vec_t(0)
+
+    struct_t = Struct(
+        a = UInt[3]   @ 2,
+        b = UInt[4]   @ 8
+    )
+    x = struct_t({
+        'a' : 3, 'b' : '1011'
+    }) 
+
+    x['a'] <== 0
+
+    print(BitPat('b0101??11'))
+        
+    print(12*UInt[8])
+    print(Struct(
+        a = UInt[3]             @2,
+        b = (3,4) * UInt[4]     @7,
+        c = UInt[1]             @13,
+        d = Struct(
+            x = UInt[1],
+            y = UInt[2]
+        )                       @14
+    ))
+
+
+
     
 @task test_top(self, dut, test_data):
     for _ in range(20):
@@ -46,4 +76,8 @@ from pyhgl.tester import *
 
         sess.dumpVerilog('sint.sv', delay=True, top = True)
         sess.test_iverilog()
+
+
+
+
 

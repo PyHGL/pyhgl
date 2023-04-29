@@ -215,9 +215,6 @@ class CaseGate(hgl_core.Gate):
             )) 
             return ret
 
-    def sim_init(self):
-        super().sim_init() 
-        self.sim_x_count -= 1000 
 
     def sim_vx(self):
         delay = self.timing['delay']
@@ -317,41 +314,6 @@ class CaseGate(hgl_core.Gate):
                 else:
                     simulator.update_v(delay, outputs[j], gmpy2.mpz(0))
 
-    # def forward(self) -> None:  
-    #     if self.active_signal is None:
-    #         active = hgl_core.Logic(1,0)
-    #     else:
-    #         active = self.active_signal._data._getval_py()
-    #     # disable all output
-    #     if active == hgl_core.Logic(0,0):
-    #         for _, s in self.branches:
-    #             s._data._setval_py(hgl_core.Logic(0,0), dt=self.delay, trace=self)
-    #         return   
-    #     # active == x or 1
-    #     sel: hgl_core.Logic = self.sel_signal._data._getval_py()
-    #     branch_active: List[hgl_core.Logic] = [] 
-    #     already_matched = hgl_core.Logic(0,0)       # the default branch requires
-    #     for item, _ in self.branches: 
-    #         if item is None:
-    #             curr_matched = ~ already_matched
-    #         else: 
-    #             data = (i._data._getval_py() if isinstance(i, hgl_core.Reader) else i for i in item)
-    #             data_bool = [i._eq(sel) for i in data]
-    #             curr_matched = hgl_core.Logic(0,0)
-    #             for i in data_bool:
-    #                 curr_matched = curr_matched | i  
-
-    #         if already_matched == hgl_core.Logic(0,0):   # no prev match
-    #             already_matched = curr_matched  
-    #         elif already_matched == hgl_core.Logic(1,0): # has prev match
-    #             curr_matched = hgl_core.Logic(0,0)       # no curr match
-    #         else:                                        # prev `x` match
-    #             if curr_matched == hgl_core.Logic(1,0):  # curr does match
-    #                 already_matched = hgl_core.Logic(1,0)
-    #         branch_active.append(curr_matched & active)  # maybe meta match
-        
-    #     for data, (_, signal) in zip(branch_active, self.branches):
-    #         signal._data._setval_py(data, dt=self.delay, trace=self)
     
 
     def dump_sv(self, builder: sv.ModuleSV): 

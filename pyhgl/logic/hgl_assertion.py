@@ -630,7 +630,7 @@ class AssertCtrl(HGL):
         return self
 
     def __exit__(self, exc_type, exc_value, traceback) -> None:
-        config.conf.reset = self._clk_restore.pop()
-        config.conf.clock = self._rst_restore.pop()
+        config.conf.clock = self._clk_restore.pop()
+        config.conf.reset = self._rst_restore.pop()
         config.conf.dispatcher = self._dispatcher_restore.pop()
 
