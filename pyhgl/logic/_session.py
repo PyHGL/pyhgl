@@ -218,14 +218,15 @@ class Session(HGL):
             os.makedirs(directory)
             return filepath
         
-
     def __str__(self):
-        ret = [tester_utils._yellow("Summary: ")]
-        ret.append(f'  n_modules: {len(self.verilog.modules)}')
-        ret.append(f'  n_gates: {len(self.verilog.gates)}')
-        ret.append(f'  t: {self.sim_py.t}')
-        ret.append(str(self.log))
-        return '\n'.join(ret)
+        body = []
+        body.append(f'n_modules: {len(self.verilog.modules)}')
+        body.append(f'n_gates: {len(self.verilog.gates)}') 
+        body.append(str(self.sim_py))
+        body.append(str(self.log)) 
+        body = '\n'.join(body)
+        body = '  ' + '  '.join(body.splitlines(keepends=True))
+        return f'{tester_utils._yellow("Summary:")}\n{body}'
                 
     # waveform 
     def track(self, *args, **kwargs):
@@ -305,7 +306,7 @@ class _Logging:
         ...
         
     def __str__(self) -> str:
-        ret = [f'  n_exec_gates: {HGL._sess.sim_py.exec_times}']
+        ret = []
         for i in self.warnings:
             ret.append('─────────────────────────────────────────────────')
             ret.append(str(i))

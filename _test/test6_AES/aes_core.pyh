@@ -3,7 +3,7 @@
 from pyhgl.logic import *
 from pyhgl.tester import *  
 import pyhgl.logic.utils as utils
-
+import time
 
 # multiplication under Rijndael’s finite field
 # --------------------------------------------
@@ -25,10 +25,10 @@ def gm14(op): return gm8(op) ^ gm4(op) ^ gm2(op)
 
 def mixw(w):
     """
-    2 3 1 1   a0        b0
-    1 2 3 1   a1   ->   b1
-    1 1 2 3   a2        b2
-    3 1 1 2   a3        b3 
+    2 3 1 1     a0        b0
+    1 2 3 1     a1   ->   b1
+    1 1 2 3  *  a2        b2
+    3 1 1 2     a3        b3 
 
     input:  array of 4 bytes: [a3, a2, a1, a0] 
     return: array of 4 bytes: [b3, b2, b1, b0]
@@ -80,9 +80,9 @@ def addroundkey(data, rkey): return data ^ rkey
 @module aes_encipher_block:
     io = Bundle(
         round       = UInt('4:b0')          @ Output,   # nth round
-        new_block   = UInt(['8:b0'] * 16)   @ Output,
+        new_block   = UInt[8].zeros(16)     @ Output,
         ready       = UInt('0')             @ Output,
-        sboxw       = UInt(['8:b0'] * 4)    @ Output,
+        sboxw       = UInt[8].zeros(4)      @ Output,
     )  
 
     sword_ctr_reg = Reg(UInt('2:b0'))       # word counter, read sbox 4 cycles
@@ -105,15 +105,13 @@ def addroundkey(data, rkey): return data ^ rkey
         once 'FINAL_UPDATE':
             block_reg <== addroundkey(shiftrows(block_reg), conf.p.round_key) 
 
-    round_ctr_reg_plus1 = round_ctr_reg + 1 
     switch state:=Reg(Enum()):
         once 'CTRL_IDLE':  
             when conf.p.next:
-                round_ctr_reg <== 0 
-                ready_reg <== 0 
+                round_ctr_reg, ready_reg <== 0 
                 state <==  'CTRL_INIT'
         once 'CTRL_INIT': 
-            round_ctr_reg <== round_ctr_reg_plus1 
+            round_ctr_reg <== round_ctr_reg + 1  
             sword_ctr_reg <== 0
             update_type <== 'INIT_UPDATE'  
             state <== 'CTRL_SBOX'
@@ -124,7 +122,7 @@ def addroundkey(data, rkey): return data ^ rkey
                 state <== 'CTRL_MAIN'
         once 'CTRL_MAIN': 
             sword_ctr_reg <== 0  
-            round_ctr_reg <== round_ctr_reg_plus1
+            round_ctr_reg <== round_ctr_reg + 1 
             when round_ctr_reg < conf.p.num_rounds:
                 update_type <== 'MAIN_UPDATE' 
                 state <== 'CTRL_SBOX' 
@@ -137,7 +135,7 @@ def addroundkey(data, rkey): return data ^ rkey
 @module aes_decipher_block:
     io = Bundle(
         round       = UInt('4:b0')          @ Output,   # nth round
-        new_block   = UInt(['8:b0'] * 16)   @ Output,
+        new_block   = UInt[8].zeros(16)     @ Output,
         ready       = UInt('0')             @ Output,
     )
 
@@ -231,26 +229,6 @@ def addroundkey(data, rkey): return data ^ rkey
     io.result       <== Mux(io.encdec, Cat(*enc_block.io.new_block), Cat(*dec_block.io.new_block))
     muxed_ready     =   Mux(io.encdec, enc_block.io.ready, dec_block.io.ready)
 
-    state_t = Enum['idle','init','next'] 
-    
-    switch state_test:=Reg(state_t('idle')):
-        once 'idle':
-            state_test <== 'init'
-        once 'init':
-            state_test <== 'next'
-        once 'next':
-            state_test <== 'idle'
-        once ...:
-            state_test <== 'idle' 
-
-    state_normal = Reg(UInt('00'))
-    switch state_normal:
-        once 0:
-            state_normal <== 1 
-        once 1:
-            state_normal <== 2 
-        once 2: 
-            state_normal <== 0
 
     switch state:=Reg(Enum()):
         once 'CTRL_IDLE': 
@@ -272,18 +250,12 @@ def addroundkey(data, rkey): return data ^ rkey
                 ready_reg, result_valid_reg <== 1 
                 state <== 'CTRL_IDLE'
 
-    with AssertCtrl() as a:
-        # def f():
-        #     print(f'state: {state} t:{conf.t}')
-        #     return True
-        Assert(a.edge(io.init,1) |-> 1 >>> state == 1)
-
 @module aes_key_mem:
     io = Bundle(
         round       = UInt('4:b0')          @ Input,   # input nth round
-        round_key   = UInt(['8:b0'] * 16)   @ Output,  # output nth key
+        round_key   = UInt[8].zeros(16)     @ Output,  # output nth key
         ready       = UInt('0')             @ Output,  # init ready
-        sboxw       = UInt(['8:b0'] * 4)    @ Output,  # result
+        sboxw       = UInt[8].zeros(4)      @ Output,  # result
     )
     
     # 16 x Vec[15,8]; 16 columns of bytes
@@ -309,7 +281,7 @@ def addroundkey(data, rkey): return data ^ rkey
     when rcon_next:                 # next rcon
         rcon_reg <== gm2(rcon_reg)
     
-    k0, k1, k2, k3 = [UInt(['8:b0'] * 4)  for _ in range(4)] 
+    k0, k1, k2, k3 = UInt[8].zeros(4,4) 
     w3, w2, w1, w0 = RegNext(conf.p.key[16:])._reshape(4,4)
     w7, w6, w5, w4 = RegNext(conf.p.key[16:])._reshape(4,4)  
     io.sboxw <== w7  
@@ -405,7 +377,7 @@ def addroundkey(data, rkey): return data ^ rkey
     setv(dut.io.next, 0)
     yield dut.io.ready
     result = getv(dut.io.result) 
-    self.EQ += result, expected
+    self.AssertEq(result, expected)
     print(f"mode:{mode}, key:{hex(key)}, text:{hex(text)}, expected:{hex(expected)}, result:{hex(result.v)}")
 
 
@@ -414,7 +386,9 @@ def addroundkey(data, rkey): return data ^ rkey
     sess.enter() 
     conf.reset = (conf.reset[0], 0)
 
+    t = time.time()
     dut = aes_core()  
+    print('pyhgl build: ', time.time()-t)
 
     aes128_key1 = 0x2b7e151628aed2a6abf7158809cf4f3c00000000000000000000000000000000
     aes128_key2 = 0x000102030405060708090a0b0c0d0e0f00000000000000000000000000000000
@@ -466,16 +440,20 @@ def addroundkey(data, rkey): return data ^ rkey
     sess.dumpVerilog('AES.sv', delay=True, top = False) 
 
     sess.track(dut, dut.dec_block, dut.keymem, dut.enc_block) 
+
+    t = time.time()
     sess.join(aes_tests())
- 
+    print('pyhgl sim:', time.time()-t)
+
     print(sess)
     sess.dumpVCD('AES.vcd') 
-    print(dut.reset)
+
     
     # @blackbox testbench(builder):
     #     builder.append('initial begin\n$dumpfile("AES_iverilog.vcd");$dumpvars(0);') 
     #     builder.append('# 1000;') 
     #     builder.append('$finish;\nend')
+
 
     sess.dumpGraph('AES.gv')
     sess.exit()

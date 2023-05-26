@@ -40,33 +40,33 @@ def compressN(column: list, sums: list, couts: list):
         products.pop()
 
     a = Cat(*[i[0] for i in products])
-    b = Cat(*[i[1] if len(i) == 2 else UInt(0) for i in products])
-    io.out <== a.zext(w1+w2) + b.zext(w1+w2) 
-
+    b = Cat(*[i[1] if len(i) == 2 else UInt(0) for i in products]) 
+    io.out <== a + b
 
 
 #--------------------------------- test ----------------------------------------
+
+@task mult_test(self, dut, data): 
+    out_mask = Logic( (1 << len(dut.io.out)) - 1, 0) 
+    for x, y in data:
+        setv(dut.io.x, x)
+        setv(dut.io.y, y)
+        yield self.clock_n()
+        self.AssertEq(getv(dut.io.out), (x * y) & out_mask)
 
 
 @tester test_multiplier(self):
     sess = Session()
     sess.enter()
-    W1, W2, N = 4, 6, 100
-    Mask1, Mask2 = (1 << W1) - 1, (1 << W2) - 1
+    W, N = 16, 2000
+    ratio = 0.0
+    dut = WallaceMultiplier(W, W) 
+    # sess.track(dut.io, dut.a, dut.b)
+    test_data = [(Logic.rand(W,W, ratio=ratio), Logic.rand(W,W, ratio=ratio)) for _ in range(N)]
 
-    dut = WallaceMultiplier(W1, W2) 
-    sess.track(dut.io, dut.a, dut.b)
-    sess.step(10)
-
-    random.seed(42)
-    test_x = [random.randint(0,Mask1) for _ in range(N)]
-    test_y = [random.randint(0,Mask2) for _ in range(N)]
-
-    for i in range(N):
-        setv(dut.io.x, test_x[i])
-        setv(dut.io.y, test_y[i])
-        sess.step(50)
-        self.EQ += getv(dut.io.out), test_x[i]*test_y[i]
+    t = time.time() 
+    sess.join(mult_test(dut, test_data))
+    print('pyhgl cost: ', time.time()-t)
     sess.dumpVCD('Multiplier.vcd')
 
 
@@ -79,14 +79,12 @@ def compressN(column: list, sums: list, couts: list):
         builder.append('initial begin')
         builder.append(f'$dumpfile("Multiplier_iverilog.vcd");')
         builder.append(f'$dumpvars(0, {x}, {y}, {out});')
-        for x1, y1 in zip(test_x, test_y):
-            builder.append(f'{x} = {x1}; {y} = {y1}; #50;')
+        for x1, y1 in test_data:
+            builder.append(f'{x} = {x1}; {y} = {y1}; #100;')
         builder.append('$finish;')
         builder.append('end')
 
-
     sess.dumpVerilog('Multiplier.sv', delay=True, top = True) 
-    sess.dumpGraph('Multiplier.gv') 
     sess.test_iverilog()
-
+    print(sess)
     sess.exit()

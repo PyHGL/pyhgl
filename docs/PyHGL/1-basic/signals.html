@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+  <meta charset="utf-8" /><meta name="generator" content="Docutils 0.18.1: http://docutils.sourceforge.net/" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Literals &amp; Signals &mdash; PyHGL  documentation</title>
+      <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
+      <link rel="stylesheet" href="../../_static/css/theme.css" type="text/css" />
+  <!--[if lt IE 9]>
+    <script src="../../_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script data-url_root="../../" id="documentation_options" src="../../_static/documentation_options.js"></script>
+        <script src="../../_static/doctools.js"></script>
+        <script src="../../_static/sphinx_highlight.js"></script>
+    <script src="../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" />
+    <link rel="next" title="Gates" href="gates.html" />
+    <link rel="prev" title="Quick Start" href="start.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../../index.html" class="icon icon-home">
+            PyHGL
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <ul class="current">
+<li class="toctree-l1 current"><a class="reference internal" href="index.html">Basic</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="start.html">Quick Start</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="start.html#syntax">Syntax</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="start.html#operator">Operator</a></li>
+<li class="toctree-l4"><a class="reference internal" href="start.html#one-line-decorator">One-line Decorator</a></li>
+<li class="toctree-l4"><a class="reference internal" href="start.html#when-statement">When Statement</a></li>
+<li class="toctree-l4"><a class="reference internal" href="start.html#switch-statement">Switch Statement</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="start.html#example">Example</a></li>
+</ul>
+</li>
+<li class="toctree-l2 current"><a class="current reference internal" href="#">Literals &amp; Signals</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#literals">Literals</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#logic">Logic</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#bitpat">BitPat</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#strings">strings</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="#signals">Signals</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#uint">UInt</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#other">Other</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="#array">Array</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#useful-functions">Useful Functions</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="gates.html">Gates</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="gates.html#functions">Functions</a></li>
+<li class="toctree-l3"><a class="reference internal" href="gates.html#netlist">Netlist</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="gates.html#clockdomain">ClockDomain</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="gates.html#examples">Examples</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="gates.html#fulladder">FullAdder</a></li>
+<li class="toctree-l4"><a class="reference internal" href="gates.html#d-flip-flop">D flip flop</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="assignment.html">Conditional Assignment</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="assignment.html#condition-statements">Condition Statements</a></li>
+<li class="toctree-l3"><a class="reference internal" href="assignment.html#dynamic-enumerated-type">Dynamic Enumerated Type</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="module.html">Module</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="module.html#config">Config</a></li>
+<li class="toctree-l3"><a class="reference internal" href="module.html#session">Session</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="sim.html">Assertoins</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../2-examples/index.html">Simple Examples</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../2-examples/AES.html">AES</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../2-examples/multiplier.html">WallaceMultiplier</a></li>
+</ul>
+</li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../index.html">PyHGL</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="index.html">Basic</a></li>
+      <li class="breadcrumb-item active">Literals &amp; Signals</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="../../_sources/PyHGL/1-basic/signals.md.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section class="tex2jax_ignore mathjax_ignore" id="literals-signals">
+<h1>Literals &amp; Signals<a class="headerlink" href="#literals-signals" title="Permalink to this heading"></a></h1>
+<section id="literals">
+<h2>Literals<a class="headerlink" href="#literals" title="Permalink to this heading"></a></h2>
+<section id="logic">
+<h3>Logic<a class="headerlink" href="#logic" title="Permalink to this heading"></a></h3>
+<p><code class="docutils literal notranslate"><span class="pre">Logic</span></code> is three-state (0, 1, and X) and has an arbitrary length. Two bits are used to represent a three-state value: <code class="docutils literal notranslate"><span class="pre">00</span></code> as zero, <code class="docutils literal notranslate"><span class="pre">10</span></code> as one, and both <code class="docutils literal notranslate"><span class="pre">01</span></code> and <code class="docutils literal notranslate"><span class="pre">11</span></code> as the unknown state.</p>
+<div class="highlight-py notranslate"><div class="highlight"><pre><span></span><span class="n">Logic</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span><span class="mi">2</span><span class="p">)</span>                      <span class="c1"># 0...x1 </span>
+<span class="n">Logic</span><span class="p">(</span><span class="mi">3</span><span class="p">)</span>                        <span class="c1"># 0...11</span>
+<span class="n">Logic</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">)</span>                       <span class="c1"># 1...1</span>
+<span class="n">Logic</span><span class="p">(</span><span class="s1">&#39;xx&#39;</span><span class="p">)</span>                     <span class="c1"># 0...xx </span>
+<span class="n">Logic</span><span class="p">(</span><span class="s1">&#39;x1x1&#39;</span><span class="p">)</span> <span class="o">|</span> <span class="n">Logic</span><span class="p">(</span><span class="s1">&#39;1x1x&#39;</span><span class="p">)</span>   <span class="c1"># 0...1111</span>
+</pre></div>
+</div>
+<p>For convenience, <code class="docutils literal notranslate"><span class="pre">==</span></code> and <code class="docutils literal notranslate"><span class="pre">!=</span></code> between <code class="docutils literal notranslate"><span class="pre">Logic</span></code> and other literals return a python <code class="docutils literal notranslate"><span class="pre">bool</span></code>.</p>
+<div class="highlight-py notranslate"><div class="highlight"><pre><span></span><span class="n">Logic</span><span class="p">(</span><span class="s1">&#39;11&#39;</span><span class="p">)</span> <span class="o">==</span> <span class="mi">3</span>            <span class="c1"># True </span>
+<span class="n">Logic</span><span class="p">(</span><span class="s1">&#39;x1&#39;</span><span class="p">)</span> <span class="o">==</span> <span class="mi">3</span>            <span class="c1"># False </span>
+<span class="n">Logic</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span><span class="mi">3</span><span class="p">)</span>  <span class="o">==</span> <span class="n">Logic</span><span class="p">(</span><span class="mi">3</span><span class="p">,</span><span class="mi">3</span><span class="p">)</span>   <span class="c1"># True</span>
+</pre></div>
+</div>
+<p>Explicit <code class="docutils literal notranslate"><span class="pre">Logic</span></code> literal are usually unnecessary.</p>
+</section>
+<section id="bitpat">
+<h3>BitPat<a class="headerlink" href="#bitpat" title="Permalink to this heading"></a></h3>
+<p><code class="docutils literal notranslate"><span class="pre">BitPat</span></code> is three-state (0, 1, and don’t care) and has a fixed length. It is only used in comparation.</p>
+<div class="highlight-py notranslate"><div class="highlight"><pre><span></span><span class="n">BitPat</span><span class="p">(</span><span class="s1">&#39;11??&#39;</span><span class="p">)</span>          <span class="c1"># 4&#39;b11??</span>
+</pre></div>
+</div>
+</section>
+<section id="strings">
+<h3>strings<a class="headerlink" href="#strings" title="Permalink to this heading"></a></h3>
+<p>Python strings are usually  converted into <code class="docutils literal notranslate"><span class="pre">Logic</span></code> automatically.</p>
+<div class="highlight-py notranslate"><div class="highlight"><pre><span></span><span class="s1">&#39;0011_1100&#39;</span>     <span class="c1"># 8&#39;b00111100 </span>
+<span class="s1">&#39;4:b111111&#39;</span>     <span class="c1"># 4&#39;b1111 </span>
+<span class="s1">&#39;8:hab&#39;</span>         <span class="c1"># 8&#39;hab </span>
+<span class="s1">&#39;-d3&#39;</span>           <span class="c1"># 3&#39;b101</span>
+<span class="s1">&#39;4:-d3&#39;</span>         <span class="c1"># 4&#39;b1101 </span>
+<span class="s1">&#39;16.x:habc&#39;</span>     <span class="c1"># 16&#39;hxabc</span>
+</pre></div>
+</div>
+</section>
+</section>
+<section id="signals">
+<h2>Signals<a class="headerlink" href="#signals" title="Permalink to this heading"></a></h2>
+<p>PyHGL models digital circuits as a direct graph of <code class="docutils literal notranslate"><span class="pre">Gate</span></code> and <code class="docutils literal notranslate"><span class="pre">SignalData</span></code> nodes. <code class="docutils literal notranslate"><span class="pre">Writer</span></code> is the edge from gate to data, while <code class="docutils literal notranslate"><span class="pre">Reader</span></code> is the edge from data to gate.</p>
+<ul class="simple">
+<li><p>Signals are <code class="docutils literal notranslate"><span class="pre">Reader</span></code>, which contains a <code class="docutils literal notranslate"><span class="pre">SignalType</span></code> and a <code class="docutils literal notranslate"><span class="pre">SignalData</span></code></p>
+<ul>
+<li><p><code class="docutils literal notranslate"><span class="pre">SignalType</span></code> indicates signal type and bit width.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">SignalData</span></code> contains the real three-state singal value that is unique for each signal.</p></li>
+</ul>
+</li>
+<li><p>Type castings are only allowed for same bit length.</p></li>
+</ul>
+<section id="uint">
+<h3>UInt<a class="headerlink" href="#uint" title="Permalink to this heading"></a></h3>
+<p><code class="docutils literal notranslate"><span class="pre">UInt[w]</span></code> is the most basic signal type, similar as <code class="docutils literal notranslate"><span class="pre">logic</span> <span class="pre">[w-1:0]</span></code> in SystemVerilog. A <code class="docutils literal notranslate"><span class="pre">SignalType</span></code> is callable and return a signal instance.</p>
+<div class="highlight-py notranslate"><div class="highlight"><pre><span></span><span class="c1"># lines below are the same</span>
+<span class="n">UInt</span><span class="p">[</span><span class="mi">8</span><span class="p">](</span><span class="mi">1</span><span class="p">)</span>       
+<span class="n">UInt</span><span class="p">[</span><span class="mi">8</span><span class="p">](</span><span class="s1">&#39;1&#39;</span><span class="p">)</span>
+<span class="n">UInt</span><span class="p">(</span><span class="s1">&#39;8:b1&#39;</span><span class="p">)</span>
+<span class="n">UInt</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">w</span><span class="o">=</span><span class="mi">8</span><span class="p">)</span>
+</pre></div>
+</div>
+</section>
+<section id="other">
+<h3>Other<a class="headerlink" href="#other" title="Permalink to this heading"></a></h3>
+<div class="highlight-py notranslate"><div class="highlight"><pre><span></span><span class="n">uint8_t</span>  <span class="o">=</span> <span class="n">UInt</span><span class="p">[</span><span class="mi">8</span><span class="p">]</span>          <span class="c1"># signal type: 8-bit unsigned integer</span>
+<span class="n">sint32_t</span> <span class="o">=</span> <span class="n">SInt</span><span class="p">[</span><span class="mi">32</span><span class="p">]</span>         <span class="c1"># signal type: 32-bit signed integer</span>
+<span class="n">vector_t</span> <span class="o">=</span> <span class="mi">4</span> <span class="o">**</span> <span class="n">uint8_t</span>     <span class="c1"># signal type: packed array of 4x8 bits</span>
+<span class="n">mem_t</span>    <span class="o">=</span> <span class="n">MemArray</span><span class="p">[</span><span class="mi">1024</span><span class="p">,</span><span class="mi">8</span><span class="p">]</span> <span class="c1"># signal type: unpacked array of 1024x8 bits</span>
+<span class="n">struct_t</span> <span class="o">=</span> <span class="n">Struct</span><span class="p">(</span>
+    <span class="n">a</span> <span class="o">=</span> <span class="n">vector_t</span>  <span class="o">@</span> <span class="mi">0</span><span class="p">,</span>      <span class="c1"># field &#39;a&#39; starts from 0</span>
+    <span class="n">b</span> <span class="o">=</span> <span class="n">sint32_t</span>  <span class="o">@</span> <span class="mi">0</span><span class="p">,</span>      <span class="c1"># field &#39;b&#39; starts from 0 </span>
+    <span class="n">c</span> <span class="o">=</span> <span class="n">UInt</span><span class="p">[</span><span class="mi">32</span><span class="p">]</span>  <span class="o">@</span> <span class="mi">32</span><span class="p">,</span>     <span class="c1"># field &#39;c&#39; starts from 32</span>
+<span class="p">)</span>                           <span class="c1"># signal type: 64-bit structure</span>
+<span class="n">x</span> <span class="o">=</span> <span class="n">struct_t</span><span class="p">({</span>
+    <span class="s1">&#39;a&#39;</span><span class="p">:</span> <span class="p">[</span><span class="mi">1</span><span class="p">,</span><span class="mi">2</span><span class="p">,</span><span class="mi">3</span><span class="p">,</span><span class="mi">4</span><span class="p">],</span> 
+    <span class="s1">&#39;c&#39;</span><span class="p">:</span> <span class="n">Logic</span><span class="p">(</span><span class="s1">&#39;xxxx1100&#39;</span><span class="p">),</span>
+<span class="p">})</span>                          <span class="c1"># signal x has an initial value of 64&#39;hxc04030201</span>
+<span class="n">y</span> <span class="o">=</span> <span class="n">UInt</span><span class="p">[</span><span class="mi">64</span><span class="p">](</span><span class="n">x</span><span class="p">)</span>             <span class="c1"># type casting        </span>
+</pre></div>
+</div>
+</section>
+</section>
+<section id="array">
+<h2>Array<a class="headerlink" href="#array" title="Permalink to this heading"></a></h2>
+<p><code class="docutils literal notranslate"><span class="pre">Array</span></code> is not a hardware type, but a tree-like data struct like <a class="reference external" href="https://awkward-array.readthedocs.io/en/latest/">awkward-array</a>. <code class="docutils literal notranslate"><span class="pre">Array</span></code> is used for vectorized operations and module ports.</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">Array</span></code> can be either a named array like <code class="docutils literal notranslate"><span class="pre">Dict[str,</span> <span class="pre">Any]</span></code> or a list <code class="docutils literal notranslate"><span class="pre">List[Any]</span></code></p></li>
+<li><p>supports advanced slicing</p></li>
+<li><p>operators on <code class="docutils literal notranslate"><span class="pre">Array</span></code> are vectorized and broadcast</p></li>
+<li><p>use function <code class="docutils literal notranslate"><span class="pre">Bundle</span></code> to generate a named array</p></li>
+</ul>
+<div class="highlight-py notranslate"><div class="highlight"><pre><span></span><span class="c1"># 1-d vector </span>
+<span class="n">Array</span><span class="p">([</span><span class="mi">1</span><span class="p">,</span><span class="mi">2</span><span class="p">,</span><span class="mi">3</span><span class="p">,</span><span class="mi">4</span><span class="p">])</span>  
+<span class="n">Bundle</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span><span class="mi">2</span><span class="p">,</span><span class="mi">3</span><span class="p">,</span><span class="mi">4</span><span class="p">)</span>
+<span class="c1"># 2-d vector</span>
+<span class="n">Array</span><span class="p">([[</span><span class="mi">1</span><span class="p">,</span><span class="mi">2</span><span class="p">],[</span><span class="mi">3</span><span class="p">,</span><span class="mi">4</span><span class="p">]],</span> <span class="n">recursive</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="c1"># named array </span>
+<span class="n">Array</span><span class="p">({</span><span class="s1">&#39;a&#39;</span><span class="p">:</span><span class="mi">1</span><span class="p">,</span> <span class="s1">&#39;b&#39;</span><span class="p">:</span><span class="mi">2</span><span class="p">})</span>
+<span class="n">Bundle</span><span class="p">(</span><span class="n">a</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">b</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
+</pre></div>
+</div>
+</section>
+<section id="useful-functions">
+<h2>Useful Functions<a class="headerlink" href="#useful-functions" title="Permalink to this heading"></a></h2>
+<div class="highlight-py notranslate"><div class="highlight"><pre><span></span><span class="n">Array</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span><span class="mi">3</span><span class="p">)</span>  <span class="c1"># Array([[0,0,0],[0,0,0]], recursive=True)</span>
+<span class="n">UInt</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span><span class="mi">3</span><span class="p">)</span>   <span class="c1"># Array([[UInt(0), UInt(0), UInt(0)],[UInt(0),UInt(0),UInt(0)]], recursive=True)</span>
+<span class="n">Logic</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">)</span><span class="o">.</span><span class="n">to_bin</span><span class="p">(</span><span class="mi">4</span><span class="p">)</span>   <span class="c1"># &#39;1111&#39;</span>
+<span class="n">Logic</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">)</span><span class="o">.</span><span class="n">to_hex</span><span class="p">(</span><span class="mi">16</span><span class="p">)</span>  <span class="c1"># &#39;ffff&#39;</span>
+<span class="n">Logic</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">)</span><span class="o">.</span><span class="n">to_int</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>   <span class="c1"># -1</span>
+</pre></div>
+</div>
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="start.html" class="btn btn-neutral float-left" title="Quick Start" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="gates.html" class="btn btn-neutral float-right" title="Gates" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2022, jintaos2.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

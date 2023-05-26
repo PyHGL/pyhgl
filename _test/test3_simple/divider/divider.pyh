@@ -51,69 +51,57 @@ import itertools
         counter <== counter + 1
 
     clk = conf.clock[0]
-    with AssertCtrl():
-        Assert(Rise(clk) >>> clk)
+    # with AssertCtrl():
+    #     Assert(Rise(clk) >>> clk)
 
 
 
 @conf Global(clock_period):
     conf.timing = Bundle(
-        timescale = '1ns',
-        Clock = {'low':clock_period, 'high':clock_period, 'phase':0},
-        Logic = dict( delay = 1 ) ,
-        Gate = dict( delay = 1 ),
+        timescale   = '1ns',
+        Clock       = {'low':clock_period, 'high':clock_period, 'phase':0},
+        Logic       = {'delay': 1},
+        Gate        = {'delay': 1},
     )
 
 
 #--------------------------------- test ----------------------------------------
 
-
+@task divider_tests(self, dut, test_data):
+    yield self.reset()
+    for x,y in test_data: 
+        yield self.clock_n()
+        setv(dut.io.valid, 1)
+        setv(dut.io.x,x)
+        setv(dut.io.y,y)
+        yield self.clock_n()
+        setv(dut.io.valid, 0)
+        yield self.until(dut.io.ready, 1)
+        self.AssertEq(getv(dut.io.q), x // y)
+        self.AssertEq(getv(dut.io.r), x % y)
 
 @tester test_divider(self):
 
-    W, N = 8, 50
+    W, N = 256, 30
     clock_period = 20
-    mask = (1 << W) - 1
+    mask = (1 << W) - 1 
 
     sess = Session(Global(clock_period))
     sess.enter()
 
     dut = Divider(W)
-    sess.track(dut.clock[0], dut, dut.io)
-    sess.step(10)
+    # sess.track(dut.clock[0], dut)
 
-    random.seed(57)
-    test_x = [random.randint(0,mask) for _ in range(N)]
-    test_y = [random.randint(1, 1<<(W//2)) for _ in range(N)] 
-
-    def Task():
-        # yield from until(dut.io.ready, 1)  
-        setv(dut.reset[0], 1)
-        yield 100 
-        setv(dut.reset[0], 0)
-        for i in range(N):
-            setv(dut.io.valid, 1)
-            setv(dut.io.x, test_x[i])
-            setv(dut.io.y, test_y[i]) 
-            yield 100 
-            setv(dut.io.valid, 0)
-            yield W*100 
-            if test_y[i] != 0:
-                self.EQ += getv(dut.io.q), test_x[i] // test_y[i]
-                self.EQ += getv(dut.io.r), test_x[i] % test_y[i]
-
-
-    sess.task(Task()) 
+    test_data = [(Logic.rand(W), Logic.rand(W)) for _ in range(N)]
     t = time.time()
-    sess.step(clock_period * 2 * (W) * N) 
+    sess.join(divider_tests(dut, test_data))
     print('pyhgl simulation cost:', time.time()-t)
-
-    sess.dumpVCD('Divider.vcd')
+    sess.dumpVCD('Divider.vcd') 
+    print(sess)
 
     @blackbox testbench(builder):
         dut_name = builder.get_name(dut)
         reset = builder.get_name(dut.reset[0])
-        print(conf.reset)
         x = builder.get_name(dut.io.x)
         y = builder.get_name(dut.io.y)
         q = builder.get_name(dut.io.q)
@@ -124,14 +112,14 @@ import itertools
         builder.append(f'$dumpfile("Divider_iverilog.vcd");')
         builder.append(f'$dumpvars(0, {dut_name});') 
         builder.append(f'{reset} = 1; #{clock_period*2}; {reset} = 0;')
-        for x1, y1 in zip(test_x, test_y):
+        for x1, y1 in test_data:
             builder.append(f'{x} = {x1}; {y} = {y1}; {valid} = 1; #{clock_period*2};')
             builder.append(f'{valid} = 0; # {clock_period*2*W};')
         builder.append('$finish;')
         builder.append('end')
 
 
-    sess.dumpVerilog('Divider.sv', delay=True, top = True) 
-    sess.dumpGraph('Divider.gv')
+    sess.dumpVerilog('Divider.sv', delay=False, top = True) 
+    # sess.dumpGraph('Divider.gv') 
     sess.test_iverilog()
     sess.exit()

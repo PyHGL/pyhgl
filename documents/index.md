@@ -5,9 +5,9 @@
 :hidden:
 
 
-PyHGL/1-start/index
+PyHGL/1-basic/index
 
-PyHGL/2-type/index
+PyHGL/2-examples/index
 
 
 ```

@@ -1,0 +1,20 @@
+[build-system] 
+requires = ["setuptools", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "pyhgl"
+version = "0.2.0"
+description = "a Python-based Hardware Generation Language"
+requires-python = ">=3.8"
+dependencies = ["gmpy2", "graphviz", "numpy", "pegen", "pyvcd"]
+authors = [{name="Jintao Sun", email="jintaos2@outlook.com"}] 
+readme = "README.md"
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: GNU General Public License (GPL)",
+    "Operating System :: OS Independent",
+]
+
+[tool.setuptools]
+packages = ["pyhgl"] 

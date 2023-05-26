@@ -191,39 +191,30 @@ import random
 
 @module Life(rows, cols):
     
-    state = Reg(Array.zeros((rows, cols)))  @ Output
-    running = UInt('0')                     @ Input 
-    writeValue = UInt('0')                  @ Input 
-    writeRowAddress = UInt(rows)            @ Input 
-    writeColAddress = UInt(cols)            @ Input 
+    cells     = Reg(Array.zeros(rows, cols)) @ Output
+    running   = UInt(0)                      @ Input 
+    wdata     = UInt(0)                      @ Input 
+    waddr_row = UInt(rows)                   @ Input 
+    waddr_col = UInt(cols)                   @ Input 
 
-    def make_ceil(row, col):  
-        neighbors = state[[row-1,row,(row+1)%rows],
+    def make_cell(row, col):  
+        neighbors = cells[[row-1,row,(row+1)%rows],
                           [col-1,col,(col+1)%cols]]
-        neighbors[1,1] = UInt('3:b0')     # exclude self
-        count_neighbors = Add(neighbors, axis=None) 
-        isAlive = state[row, col]
+        cell = neighbors[1,1]
+        neighbors[1,1] = UInt('3:b0')     
+        count_neighbors = Add(neighbors, axis=(0,1)) 
         when !running:  
-            when writeRowAddress == row && writeColAddress == col:
-                isAlive <== writeValue 
-        otherwise:
-            when isAlive:
-                when count_neighbors < 2:
-                    isAlive <== 0 
-                elsewhen count_neighbors < 4:
-                    isAlive <== 1 
-                otherwise:
-                    isAlive <== 0 
-            otherwise:
-                when !isAlive && count_neighbors == 3:
-                    isAlive <== 1 
-                otherwise:
-                    isAlive <== 0 
+            when waddr_row == row && waddr_col == col:
+                cell <== wdata 
+        otherwise: 
+            when count_neighbors == 3:
+                cell <== 1 
+            elsewhen count_neighbors != 2:
+                cell <== 0 
 
     for i in range(rows):
         for j in range(cols):
-            make_ceil(i,j)
-
+            make_cell(i,j)
 
 
 @module Router(
@@ -419,19 +410,19 @@ import random
         yield self.clock_n()
 
     @task write(self, row, col):
-        setv(dut.writeValue, 1)
-        setv(dut.writeRowAddress, row)        
-        setv(dut.writeColAddress, col)
+        setv(dut.wdata, 1)
+        setv(dut.waddr_row, row)        
+        setv(dut.waddr_col, col)
         yield self.clock_n()
 
     @task init_glider(self):
         yield write(3,3), write(3,5), write(4,4), write(4,5), write(5,4)
     
     def board_str():
-        ceils = getv(dut.state)
-        ceils_str = Map(lambda v: '*' if v==1 else ' ', ceils) 
+        cells = getv(dut.cells)
+        cells_str = Map(lambda v: '*' if v==1 else ' ', cells) 
         ret = ['  0 1 2 3 4 5 6 7 8 9']
-        for i, row in enumerate(ceils_str):
+        for i, row in enumerate(cells_str):
             ret.append(' '.join([f'{i}', *row]))
         return '\n'.join(ret)
         

@@ -1,0 +1,356 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+  <meta charset="utf-8" /><meta name="generator" content="Docutils 0.18.1: http://docutils.sourceforge.net/" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Gates &mdash; PyHGL  documentation</title>
+      <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
+      <link rel="stylesheet" href="../../_static/css/theme.css" type="text/css" />
+  <!--[if lt IE 9]>
+    <script src="../../_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script data-url_root="../../" id="documentation_options" src="../../_static/documentation_options.js"></script>
+        <script src="../../_static/doctools.js"></script>
+        <script src="../../_static/sphinx_highlight.js"></script>
+    <script src="../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" />
+    <link rel="next" title="Conditional Assignment" href="assignment.html" />
+    <link rel="prev" title="Literals &amp; Signals" href="signals.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../../index.html" class="icon icon-home">
+            PyHGL
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <ul class="current">
+<li class="toctree-l1 current"><a class="reference internal" href="index.html">Basic</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="start.html">Quick Start</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="start.html#syntax">Syntax</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="start.html#operator">Operator</a></li>
+<li class="toctree-l4"><a class="reference internal" href="start.html#one-line-decorator">One-line Decorator</a></li>
+<li class="toctree-l4"><a class="reference internal" href="start.html#when-statement">When Statement</a></li>
+<li class="toctree-l4"><a class="reference internal" href="start.html#switch-statement">Switch Statement</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="start.html#example">Example</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="signals.html">Literals &amp; Signals</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="signals.html#literals">Literals</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="signals.html#logic">Logic</a></li>
+<li class="toctree-l4"><a class="reference internal" href="signals.html#bitpat">BitPat</a></li>
+<li class="toctree-l4"><a class="reference internal" href="signals.html#strings">strings</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="signals.html#signals">Signals</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="signals.html#uint">UInt</a></li>
+<li class="toctree-l4"><a class="reference internal" href="signals.html#other">Other</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="signals.html#array">Array</a></li>
+<li class="toctree-l3"><a class="reference internal" href="signals.html#useful-functions">Useful Functions</a></li>
+</ul>
+</li>
+<li class="toctree-l2 current"><a class="current reference internal" href="#">Gates</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#functions">Functions</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#netlist">Netlist</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#clockdomain">ClockDomain</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="#examples">Examples</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#fulladder">FullAdder</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#d-flip-flop">D flip flop</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="assignment.html">Conditional Assignment</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="assignment.html#condition-statements">Condition Statements</a></li>
+<li class="toctree-l3"><a class="reference internal" href="assignment.html#dynamic-enumerated-type">Dynamic Enumerated Type</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="module.html">Module</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="module.html#config">Config</a></li>
+<li class="toctree-l3"><a class="reference internal" href="module.html#session">Session</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="sim.html">Assertoins</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../2-examples/index.html">Simple Examples</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../2-examples/AES.html">AES</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../2-examples/multiplier.html">WallaceMultiplier</a></li>
+</ul>
+</li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../index.html">PyHGL</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="index.html">Basic</a></li>
+      <li class="breadcrumb-item active">Gates</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="../../_sources/PyHGL/1-basic/gates.md.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section class="tex2jax_ignore mathjax_ignore" id="gates">
+<h1>Gates<a class="headerlink" href="#gates" title="Permalink to this heading"></a></h1>
+<p>In the <strong>circuit abstraction</strong>, hardware is described as a graph of connected components.</p>
+<ul class="simple">
+<li><p>Operations on PyHGL signals usually generate a hardware gate.</p></li>
+<li><p>Directional assignment <code class="docutils literal notranslate"><span class="pre">&lt;==</span></code> to a signal will automatically insert a <code class="docutils literal notranslate"><span class="pre">Wire</span></code> if the signal is not assignable.</p></li>
+</ul>
+<section id="functions">
+<h2>Functions<a class="headerlink" href="#functions" title="Permalink to this heading"></a></h2>
+<ul class="simple">
+<li><p>Unary functions: <code class="docutils literal notranslate"><span class="pre">Not</span></code>, <code class="docutils literal notranslate"><span class="pre">Bool</span></code>, <code class="docutils literal notranslate"><span class="pre">LogicNot</span></code>, <code class="docutils literal notranslate"><span class="pre">AndR</span></code>, <code class="docutils literal notranslate"><span class="pre">OrR</span></code>, <code class="docutils literal notranslate"><span class="pre">XorR</span></code></p></li>
+<li><p>Binary functions: <code class="docutils literal notranslate"><span class="pre">Lshift</span></code>, <code class="docutils literal notranslate"><span class="pre">Rshift</span></code>, <code class="docutils literal notranslate"><span class="pre">Eq</span></code>, <code class="docutils literal notranslate"><span class="pre">Ne</span></code>, <code class="docutils literal notranslate"><span class="pre">Lt</span></code>, <code class="docutils literal notranslate"><span class="pre">Gt</span></code>, <code class="docutils literal notranslate"><span class="pre">Le</span></code>, <code class="docutils literal notranslate"><span class="pre">Ge</span></code>, <code class="docutils literal notranslate"><span class="pre">Floordiv</span></code>, <code class="docutils literal notranslate"><span class="pre">Mod</span></code></p></li>
+<li><p>Multi-inputs functions: <code class="docutils literal notranslate"><span class="pre">And</span></code>, <code class="docutils literal notranslate"><span class="pre">Or</span></code>, <code class="docutils literal notranslate"><span class="pre">Xor</span></code>, <code class="docutils literal notranslate"><span class="pre">Nand</span></code>, <code class="docutils literal notranslate"><span class="pre">Nor</span></code>, <code class="docutils literal notranslate"><span class="pre">Nxor</span></code>, <code class="docutils literal notranslate"><span class="pre">Cat</span></code>, <code class="docutils literal notranslate"><span class="pre">Pow</span></code>, <code class="docutils literal notranslate"><span class="pre">LogicAnd</span></code>, <code class="docutils literal notranslate"><span class="pre">LogicOr</span></code>, <code class="docutils literal notranslate"><span class="pre">Add</span></code>, <code class="docutils literal notranslate"><span class="pre">Sub</span></code>, <code class="docutils literal notranslate"><span class="pre">Mul</span></code></p></li>
+</ul>
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Function</p></th>
+<th class="head"><p>Description</p></th>
+<th class="head"><p>Operator</p></th>
+<th class="head"><p>Output Width</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">Not(x)</span></code></p></td>
+<td><p>bitwise not</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">~</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">len(x)</span></code></p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">Bool(x)</span></code></p></td>
+<td><p>logic bool</p></td>
+<td><p></p></td>
+<td><p>1</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">LogicNot(x)</span></code></p></td>
+<td><p>logic not</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">!</span></code></p></td>
+<td><p>1</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">AndR(x)</span></code></p></td>
+<td><p>and reduce</p></td>
+<td><p></p></td>
+<td><p>1</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">OrR(x)</span></code></p></td>
+<td><p>or reduce</p></td>
+<td><p></p></td>
+<td><p>1</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">XorR(x)</span></code></p></td>
+<td><p>xor reduce</p></td>
+<td><p></p></td>
+<td><p>1</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">Lshift(x,y)</span></code></p></td>
+<td><p>left shift</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">&lt;&lt;</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">len(x)</span></code></p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">Rshift(x,y)</span></code></p></td>
+<td><p>right shift</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">&gt;&gt;</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">len(x)</span></code></p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">Eq(x,y)</span></code></p></td>
+<td><p>comparation</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">==</span></code></p></td>
+<td><p>1</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">Floordiv(x,</span> <span class="pre">y)</span></code></p></td>
+<td><p>divide</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">//</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">len(x)</span></code></p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">Mod(x,</span> <span class="pre">y)</span></code></p></td>
+<td><p>mod</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">%</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">len(x)</span></code></p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">And(x,...)</span></code></p></td>
+<td><p>bitwise and</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">&amp;</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">max(len(x),</span> <span class="pre">...)</span></code></p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">Nand(x,...)</span></code></p></td>
+<td><p>bitwise nand</p></td>
+<td><p></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">max(len(x),</span> <span class="pre">...)</span></code></p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">Cat(x,</span> <span class="pre">...)</span></code></p></td>
+<td><p>concatenation</p></td>
+<td><p></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">sum(len(x),</span> <span class="pre">...)</span></code></p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">Pow(x,</span> <span class="pre">n)</span></code></p></td>
+<td><p>bits duplication</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">**</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">len(x)</span> <span class="pre">*</span> <span class="pre">n</span></code></p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">LogicAnd(x,</span> <span class="pre">...)</span></code></p></td>
+<td><p>logic and</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">&amp;&amp;</span></code></p></td>
+<td><p>1</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">LogicOr(x,</span> <span class="pre">...)</span></code></p></td>
+<td><p>logic or</p></td>
+<td><p>`x</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">Add(x,</span> <span class="pre">...)</span></code></p></td>
+<td><p>add</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">+</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">max(len(x),</span> <span class="pre">...)</span></code></p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">Add(x,</span> <span class="pre">...)</span></code></p></td>
+<td><p>add</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">+</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">max(len(x),</span> <span class="pre">...)</span></code></p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">Mul(x,</span> <span class="pre">...)</span></code></p></td>
+<td><p>mul</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">*</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">max(len(x),</span> <span class="pre">...)</span></code></p></td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="netlist">
+<h2>Netlist<a class="headerlink" href="#netlist" title="Permalink to this heading"></a></h2>
+<p>Netlists are gate that is <strong>assignable</strong>. Unlike Verilog, registers and latches should be explicitly declared, while wires are usually implicitly generated.</p>
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Function</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">Wire(x)</span></code></p></td>
+<td><p>connect a wire behind x if x is not assignable</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">WireNext(x)</span></code></p></td>
+<td><p>connect a wire after x and return new signal</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">Reg(x)</span></code></p></td>
+<td><p>a register whose input/output is x, reset/init is current value of x</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">RegNext(x)</span></code></p></td>
+<td><p>a register whose input is x, output is new signal</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">Latch(x,</span> <span class="pre">enable)</span></code></p></td>
+<td><p>latch</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">Wtri(x)</span></code></p></td>
+<td><p>tri-state wire</p></td>
+</tr>
+</tbody>
+</table>
+<section id="clockdomain">
+<h3>ClockDomain<a class="headerlink" href="#clockdomain" title="Permalink to this heading"></a></h3>
+<p><code class="docutils literal notranslate"><span class="pre">Reg</span></code> will get the default clock and reset signals, which can be set by <code class="docutils literal notranslate"><span class="pre">ClockDomain</span></code>.</p>
+<div class="highlight-py notranslate"><div class="highlight"><pre><span></span><span class="c1"># negedge clk, asynchronous low-valid rst_n</span>
+<span class="k">with</span> <span class="n">ClockDomain</span><span class="p">(</span><span class="n">clock</span><span class="o">=</span><span class="p">(</span><span class="n">clk</span><span class="p">,</span><span class="mi">1</span><span class="p">),</span> <span class="n">reset</span><span class="o">=</span><span class="p">(</span><span class="n">rst_n</span><span class="p">,</span><span class="mi">0</span><span class="p">)):</span>
+    <span class="n">register</span> <span class="o">=</span> <span class="n">Reg</span><span class="p">(</span><span class="n">UInt</span><span class="p">[</span><span class="mi">8</span><span class="p">](</span><span class="mi">0</span><span class="p">))</span>
+</pre></div>
+</div>
+</section>
+</section>
+<section id="examples">
+<h2>Examples<a class="headerlink" href="#examples" title="Permalink to this heading"></a></h2>
+<section id="fulladder">
+<h3>FullAdder<a class="headerlink" href="#fulladder" title="Permalink to this heading"></a></h3>
+<div class="highlight-py notranslate"><div class="highlight"><pre><span></span><span class="nd">@module</span> <span class="n">FullAdder</span><span class="p">:</span>
+    <span class="n">a</span><span class="p">,</span> <span class="n">b</span><span class="p">,</span> <span class="n">cin</span> <span class="o">=</span> <span class="n">UInt</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="mi">3</span><span class="p">)</span>
+    <span class="n">s</span> <span class="o">=</span> <span class="n">a</span> <span class="o">^</span> <span class="n">b</span> <span class="o">^</span> <span class="n">cin</span> 
+    <span class="n">cout</span> <span class="o">=</span> <span class="n">a</span> <span class="o">&amp;</span> <span class="n">b</span> <span class="o">|</span> <span class="p">(</span><span class="n">a</span> <span class="o">^</span> <span class="n">b</span><span class="p">)</span> <span class="o">&amp;</span> <span class="n">cin</span> 
+</pre></div>
+</div>
+</section>
+<section id="d-flip-flop">
+<h3>D flip flop<a class="headerlink" href="#d-flip-flop" title="Permalink to this heading"></a></h3>
+<div class="highlight-py notranslate"><div class="highlight"><pre><span></span><span class="nd">@module</span> <span class="n">Register</span><span class="p">:</span>
+    <span class="n">data</span><span class="p">,</span> <span class="n">clk</span><span class="p">,</span> <span class="nb">set</span><span class="p">,</span> <span class="n">reset</span> <span class="o">=</span> <span class="n">UInt</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="mi">4</span><span class="p">)</span>
+    <span class="n">nand1</span><span class="p">,</span> <span class="n">nand2</span><span class="p">,</span> <span class="n">nand3</span><span class="p">,</span> <span class="n">nand4</span><span class="p">,</span> <span class="n">Q</span><span class="p">,</span> <span class="n">Qn</span> <span class="o">=</span> <span class="n">UInt</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="mi">6</span><span class="p">)</span>
+    
+    <span class="n">nand1</span> <span class="o">&lt;==</span> <span class="n">Nand</span><span class="p">(</span><span class="nb">set</span><span class="p">,</span> <span class="n">nand4</span><span class="p">,</span> <span class="n">nand2</span><span class="p">)</span>
+    <span class="n">nand2</span> <span class="o">&lt;==</span> <span class="n">Nand</span><span class="p">(</span><span class="n">nand1</span><span class="p">,</span> <span class="n">clk</span><span class="p">,</span> <span class="n">reset</span><span class="p">)</span>
+    <span class="n">nand3</span> <span class="o">&lt;==</span> <span class="n">Nand</span><span class="p">(</span><span class="n">nand2</span><span class="p">,</span> <span class="n">clk</span><span class="p">,</span> <span class="n">nand4</span><span class="p">)</span>
+    <span class="n">nand4</span> <span class="o">&lt;==</span> <span class="n">Nand</span><span class="p">(</span><span class="n">nand3</span><span class="p">,</span> <span class="n">data</span><span class="p">,</span> <span class="n">reset</span><span class="p">)</span>
+    <span class="n">Q</span> <span class="o">&lt;==</span> <span class="n">Nand</span><span class="p">(</span><span class="nb">set</span><span class="p">,</span> <span class="n">nand2</span><span class="p">,</span> <span class="n">Qn</span><span class="p">)</span>
+    <span class="n">Qn</span> <span class="o">&lt;==</span> <span class="n">Nand</span><span class="p">(</span><span class="n">Q</span><span class="p">,</span> <span class="n">nand3</span><span class="p">,</span> <span class="n">reset</span><span class="p">)</span>
+</pre></div>
+</div>
+</section>
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="signals.html" class="btn btn-neutral float-left" title="Literals &amp; Signals" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="assignment.html" class="btn btn-neutral float-right" title="Conditional Assignment" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2022, jintaos2.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

@@ -1,21 +1,18 @@
 
 # PyHGL
 
-PyHGL is a simple and flexible **Py**thon based **H**ardware **G**eneration **L**anguage. PyHGL has rich features including:
+PyHGL is a Python-based Hardware Generation Language. Similar languages are: Verilog, Chisel, PyRTL, etc. PyHGL provides hardware modeling, simulation and verification in pure Python environment. Some features are:
 
-- A few but necessary extended grammars to reduce grammar noises
-- RTL and Gate Level hardware description, generates SystemVerilog files
-- Support any two-valued logic circuit, including multi-clocks and combinational loop 
-- Object-oriented modeling, easy to distinguish between synthetic and not synthetic 
-- Asynchronous delay accurate event based simulation in pure Python 
-- SVA like assertions for verification
+- Pythonic syntax
+- Three-state (0, 1, and X) logic
+- Vectorized operation
+- Asynchronous event-driven simulaton 
+- Simulation tasks and concurrent assertions
 
 --- 
 
-- Documentation 
-- Similar Projects 
-  
-  [https://github.com/drom/awesome-hdl](https://github.com/drom/awesome-hdl)
+- Documentation: [https://pyhgl.github.io/pyhgl/](https://pyhgl.github.io/pyhgl/)
+- Similar Projects: [https://github.com/drom/awesome-hdl](https://github.com/drom/awesome-hdl)
 
 
 # Install
@@ -24,84 +21,62 @@ PyHGL is a simple and flexible **Py**thon based **H**ardware **G**eneration **L*
 python -m pip install pyhgl
 ``` 
 
-# Examples 
+# Example
 
-## N-bit Adder 
+Design and verify a 32-bit Carry Ripple Adder and a 64-bit Kogge Stone Adder. 
 
 ```py
 from pyhgl.logic import *
-import random
-
-@module FullAdder:
-    a, b, cin = UInt('0'), UInt('0'), UInt('0')
-    s = a ^ b ^ cin 
-    cout = a & b | (a ^ b) & cin 
-
-@module AdderN(w: int):
-    x = UInt[w](0)
-    y = UInt[w](0)
-    out = UInt[w](0)
-
-    adders = Array(FullAdder() for _ in range(w))
-    adders[:,'a'] <== x.split()
-    adders[:,'b'] <== y.split()
-    adders[1:, 'cin'] <== adders[:-1, 'cout']
-    out <== Cat(adders[:,'s']) 
-    cout = adders[-1, 'cout']
-
-#--------------------------------- test ----------------------------------
-
-with Session() as sess:
-    w = 8
-    mask = (1 << w) - 1 
-    dut = AdderN(w)
-    sess.track(dut.x, dut.y, dut.out)
-
-    for _ in range(100):
-        x = random.randint(0, mask)
-        y = random.randint(0, mask)
-        setv(dut.x, x) 
-        setv(dut.y, y) 
-        sess.step(100) 
-        out = getv(dut.out)
-        print(f'{x} + {y} = {out}\t{(x+y)&mask==out}') 
-
-    sess.dumpVCD('Adder.vcd')
-    sess.dumpVerilog('Adder.sv')
-    sess.dumpGraph('Adder.gv')
-    print(sess)
-``` 
-
-## Vending Machine 
-
-
-```py 
-@module VendingMachine:
-    nickel, dime, valid = UInt('0'), UInt('0'), UInt('0') 
  
-    switch s:=EnumReg():
-        once 'sIdle':
-            when nickel: 
-                s <== 's5'
-            when dime:
-                s <== 's10' 
-        once 's5':
-            when nickel:
-                s <== 's10'
-            when dime: 
-                s <== 's15'
-        once 's10':
-            when nickel: 
-                s <== 's15'
-            when dime: 
-                s <== 'sOk' 
-        once 's15': 
-            when nickel: 
-                s <== 'sOk'
-            when dime: 
-                s <== 'sOk'
-        once 'sOk':
-            s <== 'sIdle'
-            valid <== 1
-```
-
+@conf Config:
+    @conf RippleCarry:
+        w = 32
+    @conf KoggeStone:
+        w = 64
+ 
+AdderIO = lambda w: Bundle(
+    x   = UInt[w  ](0) @ Input,
+    y   = UInt[w  ](0) @ Input,
+    out = UInt[w+1](0) @ Output,
+)
+ 
+@module FullAdder: 
+    a, b, cin = UInt([0,0,0])
+    s    = a ^ b ^ cin 
+    cout = a & b | (a ^ b) & cin 
+ 
+@module RippleCarry:
+    io = AdderIO(conf.p.w) 
+    adders = Array(FullAdder() for _ in range(conf.p.w))
+    adders[:,'a'  ] <== io.x.split()
+    adders[:,'b'  ] <== io.y.split()
+    adders[:,'cin'] <== 0, *adders[:-1,'cout']
+    io.out <== Cat(*adders[:,'s'], adders[-1,'cout']) 
+ 
+@module KoggeStone:
+    io = AdderIO(conf.p.w) 
+    P_odd = io.x ^ io.y
+    P = P_odd.split()
+    G = (io.x & io.y).split()
+    dist = 1 
+    while dist < conf.p.w:
+        for i in reversed(range(dist,conf.p.w)): 
+            G[i] = G[i] | (P[i] & G[i-dist])
+            if i >= dist * 2:
+                P[i] = P[i] & P[i-dist]
+        dist *= 2 
+    io.out <== Cat(0, *G) ^ P_odd
+ 
+@task tb(self, dut, N): 
+    for _ in range(N):
+        x, y = setr(dut.io[['x','y']]) 
+        yield self.clock_n() 
+        self.AssertEq(getv(dut.io.out), x + y)
+ 
+with Session(Config()) as sess:
+    adder1, adder2 = RippleCarry(), KoggeStone()
+    sess.track(adder1, adder2)  
+    sess.join(tb(adder1, 100), tb(adder2, 200))
+    sess.dumpVCD('Adders.vcd') 
+    sess.dumpVerilog('Adders.sv') 
+``` 

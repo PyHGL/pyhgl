@@ -27,6 +27,7 @@ import gmpy2
 import traceback 
 import bisect 
 import vcd
+import time
 
 from sortedcontainers import SortedDict
 from itertools import chain
@@ -43,9 +44,9 @@ import pyhgl.tester.runner as tester_runner
 class Simulator(HGL):
     
     __slots__ = ('sess', 'time_wheel', 'priority_queue', 't', 
-                 'changed_gates', 'triggered_events', 'exec_times')
+                 'changed_gates', 'triggered_events', 'exec_times', '__dict__')
     
-    def __init__(self, sess: _session.Session, length: int = 8):
+    def __init__(self, sess: _session.Session, length: int = 7):
         """
         events are stored in a time_wheel, overflowed events are stored in a priority queue
         
@@ -68,8 +69,8 @@ class Simulator(HGL):
         # length >= 2, signal_events, coroutine_events
         self.time_wheel: List[
             Tuple[
-                List[tuple],                 # signal_events
-                List[Generator]              # coroutine_events
+                List[Tuple[hgl_core.SignalData, int, int]],     # signal_events
+                List[Generator]                                 # coroutine_events
             ]
         ] = [self.new_events() for _ in range(1 << length)]
         # Dict[int, Event]
@@ -79,7 +80,9 @@ class Simulator(HGL):
         # current time, increase 1 after step()
         self.t: int = 0
         # number of times of execute gate
-        self.exec_times = 0
+        self.exec_times = 0 
+        self._t_step = 0.0
+        self._n_signal_update = 0
 
     def new_events(self):
         return ([],[])
@@ -165,20 +168,19 @@ class Simulator(HGL):
         each signal should not updated more than once in 1 step
         each gate should not called more than once in 1 step
         """
-        time_wheel = self.time_wheel 
-        gate_events = self.changed_gates
-        signal_events, coroutine_events = time_wheel[0]   
-        
-        if signal_events or gate_events or coroutine_events:            # 200ms  
-            # insert triggered coroutine events to next step
-            coroutine_events_next = time_wheel[1][1]                    # 80ms
-            #------------------------------------------
-            if self.sess.verbose_sim:
-                _signal = ','.join(self._show_signal_event(i) for i in signal_events)
-                self.sess.print(f't={self.t}, signals: {_signal}')
-            #------------------------------------------
-            
-            # 1. exec user tasks
+        time_wheel  = self.time_wheel                              # 15ms
+        gate_events = self.changed_gates                           # 15ms
+        signal_events, coroutine_events = time_wheel[0]            # 20ms
+        coroutine_events_next = time_wheel[1][1]                   # 30ms
+
+        # #------------------------------------------
+        # if self.sess.verbose_sim:
+        #     _signal = ','.join(self._show_signal_event(i) for i in signal_events)
+        #     self.sess.print(f't={self.t}, signals: {_signal}')
+        # #------------------------------------------
+
+        # 1. exec user tasks
+        if coroutine_events:
             for g in coroutine_events:                                  # 400ms clock
                 try:
                     ret = next(g)
@@ -201,31 +203,25 @@ class Simulator(HGL):
                 except:
                     pass   
             coroutine_events.clear()  
-            
-            # 2. update signal values
-            for e in signal_events:
-                target: hgl_core.SignalData 
-                value:  Union[hgl_core.Logic, gmpy2.mpz]
-                sel: int 
-                target, value, sel = e
 
-                if sel == 0:                                # update v 
-                    if target.v == value:
-                        continue
+        
+        # 2. update signal values
+        if signal_events:
+            for target, value, sel in signal_events: 
+                if not sel:                                 # sel == 0, update v 
+                    if target.v == value: continue          # value not change 
                     target.v = value 
                     for reader in target.reader:
                         for g in reader._driven:
                             g.sim_waiting = True
                             gate_events.append(g) 
-
                     if target.tracker is not None:          # record value
                         target.tracker.record()
-                    if (tasks:=target.events) is not None:  #  coroutine taskss 
-                        coroutine_events_next.extend(tasks)
-                        tasks.clear()
-                else:                                       # update x 
-                    if target.x == value:
-                        continue 
+                    if e:=target.events:                    # coroutine taskss 
+                        coroutine_events_next.extend(e)
+                        e.clear()
+                else:                                       # sel == 1, update x 
+                    if target.x == value: continue 
                     elif target.x == 0 and value != 0:      # x_count += 1
                         x_diff = 1 
                     elif target.x != 0 and value == 0:      # x_count -= 1
@@ -242,31 +238,29 @@ class Simulator(HGL):
 
                     if target.tracker is not None:         # record value
                         target.tracker.record()
-                    if (tasks:=target.events) is not None: #  coroutine taskss 
-                        coroutine_events_next.extend(tasks)
-                        tasks.clear()
+                    if e:=target.events:                    #  coroutine taskss 
+                        coroutine_events_next.extend(e)
+                        e.clear()
             signal_events.clear() 
-            
-            #------------------------------------------
-            if self.sess.verbose_sim:
-                _gate = ','.join(f'{i}' for i in gate_events)
-                self.sess.print(f't={self.t}, gates: {_gate}')
-            #------------------------------------------
-            
-            # 3. execute gate
+
+        # 3. execute gate
+        if gate_events:            # 200ms              
             for g in gate_events: 
                 if g.sim_waiting: 
+                    # next(g.sim_forward_vx) 
+                    # g.sim_waiting = False
                     if g.sim_x_changed or g.sim_x_count:   
                         next(g.sim_forward_vx)              # full execute
+                        g.sim_x_changed = False
+                        g.sim_waiting = False
                     else:                                  
                         next(g.sim_forward_v)               # partial execute
-                    g.sim_waiting = False
-                    g.sim_x_changed = False
+                        g.sim_waiting = False
                     self.exec_times += 1
             gate_events.clear() 
 
         # update time_wheel                
-        time_wheel.append(time_wheel.pop(0))        # 700ms
+        time_wheel.append(time_wheel.pop(0))         
         # update priority_queue
         if self.priority_queue:                     # 80ms
             t0 = self.t + len(time_wheel)
@@ -292,7 +286,8 @@ class Simulator(HGL):
         name = target._name 
         return f"{name}:{target} <- {value}"
             
-
+    def __str__(self):
+        return f't: {self.t}\nn_exec_gates: {self.exec_times}\n_t_step: {self._t_step}\n_n_signal_events: {self._n_signal_update}'
     
 # --------------------
 # simulation task tree

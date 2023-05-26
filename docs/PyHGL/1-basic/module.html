@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+  <meta charset="utf-8" /><meta name="generator" content="Docutils 0.18.1: http://docutils.sourceforge.net/" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Module &mdash; PyHGL  documentation</title>
+      <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
+      <link rel="stylesheet" href="../../_static/css/theme.css" type="text/css" />
+  <!--[if lt IE 9]>
+    <script src="../../_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script data-url_root="../../" id="documentation_options" src="../../_static/documentation_options.js"></script>
+        <script src="../../_static/doctools.js"></script>
+        <script src="../../_static/sphinx_highlight.js"></script>
+    <script src="../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" />
+    <link rel="next" title="Assertoins" href="sim.html" />
+    <link rel="prev" title="Conditional Assignment" href="assignment.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../../index.html" class="icon icon-home">
+            PyHGL
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <ul class="current">
+<li class="toctree-l1 current"><a class="reference internal" href="index.html">Basic</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="start.html">Quick Start</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="start.html#syntax">Syntax</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="start.html#operator">Operator</a></li>
+<li class="toctree-l4"><a class="reference internal" href="start.html#one-line-decorator">One-line Decorator</a></li>
+<li class="toctree-l4"><a class="reference internal" href="start.html#when-statement">When Statement</a></li>
+<li class="toctree-l4"><a class="reference internal" href="start.html#switch-statement">Switch Statement</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="start.html#example">Example</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="signals.html">Literals &amp; Signals</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="signals.html#literals">Literals</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="signals.html#logic">Logic</a></li>
+<li class="toctree-l4"><a class="reference internal" href="signals.html#bitpat">BitPat</a></li>
+<li class="toctree-l4"><a class="reference internal" href="signals.html#strings">strings</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="signals.html#signals">Signals</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="signals.html#uint">UInt</a></li>
+<li class="toctree-l4"><a class="reference internal" href="signals.html#other">Other</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="signals.html#array">Array</a></li>
+<li class="toctree-l3"><a class="reference internal" href="signals.html#useful-functions">Useful Functions</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="gates.html">Gates</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="gates.html#functions">Functions</a></li>
+<li class="toctree-l3"><a class="reference internal" href="gates.html#netlist">Netlist</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="gates.html#clockdomain">ClockDomain</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="gates.html#examples">Examples</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="gates.html#fulladder">FullAdder</a></li>
+<li class="toctree-l4"><a class="reference internal" href="gates.html#d-flip-flop">D flip flop</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="assignment.html">Conditional Assignment</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="assignment.html#condition-statements">Condition Statements</a></li>
+<li class="toctree-l3"><a class="reference internal" href="assignment.html#dynamic-enumerated-type">Dynamic Enumerated Type</a></li>
+</ul>
+</li>
+<li class="toctree-l2 current"><a class="current reference internal" href="#">Module</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#config">Config</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#session">Session</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="sim.html">Assertoins</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../2-examples/index.html">Simple Examples</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../2-examples/AES.html">AES</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../2-examples/multiplier.html">WallaceMultiplier</a></li>
+</ul>
+</li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../index.html">PyHGL</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="index.html">Basic</a></li>
+      <li class="breadcrumb-item active">Module</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="../../_sources/PyHGL/1-basic/module.md.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section class="tex2jax_ignore mathjax_ignore" id="module">
+<h1>Module<a class="headerlink" href="#module" title="Permalink to this heading"></a></h1>
+<ul class="simple">
+<li><p>Module ports can be automatically infered for signals cross multiple modules</p></li>
+<li><p>Each module instance has its own parameters. All module instances construct a module tree, and all parameters construct a parameter tree.</p></li>
+<li><p>configuration function is lazy evaluated and matches module id, which is the declaration name by default .</p></li>
+</ul>
+<section id="config">
+<h2>Config<a class="headerlink" href="#config" title="Permalink to this heading"></a></h2>
+<div class="highlight-py notranslate"><div class="highlight"><pre><span></span><span class="nd">@conf</span> <span class="n">Global</span><span class="p">(</span><span class="n">clock_period</span><span class="p">):</span>
+    <span class="c1"># set timing </span>
+    <span class="n">conf</span><span class="o">.</span><span class="n">timing</span> <span class="o">=</span> <span class="n">Bundle</span><span class="p">(</span>
+        <span class="n">timescale</span>   <span class="o">=</span> <span class="s1">&#39;1ns&#39;</span><span class="p">,</span>
+        <span class="n">Clock</span>       <span class="o">=</span> <span class="p">{</span><span class="s1">&#39;low&#39;</span><span class="p">:</span><span class="n">clock_period</span><span class="p">,</span> <span class="s1">&#39;high&#39;</span><span class="p">:</span><span class="n">clock_period</span><span class="p">,</span> <span class="s1">&#39;phase&#39;</span><span class="p">:</span><span class="mi">0</span><span class="p">},</span>
+        <span class="n">Logic</span>       <span class="o">=</span> <span class="p">{</span><span class="s1">&#39;delay&#39;</span><span class="p">:</span> <span class="mi">1</span><span class="p">},</span>
+        <span class="n">Gate</span>        <span class="o">=</span> <span class="p">{</span><span class="s1">&#39;delay&#39;</span><span class="p">:</span> <span class="mi">1</span><span class="p">},</span>
+    <span class="p">)</span>  
+    <span class="c1"># a configuration that matches &quot;RippleCarry.*&quot;</span>
+    <span class="nd">@conf</span> <span class="n">RippleCarry</span><span class="p">:</span>
+        <span class="n">w</span> <span class="o">=</span> <span class="mi">32</span>
+    <span class="nd">@conf</span> <span class="n">KoggeStone</span><span class="p">:</span>
+        <span class="n">w</span> <span class="o">=</span> <span class="mi">64</span>
+
+
+<span class="n">AdderIO</span> <span class="o">=</span> <span class="k">lambda</span> <span class="n">w</span><span class="p">:</span> <span class="n">Bundle</span><span class="p">(</span>
+    <span class="n">x</span>   <span class="o">=</span> <span class="n">UInt</span><span class="p">[</span><span class="n">w</span>  <span class="p">](</span><span class="mi">0</span><span class="p">)</span> <span class="o">@</span> <span class="n">Input</span><span class="p">,</span>
+    <span class="n">y</span>   <span class="o">=</span> <span class="n">UInt</span><span class="p">[</span><span class="n">w</span>  <span class="p">](</span><span class="mi">0</span><span class="p">)</span> <span class="o">@</span> <span class="n">Input</span><span class="p">,</span>
+    <span class="n">out</span> <span class="o">=</span> <span class="n">UInt</span><span class="p">[</span><span class="n">w</span><span class="o">+</span><span class="mi">1</span><span class="p">](</span><span class="mi">0</span><span class="p">)</span> <span class="o">@</span> <span class="n">Output</span><span class="p">)</span>
+ 
+<span class="nd">@module</span> <span class="n">FullAdder</span><span class="p">:</span> 
+    <span class="n">a</span><span class="p">,</span> <span class="n">b</span><span class="p">,</span> <span class="n">cin</span> <span class="o">=</span> <span class="n">UInt</span><span class="p">([</span><span class="mi">0</span><span class="p">,</span><span class="mi">0</span><span class="p">,</span><span class="mi">0</span><span class="p">])</span>
+    <span class="n">s</span>    <span class="o">=</span> <span class="n">a</span> <span class="o">^</span> <span class="n">b</span> <span class="o">^</span> <span class="n">cin</span> 
+    <span class="n">cout</span> <span class="o">=</span> <span class="n">a</span> <span class="o">&amp;</span> <span class="n">b</span> <span class="o">|</span> <span class="p">(</span><span class="n">a</span> <span class="o">^</span> <span class="n">b</span><span class="p">)</span> <span class="o">&amp;</span> <span class="n">cin</span> 
+ 
+<span class="nd">@module</span> <span class="n">RippleCarry</span><span class="p">:</span>
+    <span class="n">io</span> <span class="o">=</span> <span class="n">AdderIO</span><span class="p">(</span><span class="n">conf</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">w</span><span class="p">)</span> 
+    <span class="n">adders</span> <span class="o">=</span> <span class="n">Array</span><span class="p">(</span><span class="n">FullAdder</span><span class="p">()</span> <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">conf</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">w</span><span class="p">))</span>
+    <span class="n">adders</span><span class="p">[:,</span><span class="s1">&#39;a&#39;</span>  <span class="p">]</span> <span class="o">&lt;==</span> <span class="n">io</span><span class="o">.</span><span class="n">x</span><span class="o">.</span><span class="n">split</span><span class="p">()</span>
+    <span class="n">adders</span><span class="p">[:,</span><span class="s1">&#39;b&#39;</span>  <span class="p">]</span> <span class="o">&lt;==</span> <span class="n">io</span><span class="o">.</span><span class="n">y</span><span class="o">.</span><span class="n">split</span><span class="p">()</span>
+    <span class="n">adders</span><span class="p">[:,</span><span class="s1">&#39;cin&#39;</span><span class="p">]</span> <span class="o">&lt;==</span> <span class="mi">0</span><span class="p">,</span> <span class="o">*</span><span class="n">adders</span><span class="p">[:</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span><span class="s1">&#39;cout&#39;</span><span class="p">]</span>
+    <span class="n">io</span><span class="o">.</span><span class="n">out</span> <span class="o">&lt;==</span> <span class="n">Cat</span><span class="p">(</span><span class="o">*</span><span class="n">adders</span><span class="p">[:,</span><span class="s1">&#39;s&#39;</span><span class="p">],</span> <span class="n">adders</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span><span class="s1">&#39;cout&#39;</span><span class="p">])</span> 
+ 
+<span class="nd">@module</span> <span class="n">KoggeStone</span><span class="p">:</span>
+    <span class="n">io</span> <span class="o">=</span> <span class="n">AdderIO</span><span class="p">(</span><span class="n">conf</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">w</span><span class="p">)</span> 
+    <span class="n">P_odd</span> <span class="o">=</span> <span class="n">io</span><span class="o">.</span><span class="n">x</span> <span class="o">^</span> <span class="n">io</span><span class="o">.</span><span class="n">y</span>
+    <span class="n">P</span> <span class="o">=</span> <span class="n">P_odd</span><span class="o">.</span><span class="n">split</span><span class="p">()</span>
+    <span class="n">G</span> <span class="o">=</span> <span class="p">(</span><span class="n">io</span><span class="o">.</span><span class="n">x</span> <span class="o">&amp;</span> <span class="n">io</span><span class="o">.</span><span class="n">y</span><span class="p">)</span><span class="o">.</span><span class="n">split</span><span class="p">()</span>
+    <span class="n">dist</span> <span class="o">=</span> <span class="mi">1</span> 
+    <span class="k">while</span> <span class="n">dist</span> <span class="o">&lt;</span> <span class="n">conf</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">w</span><span class="p">:</span>
+        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">reversed</span><span class="p">(</span><span class="nb">range</span><span class="p">(</span><span class="n">dist</span><span class="p">,</span><span class="n">conf</span><span class="o">.</span><span class="n">p</span><span class="o">.</span><span class="n">w</span><span class="p">)):</span> 
+            <span class="n">G</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">G</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">|</span> <span class="p">(</span><span class="n">P</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">&amp;</span> <span class="n">G</span><span class="p">[</span><span class="n">i</span><span class="o">-</span><span class="n">dist</span><span class="p">])</span>
+            <span class="k">if</span> <span class="n">i</span> <span class="o">&gt;=</span> <span class="n">dist</span> <span class="o">*</span> <span class="mi">2</span><span class="p">:</span>
+                <span class="n">P</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">P</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">&amp;</span> <span class="n">P</span><span class="p">[</span><span class="n">i</span><span class="o">-</span><span class="n">dist</span><span class="p">]</span>
+        <span class="n">dist</span> <span class="o">*=</span> <span class="mi">2</span> 
+    <span class="n">io</span><span class="o">.</span><span class="n">out</span> <span class="o">&lt;==</span> <span class="n">Cat</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="o">*</span><span class="n">G</span><span class="p">)</span> <span class="o">^</span> <span class="n">P_odd</span>
+</pre></div>
+</div>
+</section>
+<section id="session">
+<h2>Session<a class="headerlink" href="#session" title="Permalink to this heading"></a></h2>
+<p>All signals, gates and modules should be instantiated in a <code class="docutils literal notranslate"><span class="pre">Session</span></code>, which contains the simulator and other necessary settings.</p>
+<div class="highlight-py notranslate"><div class="highlight"><pre><span></span><span class="nd">@task</span> <span class="n">tb</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">dut</span><span class="p">,</span> <span class="n">N</span><span class="p">):</span> 
+    <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">N</span><span class="p">):</span>
+        <span class="n">x</span><span class="p">,</span> <span class="n">y</span> <span class="o">=</span> <span class="n">setr</span><span class="p">(</span><span class="n">dut</span><span class="o">.</span><span class="n">io</span><span class="p">[[</span><span class="s1">&#39;x&#39;</span><span class="p">,</span><span class="s1">&#39;y&#39;</span><span class="p">]])</span> 
+        <span class="k">yield</span> <span class="bp">self</span><span class="o">.</span><span class="n">clock_n</span><span class="p">()</span> 
+        <span class="bp">self</span><span class="o">.</span><span class="n">AssertEq</span><span class="p">(</span><span class="n">getv</span><span class="p">(</span><span class="n">dut</span><span class="o">.</span><span class="n">io</span><span class="o">.</span><span class="n">out</span><span class="p">),</span> <span class="n">x</span> <span class="o">+</span> <span class="n">y</span><span class="p">)</span>
+ 
+<span class="k">with</span> <span class="n">Session</span><span class="p">(</span><span class="n">Config</span><span class="p">())</span> <span class="k">as</span> <span class="n">sess</span><span class="p">:</span>
+    <span class="n">adder1</span><span class="p">,</span> <span class="n">adder2</span> <span class="o">=</span> <span class="n">RippleCarry</span><span class="p">(),</span> <span class="n">KoggeStone</span><span class="p">()</span>
+    <span class="n">sess</span><span class="o">.</span><span class="n">track</span><span class="p">(</span><span class="n">adder1</span><span class="p">,</span> <span class="n">adder2</span><span class="p">)</span>  
+    <span class="n">sess</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">tb</span><span class="p">(</span><span class="n">adder1</span><span class="p">,</span> <span class="mi">100</span><span class="p">),</span> <span class="n">tb</span><span class="p">(</span><span class="n">adder2</span><span class="p">,</span> <span class="mi">200</span><span class="p">))</span>
+    <span class="n">sess</span><span class="o">.</span><span class="n">dumpVCD</span><span class="p">(</span><span class="s1">&#39;Adders.vcd&#39;</span><span class="p">)</span> 
+    <span class="n">sess</span><span class="o">.</span><span class="n">dumpVerilog</span><span class="p">(</span><span class="s1">&#39;Adders.sv&#39;</span><span class="p">)</span> 
+</pre></div>
+</div>
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="assignment.html" class="btn btn-neutral float-left" title="Conditional Assignment" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="sim.html" class="btn btn-neutral float-right" title="Assertoins" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2022, jintaos2.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

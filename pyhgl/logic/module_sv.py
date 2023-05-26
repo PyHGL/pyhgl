@@ -421,11 +421,9 @@ class Verilog(HGL):
         
         t = time.time() 
         subprocess.run(['iverilog', '-g2012', '-o', f'{target}.vvp', filename])
-        # os.system(f'iverilog -g2012 -o {target}.vvp {filename}')
         print(f'{tester_utils._yellow("iverilog_compile:")} {filename} -> {target}.vvp, cost {time.time()-t} s')
         t = time.time() 
         subprocess.run(['vvp', f'{target}.vvp'], cwd=self._sess.build_dir)
-        # os.system(f'vvp {target}.vvp')
         print(f'{tester_utils._yellow("iverilog_sim:")} {time.time()-t} s') 
 
 

@@ -108,7 +108,8 @@ class _Assertion:
 
 class _AssertEq(_Assertion):
     
-    def __init__(self, v: Tuple[Any, Any], node: _TestTreeNode, level: int = 2, msg: str = ''):
+    def __init__(self, v: Tuple[Any, Any], node: _TestTreeNode, level: int = 2, msg: str = ''): 
+        self.msg = ''
         a, b = v
         # should support ==, otherwise will stop testcase
         passed = a == b  

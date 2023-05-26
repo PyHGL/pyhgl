@@ -23,6 +23,7 @@ from typing import Any, Callable, Dict, Generator, List, Optional, Set, Tuple, U
 
 import gmpy2
 import random
+import time
 
 from pyhgl.array import *
 import pyhgl.logic.module_hgl as module_hgl
@@ -146,10 +147,22 @@ class Logic(HGL):
         else:                           # zeros((2,3,4))
             assert len(shape) == 1 
             shape = shape[0]
-        return Map(lambda _: Logic(gmpy2.mpz(0), gmpy2.mpz(0)), Array(np.zeros(shape), recursive=True))
+        return Map(lambda _: Logic(gmpy2.mpz(0), gmpy2.mpz(0)), Array(np.zeros(shape), recursive=True)) 
+    
+    @staticmethod 
+    def rand(width_v, width_x = 0, ratio = 1.0) -> Logic:
+        """
+        ratio = 1-P(x=0)
+        """ 
+        if random.random() < ratio:
+            return Logic(random.randrange(1<<width_v), random.randrange(1 << width_x))
+        else:
+            return Logic(random.randrange(1<<width_v), 0)
 
     
-    def __str__(self):
+    def __str__(self): 
+        if self.v < 0 or self.x < 0:
+            return f'Logic({self.v}, {self.x})'
         return utils.logic2str(self.v, self.x)
 
     def __getitem__(self, key) -> Logic:
@@ -2248,14 +2261,20 @@ class _Slice(Gate):
     
     def sim_v(self):
         simulator = self._sess.sim_py  
+        time_wheel = simulator.time_wheel
         delay = self.timing['delay'] 
         start, length = self.low_key
         data = self.input._data
         target = self.output._data 
 
-        while 1:
-            yield 
-            simulator.update_v(delay, target, data.v[start:start+length]) 
+        if length == 1: 
+            while 1:
+                yield  
+                time_wheel[delay][0].append((target, data.v[start], 0))
+        else:
+            while 1:
+                yield  
+                simulator.update_v(delay, target, data.v[start:start+length]) 
 
 
     def dump_cpp(self):
@@ -2523,14 +2542,16 @@ class _Wire(Assignable):
         target = self.output._data 
         out_mask = gmpy2.bit_mask(len(self.output))
         simulator = self._sess.sim_py 
+        time_wheel = simulator.time_wheel
 
         if len(self.branches) == 1:     # direct assign
             input_data = self.branches[-1][-1] 
             if isinstance(input_data, Reader):
                 input_data = input_data._data
             while 1:
-                yield 
-                simulator.update_v(delay, target, input_data.v & out_mask)
+                yield  
+                time_wheel[delay][0].append((target, input_data.v & out_mask, 0))
+                # simulator.update_v(delay, target, input_data.v & out_mask)  
         elif all(i[1] == None for i in self.branches):  # conditional assignment without key
             branches: List[Tuple[Union[Logic, SignalData], Union[Logic, SignalData]]] = []  # simplified 
             for cond, _, value in reversed(self.branches):

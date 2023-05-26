@@ -1,42 +1,49 @@
  
-import pyhgl.tester.utils as utils
- 
 import os 
-import sys
-import subprocess 
-import shutil
+import shutil 
+
+from .utils import *
 
 
+def make_requires():
+    """ install setuptools wheel twine pegen sphinx sphinx_rtd_theme sphinx_multiversion myst_parser linkify-it-py"""
+    python("-m pip install -U setuptools wheel twine pegen")
+    python("-m pip install -U sphinx sphinx_rtd_theme sphinx_multiversion myst_parser linkify-it-py")
 
 def make_parser():
-    try:
-        import pegen as _
-    except:
-        raise Exception('module pegen not found') 
-    
-    gram_file = utils.relative_path('../pyhgl/parser/hgl_parser.gram', check_exist=True)
-    target = utils.relative_path('../pyhgl/parser/hgl_parser.py', check_exist=True)     
-    
-    print(f"{utils._yellow('making parser:')} {gram_file} -> {target}") 
-    utils.run_python(f"-m pegen {gram_file} -q -o {target}" ) 
-    
+    """ generate pyhgl parser """
+    gram_file = relative_path('../pyhgl/parser/hgl_parser.gram', check_exist=True)
+    target = relative_path('../pyhgl/parser/hgl_parser.py', check_exist=True)     
+    print(f"{gram_file} -> {target}") 
+    python(f"-m pegen {gram_file} -q -o {target}" ) 
+
+
+def make_install():
+    """ install pyhgl package as editable """
+    python('-m build --wheel')
+    python('-m pip install -e .')
+
+
+def make_release():
+    """ upload to pypi.org """
+    python('-m twine upload dist/*')
+
+
 def make_doc():
+    """ generate pyhgl doc """
     try:
-        import sphinx as _ 
-        import myst_parser as _ 
-        import linkify_it as _ 
-        import sphinx_multiversion as _
+        import sphinx, myst_parser, linkify_it, sphinx_multiversion
     except:
-        raise Exception('python -m pip install -U sphinx, sphinx_rtd_theme, sphinx_multiversion, myst_parser, linkify-it-py')
+        raise Exception('make_requires')
     
-    source = utils.relative_path('../documents', check_exist=True)
-    target = utils.relative_path('../docs', check_exist=True)
+    source = relative_path('../documents', check_exist=True)
+    target = relative_path('../docs', check_exist=True)
     shutil.rmtree(target)
     os.mkdir(target)
     
-    print(f"{utils._yellow('making docs:')} {source} -> {target}")
-    utils.run_python(f"-m sphinx -q -b html {source} {target}" ) 
-    
-    
-make_parser() 
-make_doc()
+    print(f"{source} -> {target}")
+    python(f"-m sphinx -q -b html {source} {target}" ) 
+
+
+finish()
+

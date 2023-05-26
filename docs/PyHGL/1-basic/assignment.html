@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+  <meta charset="utf-8" /><meta name="generator" content="Docutils 0.18.1: http://docutils.sourceforge.net/" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Conditional Assignment &mdash; PyHGL  documentation</title>
+      <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
+      <link rel="stylesheet" href="../../_static/css/theme.css" type="text/css" />
+  <!--[if lt IE 9]>
+    <script src="../../_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script data-url_root="../../" id="documentation_options" src="../../_static/documentation_options.js"></script>
+        <script src="../../_static/doctools.js"></script>
+        <script src="../../_static/sphinx_highlight.js"></script>
+    <script src="../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" />
+    <link rel="next" title="Module" href="module.html" />
+    <link rel="prev" title="Gates" href="gates.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../../index.html" class="icon icon-home">
+            PyHGL
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <ul class="current">
+<li class="toctree-l1 current"><a class="reference internal" href="index.html">Basic</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="start.html">Quick Start</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="start.html#syntax">Syntax</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="start.html#operator">Operator</a></li>
+<li class="toctree-l4"><a class="reference internal" href="start.html#one-line-decorator">One-line Decorator</a></li>
+<li class="toctree-l4"><a class="reference internal" href="start.html#when-statement">When Statement</a></li>
+<li class="toctree-l4"><a class="reference internal" href="start.html#switch-statement">Switch Statement</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="start.html#example">Example</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="signals.html">Literals &amp; Signals</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="signals.html#literals">Literals</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="signals.html#logic">Logic</a></li>
+<li class="toctree-l4"><a class="reference internal" href="signals.html#bitpat">BitPat</a></li>
+<li class="toctree-l4"><a class="reference internal" href="signals.html#strings">strings</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="signals.html#signals">Signals</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="signals.html#uint">UInt</a></li>
+<li class="toctree-l4"><a class="reference internal" href="signals.html#other">Other</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="signals.html#array">Array</a></li>
+<li class="toctree-l3"><a class="reference internal" href="signals.html#useful-functions">Useful Functions</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="gates.html">Gates</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="gates.html#functions">Functions</a></li>
+<li class="toctree-l3"><a class="reference internal" href="gates.html#netlist">Netlist</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="gates.html#clockdomain">ClockDomain</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="gates.html#examples">Examples</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="gates.html#fulladder">FullAdder</a></li>
+<li class="toctree-l4"><a class="reference internal" href="gates.html#d-flip-flop">D flip flop</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2 current"><a class="current reference internal" href="#">Conditional Assignment</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#condition-statements">Condition Statements</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#dynamic-enumerated-type">Dynamic Enumerated Type</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="module.html">Module</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="module.html#config">Config</a></li>
+<li class="toctree-l3"><a class="reference internal" href="module.html#session">Session</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="sim.html">Assertoins</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../2-examples/index.html">Simple Examples</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../2-examples/AES.html">AES</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../2-examples/multiplier.html">WallaceMultiplier</a></li>
+</ul>
+</li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../index.html">PyHGL</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="index.html">Basic</a></li>
+      <li class="breadcrumb-item active">Conditional Assignment</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="../../_sources/PyHGL/1-basic/assignment.md.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section class="tex2jax_ignore mathjax_ignore" id="conditional-assignment">
+<h1>Conditional Assignment<a class="headerlink" href="#conditional-assignment" title="Permalink to this heading"></a></h1>
+<p>Conditional assignments are core semantics of the <strong>register-transfer abstraction</strong>. There is no <code class="docutils literal notranslate"><span class="pre">always</span></code> block and sensitive list in PyHGL, and all assignments are non-blocking.</p>
+<section id="condition-statements">
+<h2>Condition Statements<a class="headerlink" href="#condition-statements" title="Permalink to this heading"></a></h2>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">when</span></code> statement is the special case of <code class="docutils literal notranslate"><span class="pre">switch</span></code> statement (same as <code class="docutils literal notranslate"><span class="pre">switch</span> <span class="pre">1</span></code>). It sotres conditions in Python’s local frame. These conditions will only influence the operator <code class="docutils literal notranslate"><span class="pre">&lt;==</span></code>.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">switch</span></code> statement is more general, which is similar to the <code class="docutils literal notranslate"><span class="pre">case</span></code> statement in Verilog.</p></li>
+</ul>
+</section>
+<section id="dynamic-enumerated-type">
+<h2>Dynamic Enumerated Type<a class="headerlink" href="#dynamic-enumerated-type" title="Permalink to this heading"></a></h2>
+<p>The <code class="docutils literal notranslate"><span class="pre">Enum</span></code> type maps states to a specific encoding dynamically. Unlike <code class="docutils literal notranslate"><span class="pre">UInt</span></code>, a <code class="docutils literal notranslate"><span class="pre">Enum</span></code> type has variable bit-length.</p>
+<div class="highlight-py notranslate"><div class="highlight"><pre><span></span><span class="n">state_t</span> <span class="o">=</span> <span class="n">Enum</span><span class="p">[</span><span class="s1">&#39;idle&#39;</span><span class="p">,</span> <span class="o">...</span><span class="p">]</span>             <span class="c1"># binary encoded enum type </span>
+<span class="n">state_t</span> <span class="o">=</span> <span class="n">Enum</span><span class="p">[</span><span class="s1">&#39;a&#39;</span><span class="p">,</span> <span class="s1">&#39;b&#39;</span><span class="p">,</span> <span class="s1">&#39;c&#39;</span><span class="p">]</span>           <span class="c1"># a 2-bit frozen enum type </span>
+<span class="n">state_t</span> <span class="o">=</span> <span class="n">EnumOnehot</span><span class="p">[</span><span class="s1">&#39;a&#39;</span><span class="p">,</span><span class="s1">&#39;b&#39;</span><span class="p">,</span><span class="s1">&#39;c&#39;</span><span class="p">,</span><span class="o">...</span><span class="p">]</span>   <span class="c1"># a dynamic onehot-encoded enum type </span>
+</pre></div>
+</div>
+<p>VendingMachine example comes from <a class="reference external" href="https://github.com/ucb-bar/chisel-tutorial">Chisel Tutorials</a></p>
+<div class="highlight-py notranslate"><div class="highlight"><pre><span></span><span class="nd">@module</span> <span class="n">VendingMachine</span><span class="p">:</span>
+    <span class="n">nickel</span> <span class="o">=</span> <span class="n">UInt</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span> <span class="o">@</span> <span class="n">Input</span>  
+    <span class="n">dime</span>   <span class="o">=</span> <span class="n">UInt</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span> <span class="o">@</span> <span class="n">Input</span>  
+    <span class="n">valid</span>  <span class="o">=</span> <span class="n">UInt</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span> <span class="o">@</span> <span class="n">Output</span>
+    <span class="ne">switch</span> <span class="n">s</span><span class="o">:=</span><span class="n">Reg</span><span class="p">(</span><span class="n">EnumOnehot</span><span class="p">()):</span>            <span class="c1"># a onehot-encoded signal</span>
+        <span class="ne">once</span> <span class="s1">&#39;sIdle&#39;</span><span class="p">:</span>                       <span class="c1"># record state &#39;sIdle&#39;</span>
+            <span class="ne">when</span> <span class="n">nickel</span><span class="p">:</span> <span class="n">s</span> <span class="o">&lt;==</span> <span class="s1">&#39;s5&#39;</span>         <span class="c1"># record state &#39;s5&#39;</span>
+            <span class="ne">when</span> <span class="n">dime</span>  <span class="p">:</span> <span class="n">s</span> <span class="o">&lt;==</span> <span class="s1">&#39;s10&#39;</span>        <span class="c1"># record state &#39;s10&#39;</span>
+        <span class="ne">once</span> <span class="s1">&#39;s5&#39;</span><span class="p">:</span>
+            <span class="ne">when</span> <span class="n">nickel</span><span class="p">:</span> <span class="n">s</span> <span class="o">&lt;==</span> <span class="s1">&#39;s10&#39;</span>
+            <span class="ne">when</span> <span class="n">dime</span>  <span class="p">:</span> <span class="n">s</span> <span class="o">&lt;==</span> <span class="s1">&#39;s15&#39;</span>        <span class="c1"># record state &#39;s15&#39;</span>
+        <span class="ne">once</span> <span class="s1">&#39;s10&#39;</span><span class="p">:</span>
+            <span class="ne">when</span> <span class="n">nickel</span><span class="p">:</span> <span class="n">s</span> <span class="o">&lt;==</span> <span class="s1">&#39;s15&#39;</span>
+            <span class="ne">when</span> <span class="n">dime</span>  <span class="p">:</span> <span class="n">s</span> <span class="o">&lt;==</span> <span class="s1">&#39;sOk&#39;</span>        <span class="c1"># record state &#39;sOk&#39;</span>
+        <span class="ne">once</span> <span class="s1">&#39;s15&#39;</span><span class="p">:</span> 
+            <span class="ne">when</span> <span class="n">nickel</span><span class="p">:</span> <span class="n">s</span> <span class="o">&lt;==</span> <span class="s1">&#39;sOk&#39;</span>
+            <span class="ne">when</span> <span class="n">dime</span>  <span class="p">:</span> <span class="n">s</span> <span class="o">&lt;==</span> <span class="s1">&#39;sOk&#39;</span>
+        <span class="ne">once</span> <span class="s1">&#39;sOk&#39;</span><span class="p">:</span>
+            <span class="n">s</span><span class="p">,</span> <span class="n">valid</span> <span class="o">&lt;==</span> <span class="s1">&#39;sIdle&#39;</span><span class="p">,</span> <span class="mi">1</span>
+</pre></div>
+</div>
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="gates.html" class="btn btn-neutral float-left" title="Gates" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="module.html" class="btn btn-neutral float-right" title="Module" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2022, jintaos2.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

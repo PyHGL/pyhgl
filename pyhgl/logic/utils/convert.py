@@ -238,6 +238,10 @@ def logic2hex(v, x, width: int) -> str:
             ret.append(hex(vi)[-1])
     return ''.join(reversed(ret))
 
+def hex2byte(s):
+    l = re.split(r'[^0-9A-Fa-f]+', s)  
+    print(l)
+    return [int(i,16) for i in l]
 
 
 def uint2sint(value: int, width: int) -> int:
